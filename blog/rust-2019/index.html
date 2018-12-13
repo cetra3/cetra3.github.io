@@ -1,0 +1,55 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title> My Wishes for Rust 2019 - Cetra&#x27;s Thoughts </title>
+    <link href="/spectre.css" rel="stylesheet">
+</head>
+
+<body>
+    <header class="navbar">
+        <section class="navbar-section">
+        </section>
+        <section class="navbar-center">
+        </section>
+        <section class="navbar-section">
+            <a href="https://github.com/cetra3/" class="btn btn-link">GitHub</a>
+        </section>
+    </header>
+    <div class="container grid-lg">
+        
+<div class="post">
+  <h1>My Wishes for Rust 2019 </h1>
+  <p> <small class="label label-primary">rust</small> <small class="label">2018-12-14</small></p>
+  <p>2018 was a massive year for rust, and it's great to reflect back on how far we've all come.  My main wish for the new year is to put on the breaks a little bit, and finish off what has been started without taking on anything majorly new.</p>
+<p>There are a couple of areas that I feel need more attention than most (purely for selfish reasons of course!):</p>
+<h2 id="compiler-times-ide-support-and-rls">Compiler Times, IDE Support and RLS</h2>
+<p>I think RLS is great.  I think <code>cargo check</code> is great too.  Sometimes when I am waiting for RLS to finish in VSCode, I run <code>cargo check</code> in a terminal to see who wins the race.  Sometimes I get results faster from the <code>cargo check</code> than I do in RLS.  I'm not sure why that is, it might be that I'm making a lot of small edits, and RLS is constantly restarting. I am assuming that the plumbing for both methods is rather similar.  On average, if I just adjust whitespace on one of my projects, it takes at least 10 seconds to recompile.  If I change any trivial bit of code, this doubles to 20 seconds.</p>
+<p>I would love to have dynamic loading in rust as a first class citizen, but I fear the ABI stabilisation is a <a href="https://github.com/rust-lang/rfcs/issues/600">far way off</a> (I know you can <a href="https://michael-f-bryan.github.io/rust-ffi-guide/dynamic_loading.html">cheat</a> by using the C ABI and <a href="https://github.com/nagisa/rust_libloading">libloading</a> but there is a fair amount of <code>unsafe</code> code, which I'm not comfortable with).  This would alleviate some of the issues around compilation times, by allowing compilation to be broken up into smaller chunks.</p>
+<p>For instance: I implemented a WebDAV handler with <a href="https://github.com/actix/actix-web">actix-web</a>.  This added a significant portion of time to compilation after the implementation was finished, and the code is mostly decoupled from the rest of the app and sits in its own little route (XML instead of JSON, etc..).  I'd love to be able to just hot-load this as a module, rather than compile it in each time if I'm not even touching this part.  Incremental compilation does help a little bit here.</p>
+<h3 id="better-ide-support">Better IDE Support</h3>
+<p>I have been using <a href="https://code.visualstudio.com/">VSCode</a> as my primary rust IDE for a while now, which is great, but I'd love to be able to use IntelliJ as well.  Each time there is an update, I do give it another shot, and find that there are a couple of problems with it:</p>
+<div style='position:relative; padding-bottom:53.68%'><iframe src='https://gfycat.com/ifr/SmallCarefulDiamondbackrattlesnake' frameborder='0' scrolling='no' width='100%' height='100%' style='position:absolute;top:0;left:0;' allowfullscreen></iframe></div>
+<p><em>Weeeeeeeeeeeeeeeeeeeeeee</em></p>
+<p>Admittedly, each release of the IntelliJ rust plugin is better than the last, but it is not even close to the support that Java has.  I am hoping that this changes in the future.</p>
+<p>I'd also love to be able to give <a href="https://www.onivim.io/">Oni</a> a go, but currently it's in limbo until I, or someone else, has enough time to work out <a href="https://github.com/onivim/oni/issues/1926">what is wrong</a> with the Language Server Integration.</p>
+<h2 id="async-await">Async/Await</h2>
+<p>I would really love to see the async/await story come to a close in 2019.  The rust team has laid the groundwork with the 2018 edition, and together with the new <a href="https://boats.gitlab.io/blog/post/2018-04-06-async-await-final/">pinning API</a> I feel like it's <em>just</em> around the corner.  This has the opportunity to really change the landscape and make rust a much more productive language.</p>
+<p>I've had a crack at writing both a <a href="https://github.com/cetra3/mpart-async/">multipart client</a> &amp; <a href="https://github.com/cetra3/tmq">ZeroMQ library</a>, but I can see that when the async stuff reaches stable, it's going to make life a lot easier.   Kudos to the team for moving this forward (I also happen to think the <a href="http://rust-lang-nursery.github.io/futures-rs/assets/images/futures-rs-logo.svg">logo</a> for <code>futures-rs</code> is pretty rad!)</p>
+<h3 id="documentation-churn">Documentation Churn</h3>
+<p>With these changes to async, there is going to be some challenges around documentation.  I feel in tokio-land there is a high degree of tribal knowledge that, if you don't keep up with things, you are left behind.</p>
+<p>There is the new <code>futures 0.3</code> crate, which is not currently in use by tokio crate, you have to use futures <code>0.1</code>.  No-one knows what happened to <code>0.2</code>, it's a mystery left for future rust historians, and <code>0.3</code> is still very much in <a href="http://rust-lang-nursery.github.io/futures-rs/blog/2018/09/02/futures-0.3.0-alpha.4.html">alpha</a>. Earlier on in the year if you went straight to the <a href="https://docs.rs/futures/">docs.rs page</a> for futures, this would direct you to the <code>0.3</code> version, which isn't helpful if you are using this in conjunction with tokio (this appears to be resolved now, by some clever use of yanking).</p>
+<p>Another example is the move away from <a href="https://github.com/tokio-rs/tokio-core">tokio-core</a> into the standard <a href="https://github.com/tokio-rs/tokio">tokio</a> crate.  This is something that is a great evolution for tokio, but has left a <a href="https://crates.io/crates/tokio-core/reverse_dependencies">number of libraries</a> outdated.  A lot of the great blogs by pioneering devs have also become outdated when dealing with this, which increases the frustration for any newcomers.  I am hoping that now things are more <em>settled</em> that this won't be much of an issue.</p>
+<p>All of these changes adds to a high level of fatigue for developers.  If you're not lucky enough to be working in this space day-to-day, coming back after 6 months would be daunting.  There is a <a href="https://github.com/tokio-rs/doc-push">push to help modernise the documentation</a>, but this hasn't seen much activity in a couple of months.  I'm hoping to find some time in the new year to help out with this, as I think there is a lot of work to be done.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>I think rust has come a long way and still has a long way to go.  I focused a lot of energy on <a href="https://www.schoolbench.com.au/">writing apps</a> in rust this year, and will undoubtably accelerate the usage as time goes on.</p>
+<p>I hope that the rust team has time to put on the breaks, and apply a bit of polish before doing anything major.  I also hope I have more time to contribute some bits and pieces here and there to make the community better.</p>
+
+
+</div>
+
+    </div>
+</body>
+
+</html>
