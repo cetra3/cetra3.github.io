@@ -1,0 +1,144 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title> TMQ 0.1.0 Release: ZeroMQ bindings for Tokio - Cetra&#x27;s Thoughts </title>
+    <link href="/spectre.css" rel="stylesheet">
+</head>
+
+<body>
+    <header class="navbar">
+        <section class="navbar-section">
+        </section>
+        <section class="navbar-center">
+        </section>
+        <section class="navbar-section">
+            <a href="https://github.com/cetra3/" class="btn btn-link">GitHub</a>
+        </section>
+    </header>
+    <div class="container grid-lg">
+        
+<div class="post">
+  <h1>TMQ 0.1.0 Release: ZeroMQ bindings for Tokio </h1>
+  <p> <small class="label label-primary">rust</small> <small class="label label-primary">tmq</small> <small class="label">2019-02-07</small></p>
+  <p><a href="https://github.com/cetra3/tmq">TMQ</a> is a rust library to use <a href="http://zeromq.org/">ZeroMQ</a> within the <a href="https://tokio.rs/">Tokio</a> ecosystem.  ZeroMQ is a distributed messaging queue written in C supporting a number of different messaging patterns.  While there are other options out there (including gRPC, etc..), I settled on ZeroMQ due to its cross-language support, great documentation and battle-tested nature.</p>
+<p><a href="https://crates.io/crates/tmq/0.1.0">Version <code>0.1.0</code></a> is an alpha release which implements <code>request</code>, <code>response</code>, <code>publish</code> and <code>subscribe</code> style sockets.</p>
+<h2 id="usage-example">Usage Example</h2>
+<p>This example uses <code>tmq</code> to subscribe to messages, and then prints them out via <a href="https://github.com/seanmonstar/pretty-env-logger">pretty-env-logger</a>:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">extern crate</span><span style="color:#c0c5ce;"> failure;
+</span><span style="color:#b48ead;">extern crate</span><span style="color:#c0c5ce;"> futures;
+</span><span style="color:#c0c5ce;">#[</span><span style="color:#bf616a;">macro_use</span><span style="color:#c0c5ce;">]
+</span><span style="color:#b48ead;">extern crate</span><span style="color:#c0c5ce;"> log;
+</span><span style="color:#b48ead;">extern crate</span><span style="color:#c0c5ce;"> pretty_env_logger;
+</span><span style="color:#b48ead;">extern crate</span><span style="color:#c0c5ce;"> tmq;
+</span><span style="color:#b48ead;">extern crate</span><span style="color:#c0c5ce;"> tokio;
+</span><span style="color:#c0c5ce;">
+</span><span style="color:#b48ead;">use </span><span style="color:#c0c5ce;">futures::{Future, Stream};
+</span><span style="color:#b48ead;">use </span><span style="color:#c0c5ce;">tmq::*;
+</span><span style="color:#b48ead;">use </span><span style="color:#c0c5ce;">std::env;
+</span><span style="color:#c0c5ce;">
+</span><span style="color:#b48ead;">fn </span><span style="color:#8fa1b3;">main</span><span style="color:#c0c5ce;">() {
+</span><span style="color:#c0c5ce;">    </span><span style="color:#b48ead;">if let </span><span style="color:#c0c5ce;">Err(_) = env::var(&quot;</span><span style="color:#a3be8c;">RUST_LOG</span><span style="color:#c0c5ce;">&quot;) {
+</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">env::set_var(&quot;</span><span style="color:#a3be8c;">RUST_LOG</span><span style="color:#c0c5ce;">&quot;, &quot;</span><span style="color:#a3be8c;">subscribe=DEBUG</span><span style="color:#c0c5ce;">&quot;);
+</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">}
+</span><span style="color:#c0c5ce;">
+</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">pretty_env_logger::init();
+</span><span style="color:#c0c5ce;">
+</span><span style="color:#c0c5ce;">    </span><span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> request = </span><span style="color:#96b5b4;">subscribe</span><span style="color:#c0c5ce;">(&amp;Context::new())
+</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">.</span><span style="color:#96b5b4;">connect</span><span style="color:#c0c5ce;">(&quot;</span><span style="color:#a3be8c;">tcp://127.0.0.1:7899</span><span style="color:#c0c5ce;">&quot;)
+</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">.</span><span style="color:#96b5b4;">expect</span><span style="color:#c0c5ce;">(&quot;</span><span style="color:#a3be8c;">Couldn&#39;t connect</span><span style="color:#c0c5ce;">&quot;)
+</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">.</span><span style="color:#96b5b4;">subscribe</span><span style="color:#c0c5ce;">(&quot;&quot;)
+</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">.</span><span style="color:#96b5b4;">for_each</span><span style="color:#c0c5ce;">(|</span><span style="color:#bf616a;">val</span><span style="color:#c0c5ce;">| {
+</span><span style="color:#c0c5ce;">            </span><span style="color:#c0c5ce;">info!(&quot;</span><span style="color:#a3be8c;">Subscribe: {}</span><span style="color:#c0c5ce;">&quot;, val.</span><span style="color:#96b5b4;">as_str</span><span style="color:#c0c5ce;">().</span><span style="color:#96b5b4;">unwrap_or</span><span style="color:#c0c5ce;">(&quot;&quot;));
+</span><span style="color:#c0c5ce;">            </span><span style="color:#c0c5ce;">Ok(())
+</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">})
+</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">.</span><span style="color:#96b5b4;">map_err</span><span style="color:#c0c5ce;">(|</span><span style="color:#bf616a;">e</span><span style="color:#c0c5ce;">| {
+</span><span style="color:#c0c5ce;">            </span><span style="color:#c0c5ce;">error!(&quot;</span><span style="color:#a3be8c;">Error Subscribing: {}</span><span style="color:#c0c5ce;">&quot;, e);
+</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">});
+</span><span style="color:#c0c5ce;">
+</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">tokio::run(request);
+</span><span style="color:#c0c5ce;">}
+</span></pre>
+<p>Other examples of usage can be found in the project itself: <a href="https://github.com/cetra3/tmq/tree/master/examples">https://github.com/cetra3/tmq/tree/master/examples</a></p>
+<h2 id="existing-rust-crates">Existing Rust Crates</h2>
+<p>To find out where <code>tmq</code> sits within the rust ecosystem, it makes sense to discuss this in terms of other ZeroMQ crates.</p>
+<h3 id="zmq-rust-zeromq-bindings"><a href="https://crates.io/crates/zmq">zmq</a> - Rust ZeroMQ Bindings</h3>
+<p>This library has bindings to the C API and provides a great way to use ZeroMQ within rust.  You still need a copy of ZeroMQ on your system and need it compiled in, but that difficulty is pretty much on par with using OpenSSL.  I have managed to use this library in OSX, CentOS and Ubuntu with not many issues.</p>
+<p>The only downside of this library is the lack of bindings to tokio, and is one of the primary motivators for creating <code>tmq</code>.</p>
+<h3 id="zmq-rs-a-native-implementation-of-zeromq-in-rust"><a href="https://github.com/zeromq/zmq.rs">zmq.rs</a> - A Native Implementation of ZeroMQ in Rust</h3>
+<p>This library was a Rewrite in Rust attempt at a full ZeroMQ reimplementation, which hasn't seen any changes <a href="https://github.com/zeromq/zmq.rs/commits/master">since 2015</a> and can probably be considered abandoned.  Regardless: this API is still the old blocking style, which would still predicate a need for <code>tmq</code></p>
+<h3 id="zmq-tokio-run-omq-sockets-using-tokio-reactors-futures-etc"><a href="https://github.com/rotty/zmq-tokio">zmq-tokio</a> - Run ØMQ sockets using tokio reactors, futures, etc.</h3>
+<p>Not even published on crates.io but a great initial attempt at bridging the async gap.  This crate used the historic <a href="https://github.com/tokio-rs/tokio-core">tokio-core</a> library which is a bit of a pain to adapt to the new <a href="https://github.com/tokio-rs/tokio">tokio</a> crate.  Unfortunately it looks like it's since <a href="https://github.com/rotty/zmq-tokio/pull/7">been abandoned</a>.</p>
+<h3 id="tokio-zmq-zeromq-concepts-with-futures-on-tokio-s-runtime"><a href="https://crates.io/crates/tokio-zmq">tokio-zmq</a> - ZeroMQ Concepts with futures on Tokio's runtime</h3>
+<p>This library is probably the most polished version for <code>tokio</code> and one that would be compared mostly to <code>tmq</code>.</p>
+<p>I would have chosen this library, but the one major roadblock is the <a href="https://www.gnu.org/licenses/gpl-3.0.en.html">GPL</a> license.  The GPL within a rust project is viral.  You can't use this library without making the rest of your project GPL or GPL Compatible. If this doesn't concern you, then I would consider using this library.</p>
+<h3 id="comparison-between-tmq">Comparison between tmq</h3>
+<p>In comparison to <code>tokio-zmq</code>, <code>tmq</code> has less boilerplate to acheive the same thing, but does use a couple of custom traits to speed things along.  This makes <code>tmq</code> a bit more opinionated, but less verbose.</p>
+<p>Both styles have their merits, <code>tokio-zmq</code> does give you more control over things wheras <code>tmq</code> is, in my opinion, easier to write and reason about, but more restrictive in how you use it.</p>
+<p>To do a direct comparison of both libraries we're using the <code>response</code> example.  This example is a simple echo response, which when it receives a message, it echos it back verbatim to the requester.</p>
+<h4 id="tokio-zmq">tokio-zmq</h4>
+<p>Here is the <a href="https://git.asonix.dog/asonix/async-zmq/src/branch/development/tokio-zmq/examples">excerpt</a> from <code>tokio-zmq</code>:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> ctx = Arc::new(zmq::Context::new());
+</span><span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> req_fut = Req::builder(ctx).</span><span style="color:#96b5b4;">connect</span><span style="color:#c0c5ce;">(&quot;</span><span style="color:#a3be8c;">tcp://localhost:5560</span><span style="color:#c0c5ce;">&quot;).</span><span style="color:#96b5b4;">build</span><span style="color:#c0c5ce;">();
+</span><span style="color:#c0c5ce;">
+</span><span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> runner = req_fut.</span><span style="color:#96b5b4;">and_then</span><span style="color:#c0c5ce;">(|</span><span style="color:#bf616a;">req</span><span style="color:#c0c5ce;">| {
+</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">req.</span><span style="color:#96b5b4;">send</span><span style="color:#c0c5ce;">(</span><span style="color:#96b5b4;">build_multipart</span><span style="color:#c0c5ce;">(</span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">)).</span><span style="color:#96b5b4;">and_then</span><span style="color:#c0c5ce;">(|</span><span style="color:#bf616a;">req</span><span style="color:#c0c5ce;">| {
+</span><span style="color:#c0c5ce;">        </span><span style="color:#b48ead;">let </span><span style="color:#c0c5ce;">(sink, stream) = req.</span><span style="color:#96b5b4;">sink_stream</span><span style="color:#c0c5ce;">(</span><span style="color:#d08770;">25</span><span style="color:#c0c5ce;">).</span><span style="color:#96b5b4;">split</span><span style="color:#c0c5ce;">();
+</span><span style="color:#c0c5ce;">
+</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">stream
+</span><span style="color:#c0c5ce;">            </span><span style="color:#c0c5ce;">.</span><span style="color:#96b5b4;">zip</span><span style="color:#c0c5ce;">(</span><span style="color:#96b5b4;">iter_ok</span><span style="color:#c0c5ce;">(</span><span style="color:#d08770;">1</span><span style="color:#c0c5ce;">..</span><span style="color:#d08770;">10_000</span><span style="color:#c0c5ce;">))
+</span><span style="color:#c0c5ce;">            </span><span style="color:#c0c5ce;">.</span><span style="color:#96b5b4;">map</span><span style="color:#c0c5ce;">(|(</span><span style="color:#bf616a;">multipart</span><span style="color:#c0c5ce;">, </span><span style="color:#bf616a;">i</span><span style="color:#c0c5ce;">)| {
+</span><span style="color:#c0c5ce;">                </span><span style="color:#b48ead;">for</span><span style="color:#c0c5ce;"> msg in multipart {
+</span><span style="color:#c0c5ce;">                    </span><span style="color:#b48ead;">if let </span><span style="color:#c0c5ce;">Some(msg) = msg.</span><span style="color:#96b5b4;">as_str</span><span style="color:#c0c5ce;">() {
+</span><span style="color:#c0c5ce;">                        </span><span style="color:#c0c5ce;">println!(&quot;</span><span style="color:#a3be8c;">Received: </span><span style="color:#d08770;">{}</span><span style="color:#c0c5ce;">&quot;, msg);
+</span><span style="color:#c0c5ce;">                    </span><span style="color:#c0c5ce;">}
+</span><span style="color:#c0c5ce;">                </span><span style="color:#c0c5ce;">}
+</span><span style="color:#c0c5ce;">                </span><span style="color:#96b5b4;">build_multipart</span><span style="color:#c0c5ce;">(i)
+</span><span style="color:#c0c5ce;">            </span><span style="color:#c0c5ce;">})
+</span><span style="color:#c0c5ce;">            </span><span style="color:#c0c5ce;">.</span><span style="color:#96b5b4;">forward</span><span style="color:#c0c5ce;">(sink)
+</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">})
+</span><span style="color:#c0c5ce;">});
+</span></pre>
+<p>On of the things you will notice is there is a lot of standard <code>futures</code> and <code>tokio</code> types used here: <code>sink</code>, <code>stream</code>, etc..  While this does make it more verbose, you are using constructs that you are familiar with in the futures style.</p>
+<h3 id="tmq">tmq</h3>
+<p>Here's a <a href="https://github.com/cetra3/tmq/blob/master/examples/response.rs">similar example</a> (although not using <code>multipart</code> messages) from <code>tmq</code>:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> responder = </span><span style="color:#96b5b4;">respond</span><span style="color:#c0c5ce;">(&amp;Context::new())
+</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">.</span><span style="color:#96b5b4;">bind</span><span style="color:#c0c5ce;">(&quot;</span><span style="color:#a3be8c;">tcp://127.0.0.1:7899</span><span style="color:#c0c5ce;">&quot;)?
+</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">.</span><span style="color:#96b5b4;">with</span><span style="color:#c0c5ce;">(|</span><span style="color:#bf616a;">msg</span><span style="color:#c0c5ce;">: Message| {
+</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">info!(&quot;</span><span style="color:#a3be8c;">Request: {}</span><span style="color:#c0c5ce;">&quot;, msg.</span><span style="color:#96b5b4;">as_str</span><span style="color:#c0c5ce;">().</span><span style="color:#96b5b4;">unwrap_or</span><span style="color:#c0c5ce;">(&quot;&quot;));
+</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">Ok(msg)
+</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">});
+</span></pre>
+<p>You'll notice that the library has a bit less boilerplate, but is more opinionated on how you structure a response.</p>
+<p>Instead of a <code>sink/stream</code> approach, the responder is a stream but has a <code>with</code> method.  The <code>with</code> method takes anything that implements the <code>Responder</code> trait, of which there is a blanket implemenation for closures and functions that take a message and return a message.</p>
+<h2 id="future-changes">Future Changes</h2>
+<p>While currently usable, the <code>tmq</code> library is far from finished and requires some work to bring it out of an alpha state.  In no particular order here are the plans for the library:</p>
+<h4 id="testing">Testing</h4>
+<p>Unit tests and integration tests need to be added in order to confirm and wire up connections.  As the library is rather lightweight now the need for integration tests hasn't really arisen, but this will become more complicated in the future as more socket types are added.</p>
+<h4 id="benchmarking">Benchmarking</h4>
+<p>Benchmarks need to be added to the library in order to show the performance of using this over standard <code>zmq</code>.  Running up some dummy benchmarks show that it is perfomant enough for my current use case, and provides less overhead than your standard REST API calls.</p>
+<h4 id="windows-support">Windows Support</h4>
+<p>I <em>cheated</em> a little by using the <a href="https://docs.rs/mio/0.6.16/mio/event/trait.Evented.html">Evented</a> trait for mio, which makes it dead easy to use in tokio via <a href="https://docs.rs/tokio/0.1.15/tokio/reactor/struct.PollEvented2.html">PollEvented2</a>.</p>
+<p>Unfortunately the async story on windows is a bit different, and I haven't had a need to deploy on windows just yet.  But it is something that has been considered.</p>
+<h4 id="documentation">Documentation</h4>
+<p>The library is mostly undocumented besides from the examples.  Documentation should be pretty easy to do at this stage and won't take too long.</p>
+<h4 id="more-socket-types">More Socket Types</h4>
+<p>Implementing more socket types, to make this feature complete with the standard <code>zmq</code> library.  There a plethora of different socket types for different use cases that give different guarantees.  The 4 standard ones implemented are enough for me to start using this library today, but could easily be expanded.</p>
+<h4 id="multipart-messages">Multipart messages</h4>
+<p>Multipart support for messages.  Currently this is not supported, but should be mostly easy to implement</p>
+<h2 id="further-thoughts">Further thoughts</h2>
+<p>I'm currently using <code>tmq</code> within an <code>actix-web</code> <a href="https://www.schoolbench.com.au/">application</a> to bridge some messages and audit logs between a polyglot backend (including Java &amp; Python).  It has been quite solid so far, and I have plans to remove an existing ActiveMQ service to be replaced with <code>tmq</code> where appropriate.</p>
+<p>Version <code>0.1.0</code> is the first real release, with previous releases having to vendor in the <code>zmq</code> library in order to publish.   While it is alpha, I don't plan to change what is there currently unless there is a compelling reason to do so.</p>
+<p>Please give <a href="https://crates.io/crates/tmq">tmq</a> a try and let me know your thoughts!</p>
+
+
+</div>
+
+    </div>
+</body>
+
+</html>
