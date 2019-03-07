@@ -1,12 +1,8 @@
 
 +++
-
 title = "TMQ 0.1.0 Release: ZeroMQ bindings for Tokio"
 description = "Discussion around building TMQ"
 date = 2019-02-07
-
-[taxonomies]
-tags = ["rust", "tmq"]
 +++
 
 [TMQ](https://github.com/cetra3/tmq) is a rust library to use [ZeroMQ](http://zeromq.org/) within the [Tokio](https://tokio.rs/) ecosystem.  ZeroMQ is a distributed messaging queue written in C supporting a number of different messaging patterns.  While there are other options out there (including gRPC, etc..), I settled on ZeroMQ due to its cross-language support, great documentation and battle-tested nature.
