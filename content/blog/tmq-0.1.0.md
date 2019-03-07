@@ -1,7 +1,7 @@
 +++
 title = "TMQ 0.1.0 Release: ZeroMQ bindings for Tokio"
 description = "Discussion around building TMQ"
-date = 2019-02-07
+# date = 2019-02-07
 tags = ["rust", "tmq"]
 +++
 
