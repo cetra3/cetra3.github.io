@@ -1,0 +1,299 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title> Face Detection with Tensorflow Rust - Cetra&#x27;s Thoughts </title>
+    <link href="/spectre.css" rel="stylesheet">
+</head>
+
+<body>
+    <header class="navbar">
+        <section class="navbar-section">
+        </section>
+        <section class="navbar-center">
+        </section>
+        <section class="navbar-section">
+            <a href="https://github.com/cetra3/" class="btn btn-link">GitHub</a>
+        </section>
+    </header>
+    <div class="container grid-lg">
+        
+<div class="post">
+  <h1>Face Detection with Tensorflow Rust </h1>
+  <p> <small class="label label-primary">rust</small> <small class="label">2019-03-28</small></p>
+  <p>One of the promises of machine learning is to be able to use it for object recognition in photos.  This includes being able to pick out features such as animals, buildings and even faces.</p>
+<p>This article will step you through using some existing models to accomplish face detection using rust and <a href="https://www.tensorflow.org/">tensorflow</a>.  For the impatient among you, you can find the source code here: <a href="https://github.com/cetra3/mtcnn">https://github.com/cetra3/mtcnn</a></p>
+<p>We will be using a pre-trained model called <a href="https://kpzhang93.github.io/MTCNN_face_detection_alignment/index.html">mtcnn</a> for face detection (<em>Note: training a new model is not something we'll be concerned with in this article</em>).</p>
+<h2 id="the-challenge">The Challenge</h2>
+<p>We want to read the photo, have the faces detected, and then return an image with the bounding boxes drawn in.</p>
+<p>In other words, we want to convert this (Image courtesy of the <a href="https://www.rust-lang.org/community">rust community</a> page):</p>
+<p><a href="/photos/rustfest.jpg"><img src="/photos/rustfest.jpg" alt="" /></a></p>
+<p>Into this:</p>
+<p><a href="/photos/rustfest_faces.jpg"><img src="/photos/rustfest_faces.jpg" alt="" /></a></p>
+<h2 id="tensorflow-and-mtcnn">Tensorflow and MTCNN</h2>
+<p>The original MTCNN model was written using <a href="http://caffe.berkeleyvision.org/">Caffe</a>, but luckily there is a number of tensorflow python implementations for mtcnn.  I'm going to pick the <a href="https://github.com/blaueck/tf-mtcnn">following</a> as it is a straight conversion into a single graph model file.</p>
+<p>Firstly we want to add <a href="https://github.com/tensorflow/rust">tensorflow rust</a> as a dependency.  Here's a Cargo.toml to start:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#c0c5ce;">[package]
+</span><span style="color:#bf616a;">name </span><span style="color:#c0c5ce;">= &quot;</span><span style="color:#a3be8c;">mtcnn</span><span style="color:#c0c5ce;">&quot;
+</span><span style="color:#bf616a;">version </span><span style="color:#c0c5ce;">= &quot;</span><span style="color:#a3be8c;">0.1.0</span><span style="color:#c0c5ce;">&quot;
+</span><span style="color:#bf616a;">edition </span><span style="color:#c0c5ce;">= &quot;</span><span style="color:#a3be8c;">2018</span><span style="color:#c0c5ce;">&quot;
+</span><span style="color:#c0c5ce;">
+</span><span style="color:#c0c5ce;">[dependencies]
+</span><span style="color:#bf616a;">tensorflow </span><span style="color:#c0c5ce;">= &quot;</span><span style="color:#a3be8c;">0.12.0</span><span style="color:#c0c5ce;">&quot;
+</span></pre>
+<p>What we're going to do is load a <a href="https://tensorflow.github.io/rust/tensorflow/struct.Graph.html">Graph</a> which is the pre-trained MTCNN, and run a session.  The gist is that a Graph is the model used for computation, and a Session is one <code>run</code> of the Graph.  A lot more information about these concepts can be found <a href="https://www.tensorflow.org/guide/graphs">here</a>.  I like to think of the Graph as an artificial brain in a vat, just to get some great imagery when you start plugging in inputs and outputs.</p>
+<p>So let's start by grabbing the existing <a href="https://github.com/blaueck/tf-mtcnn/raw/master/mtcnn.pb">mtcnn.pb</a> model and trying to load it up.  Tensorflow graphs are serialised out in protobuf format and can be loaded in using <code>Graph::import_graph_def</code>.</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">use </span><span style="color:#c0c5ce;">std::error::Error;
+</span><span style="color:#c0c5ce;">
+</span><span style="color:#b48ead;">use </span><span style="color:#c0c5ce;">tensorflow::Graph;
+</span><span style="color:#b48ead;">use </span><span style="color:#c0c5ce;">tensorflow::ImportGraphDefOptions;
+</span><span style="color:#c0c5ce;">
+</span><span style="color:#b48ead;">fn </span><span style="color:#8fa1b3;">main</span><span style="color:#c0c5ce;">() -&gt; Result&lt;(), Box&lt;dyn Error&gt;&gt; {
+</span><span style="color:#c0c5ce;">
+</span><span style="color:#c0c5ce;">    </span><span style="color:#65737e;">//First, we load up the graph as a byte array
+</span><span style="color:#c0c5ce;">    </span><span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> model = include_bytes!(&quot;</span><span style="color:#a3be8c;">mtcnn.pb</span><span style="color:#c0c5ce;">&quot;);
+</span><span style="color:#c0c5ce;">
+</span><span style="color:#c0c5ce;">    </span><span style="color:#65737e;">//Then we create a tensorflow graph from the model
+</span><span style="color:#c0c5ce;">    </span><span style="color:#b48ead;">let mut</span><span style="color:#c0c5ce;"> graph = Graph::new();
+</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">graph.</span><span style="color:#96b5b4;">import_graph_def</span><span style="color:#c0c5ce;">(&amp;*model, &amp;ImportGraphDefOptions::new())?
+</span><span style="color:#c0c5ce;">
+</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">Ok(())
+</span><span style="color:#c0c5ce;">}
+</span></pre>
+<p>Running <code>cargo run</code> we should see no errors:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#c0c5ce;">$ cargo run
+</span><span style="color:#c0c5ce;">   </span><span style="color:#c0c5ce;">Compiling mtcnn v0.1.0 (~/mtcnn)
+</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">Finished dev [unoptimized + debuginfo] target(s) in 0.89s
+</span><span style="color:#c0c5ce;">     </span><span style="color:#c0c5ce;">Running `target/debug/mtcnn`
+</span></pre>
+<p>Great! Looks like we can load the graph.</p>
+<h2 id="structopt-and-the-command-line">StructOpt and the Command Line</h2>
+<p>We're going to want to test out image generation, so let's use <a href="https://github.com/TeXitoi/structopt">structopt</a> to take two arguments: <code>input</code> and <code>output</code>.</p>
+<p>If you haven't used structopt before: structopt is like combining <a href="https://github.com/clap-rs/clap">clap</a> with <a href="https://github.com/serde-rs/serde">serde</a>.  The <code>input</code> argument will be the path of an image file.  The <code>output</code> will be where we save the output image.</p>
+<p>So our struct looks like this:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">use </span><span style="color:#c0c5ce;">std::path::PathBuf;
+</span><span style="color:#b48ead;">use </span><span style="color:#c0c5ce;">structopt::StructOpt
+</span><span style="color:#c0c5ce;">
+</span><span style="color:#c0c5ce;">#[</span><span style="color:#bf616a;">derive</span><span style="color:#c0c5ce;">(StructOpt)]
+</span><span style="color:#b48ead;">struct </span><span style="color:#c0c5ce;">Opt {
+</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">#[structopt(parse(from_os_str))]
+</span><span style="color:#c0c5ce;">    </span><span style="color:#bf616a;">input</span><span style="color:#c0c5ce;">: PathBuf,
+</span><span style="color:#c0c5ce;">
+</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">#[structopt(parse(from_os_str))]
+</span><span style="color:#c0c5ce;">    </span><span style="color:#bf616a;">output</span><span style="color:#c0c5ce;">: PathBuf
+</span><span style="color:#c0c5ce;">}
+</span></pre>
+<p>The <code>parse(from_os_str)</code> attribute will convert a string argument directly into a <code>PathBuf</code> to save us some boiler plate</p>
+<p>We can then use this to get a struct with our command line arguments</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">fn </span><span style="color:#8fa1b3;">main</span><span style="color:#c0c5ce;">() -&gt; Result&lt;(), Box&lt;dyn Error&gt;&gt; {
+</span><span style="color:#c0c5ce;">
+</span><span style="color:#c0c5ce;">    </span><span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> opt = Opt::from_args();
+</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">....
+</span><span style="color:#c0c5ce;">}
+</span></pre><h2 id="loading-image-data">Loading Image Data</h2>
+<p>We need to provide the tensorflow graph with our image data.  So how do we do that? We use a <a href="https://tensorflow.github.io/rust/tensorflow/struct.Tensor.html">Tensor</a>!  Tensors represent data within our graph, it sort of reminds me of sending vertices to a GPU.  You have a big slice of data, and send it in a format that tensorflow is expecting.</p>
+<p>The <code>input</code> tensor in this graph is an array of floats, with dimensions: <code>height</code> x <code>width</code> x <code>3</code> (for 3 colour channels).</p>
+<p>Let's use the <a href="https://github.com/PistonDevelopers/image">image</a> crate to load the image:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> input_image = image::open(&amp;opt.input)?;
+</span></pre>
+<p>Next we want to convert this image into its raw pixels by using the <code>GenericImage::pixels</code> function and send that to our graph. All multi-dimensional Tensor arrays are flat, and stored in row major order.  The model uses <code>BGR</code> instead of the traditional <code>RGB</code> for colours, so we'll need to reverse the pixel values when we iterate through.</p>
+<p>Putting it all together:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">let mut</span><span style="color:#c0c5ce;"> flattened: Vec&lt;</span><span style="color:#b48ead;">f32</span><span style="color:#c0c5ce;">&gt; = Vec::new();
+</span><span style="color:#c0c5ce;">
+</span><span style="color:#b48ead;">for </span><span style="color:#c0c5ce;">(_x, _y, rgb) in input_image.</span><span style="color:#96b5b4;">pixels</span><span style="color:#c0c5ce;">() {
+</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">flattened.</span><span style="color:#96b5b4;">push</span><span style="color:#c0c5ce;">(rgb[</span><span style="color:#d08770;">2</span><span style="color:#c0c5ce;">] as </span><span style="color:#b48ead;">f32</span><span style="color:#c0c5ce;">);
+</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">flattened.</span><span style="color:#96b5b4;">push</span><span style="color:#c0c5ce;">(rgb[</span><span style="color:#d08770;">1</span><span style="color:#c0c5ce;">] as </span><span style="color:#b48ead;">f32</span><span style="color:#c0c5ce;">);
+</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">flattened.</span><span style="color:#96b5b4;">push</span><span style="color:#c0c5ce;">(rgb[</span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">] as </span><span style="color:#b48ead;">f32</span><span style="color:#c0c5ce;">);
+</span><span style="color:#c0c5ce;">}
+</span></pre>
+<p>This simply iterates through the pixels, adding them to a flattened Vec.</p>
+<p>We can then load this into a tensor, specifying the image height and width as arguments:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> input = Tensor::new(&amp;[input_image.</span><span style="color:#96b5b4;">height</span><span style="color:#c0c5ce;">() as </span><span style="color:#b48ead;">u64</span><span style="color:#c0c5ce;">, input_image.</span><span style="color:#96b5b4;">width</span><span style="color:#c0c5ce;">() as </span><span style="color:#b48ead;">u64</span><span style="color:#c0c5ce;">, </span><span style="color:#d08770;">3</span><span style="color:#c0c5ce;">])
+</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">.</span><span style="color:#96b5b4;">with_values</span><span style="color:#c0c5ce;">(&amp;flattened)?
+</span></pre>
+<p>Great! we have loaded our image into a format that the graph understands.  Let's run a session!</p>
+<h3 id="creating-a-tensorflow-session">Creating a tensorflow session</h3>
+<p>Ok, we have a graph, the input image, but now we need a session for the graph.  We'll just use the defaults for this:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">let mut</span><span style="color:#c0c5ce;"> session = Session::new(&amp;SessionOptions::new(), &amp;graph)?;
+</span></pre><h2 id="running-a-session">Running a session</h2>
+<p>Before we run a session, we have a few other inputs the mtcnn model is expecting.  We're gonna use the same defaults the mtcnn library for these values:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> min_size = Tensor::new(&amp;[]).</span><span style="color:#96b5b4;">with_values</span><span style="color:#c0c5ce;">(&amp;[</span><span style="color:#d08770;">40</span><span style="color:#b48ead;">f32</span><span style="color:#c0c5ce;">])?;
+</span><span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> thresholds = Tensor::new(&amp;[</span><span style="color:#d08770;">3</span><span style="color:#c0c5ce;">]).</span><span style="color:#96b5b4;">with_values</span><span style="color:#c0c5ce;">(&amp;[</span><span style="color:#d08770;">0.6</span><span style="color:#b48ead;">f32</span><span style="color:#c0c5ce;">, </span><span style="color:#d08770;">0.7</span><span style="color:#b48ead;">f32</span><span style="color:#c0c5ce;">, </span><span style="color:#d08770;">0.7</span><span style="color:#b48ead;">f32</span><span style="color:#c0c5ce;">])?;
+</span><span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> factor = Tensor::new(&amp;[]).</span><span style="color:#96b5b4;">with_values</span><span style="color:#c0c5ce;">(&amp;[</span><span style="color:#d08770;">0.709</span><span style="color:#b48ead;">f32</span><span style="color:#c0c5ce;">])?;
+</span></pre>
+<p>The graph can define multiple inputs/outputs that are required before running and it depends on the specific neural net as to what these are.  For MTCNN, these are all described in the original implementation.  Probably the most important one is the <code>min_size</code> which describes the minimum size to find faces.</p>
+<p>Now we build the session arguments for the inputs:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">let mut</span><span style="color:#c0c5ce;"> args = SessionRunArgs::new();
+</span><span style="color:#c0c5ce;">
+</span><span style="color:#65737e;">//Load our parameters for the model
+</span><span style="color:#c0c5ce;">args.</span><span style="color:#96b5b4;">add_feed</span><span style="color:#c0c5ce;">(&amp;graph.</span><span style="color:#96b5b4;">operation_by_name_required</span><span style="color:#c0c5ce;">(&quot;</span><span style="color:#a3be8c;">min_size</span><span style="color:#c0c5ce;">&quot;)?, </span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">, &amp;min_size);
+</span><span style="color:#c0c5ce;">args.</span><span style="color:#96b5b4;">add_feed</span><span style="color:#c0c5ce;">(&amp;graph.</span><span style="color:#96b5b4;">operation_by_name_required</span><span style="color:#c0c5ce;">(&quot;</span><span style="color:#a3be8c;">thresholds</span><span style="color:#c0c5ce;">&quot;)?, </span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">, &amp;thresholds);
+</span><span style="color:#c0c5ce;">args.</span><span style="color:#96b5b4;">add_feed</span><span style="color:#c0c5ce;">(&amp;graph.</span><span style="color:#96b5b4;">operation_by_name_required</span><span style="color:#c0c5ce;">(&quot;</span><span style="color:#a3be8c;">factor</span><span style="color:#c0c5ce;">&quot;)?, </span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">, &amp;factor);
+</span><span style="color:#c0c5ce;">
+</span><span style="color:#65737e;">//Load our input image
+</span><span style="color:#c0c5ce;">args.</span><span style="color:#96b5b4;">add_feed</span><span style="color:#c0c5ce;">(&amp;graph.</span><span style="color:#96b5b4;">operation_by_name_required</span><span style="color:#c0c5ce;">(&quot;</span><span style="color:#a3be8c;">input</span><span style="color:#c0c5ce;">&quot;)?, </span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">, &amp;input);
+</span></pre>
+<p>Ok, what about outputs? There are two that we are going to request when the session is finished: bounding boxes and probabilities:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> bbox = args.</span><span style="color:#96b5b4;">request_fetch</span><span style="color:#c0c5ce;">(&amp;graph.</span><span style="color:#96b5b4;">operation_by_name_required</span><span style="color:#c0c5ce;">(&quot;</span><span style="color:#a3be8c;">box</span><span style="color:#c0c5ce;">&quot;)?, </span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">);
+</span><span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> prob = args.</span><span style="color:#96b5b4;">request_fetch</span><span style="color:#c0c5ce;">(&amp;graph.</span><span style="color:#96b5b4;">operation_by_name_required</span><span style="color:#c0c5ce;">(&quot;</span><span style="color:#a3be8c;">prob</span><span style="color:#c0c5ce;">&quot;)?, </span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">);
+</span></pre>
+<p>Ok cool, we have our inputs, and our outputs, let's run it!</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#c0c5ce;">session.</span><span style="color:#96b5b4;">run</span><span style="color:#c0c5ce;">(&amp;</span><span style="color:#b48ead;">mut</span><span style="color:#c0c5ce;"> args)?;
+</span></pre><h3 id="the-bbox-struct">The BBox struct</h3>
+<p>The model outputs the following values:</p>
+<ul>
+<li>Bounding box of the faces</li>
+<li>Landmarks of the faces</li>
+<li>Probability that it's a face from <code>0</code> to <code>1</code></li>
+</ul>
+<p>In order to make it a bit more easy to work with, we'll define a bounding box struct which encodes those values back in a more easy to read fashion:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#c0c5ce;">#[</span><span style="color:#bf616a;">derive</span><span style="color:#c0c5ce;">(Copy, Clone, Debug)]
+</span><span style="color:#b48ead;">pub struct </span><span style="color:#c0c5ce;">BBox {
+</span><span style="color:#c0c5ce;">    </span><span style="color:#b48ead;">pub </span><span style="color:#bf616a;">x1</span><span style="color:#c0c5ce;">: </span><span style="color:#b48ead;">f32</span><span style="color:#c0c5ce;">,
+</span><span style="color:#c0c5ce;">    </span><span style="color:#b48ead;">pub </span><span style="color:#bf616a;">y1</span><span style="color:#c0c5ce;">: </span><span style="color:#b48ead;">f32</span><span style="color:#c0c5ce;">,
+</span><span style="color:#c0c5ce;">    </span><span style="color:#b48ead;">pub </span><span style="color:#bf616a;">x2</span><span style="color:#c0c5ce;">: </span><span style="color:#b48ead;">f32</span><span style="color:#c0c5ce;">,
+</span><span style="color:#c0c5ce;">    </span><span style="color:#b48ead;">pub </span><span style="color:#bf616a;">y2</span><span style="color:#c0c5ce;">: </span><span style="color:#b48ead;">f32</span><span style="color:#c0c5ce;">,
+</span><span style="color:#c0c5ce;">    </span><span style="color:#b48ead;">pub </span><span style="color:#bf616a;">prob</span><span style="color:#c0c5ce;">: </span><span style="color:#b48ead;">f32</span><span style="color:#c0c5ce;">,
+</span><span style="color:#c0c5ce;">}
+</span></pre>
+<p>We'll omit landmarks for simplicity, but can always add them back if we need.  Our job is to convert the arrays we get back from the tensorflow session into this struct so it's more meaningful.</p>
+<h3 id="saving-the-output">Saving the Output</h3>
+<p>Right, now let's grab back the outputs.  Just like inputs, outputs are <code>Tensors</code> too:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> bbox_res: Tensor&lt;</span><span style="color:#b48ead;">f32</span><span style="color:#c0c5ce;">&gt; = args.</span><span style="color:#96b5b4;">fetch</span><span style="color:#c0c5ce;">(bbox)?;
+</span><span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> prob_res: Tensor&lt;</span><span style="color:#b48ead;">f32</span><span style="color:#c0c5ce;">&gt; = args.</span><span style="color:#96b5b4;">fetch</span><span style="color:#c0c5ce;">(prob)?;
+</span></pre>
+<p>What is the shape of <code>bbox</code>? Well, it's a multi-dimensional flattened array that includes 4 floats per bounding box representing the bounding box extents.  The <code>prob</code> is an array with a single float value per face: the probability from <code>0</code> to <code>1</code>.  So we should expect the <code>bbox_res</code> length to be the <code>number of faces</code> x <code>4</code>, and <code>prob_res</code> to be equal to the number of faces.</p>
+<p>Let's do some basic iteration and store our results into a <code>Vec</code>:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#c0c5ce;">
+</span><span style="color:#65737e;">//Let&#39;s store the results as a Vec&lt;BBox&gt;
+</span><span style="color:#b48ead;">let mut</span><span style="color:#c0c5ce;"> bboxes = Vec::new();
+</span><span style="color:#c0c5ce;">
+</span><span style="color:#b48ead;">let mut</span><span style="color:#c0c5ce;"> i = </span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">;
+</span><span style="color:#b48ead;">let mut</span><span style="color:#c0c5ce;"> j = </span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">;
+</span><span style="color:#c0c5ce;">
+</span><span style="color:#65737e;">//While we have responses, iterate through
+</span><span style="color:#b48ead;">while</span><span style="color:#c0c5ce;"> i &lt; bbox_res.</span><span style="color:#96b5b4;">len</span><span style="color:#c0c5ce;">() {
+</span><span style="color:#c0c5ce;">
+</span><span style="color:#c0c5ce;">    </span><span style="color:#65737e;">//Add in the 4 floats from the `bbox_res` array. 
+</span><span style="color:#c0c5ce;">    </span><span style="color:#65737e;">//Notice the y1, x1, etc.. is ordered differently to our struct definition.
+</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">bboxes.</span><span style="color:#96b5b4;">push</span><span style="color:#c0c5ce;">(BBox {
+</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">y1: bbox_res[i],
+</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">x1: bbox_res[i + </span><span style="color:#d08770;">1</span><span style="color:#c0c5ce;">],
+</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">y2: bbox_res[i + </span><span style="color:#d08770;">2</span><span style="color:#c0c5ce;">],
+</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">x2: bbox_res[i + </span><span style="color:#d08770;">3</span><span style="color:#c0c5ce;">],
+</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">prob: prob_res[j], </span><span style="color:#65737e;">// Add in the facial probability
+</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">});
+</span><span style="color:#c0c5ce;">
+</span><span style="color:#c0c5ce;">    </span><span style="color:#65737e;">//Step `i` ahead by 4. 
+</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">i += </span><span style="color:#d08770;">4</span><span style="color:#c0c5ce;">;
+</span><span style="color:#c0c5ce;">    </span><span style="color:#65737e;">//Step `i` ahead by 1. 
+</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">j += </span><span style="color:#d08770;">1</span><span style="color:#c0c5ce;">;
+</span><span style="color:#c0c5ce;">}
+</span></pre>
+<p><em>(Note: I'm sure someone more astute could do this much cleaner with combinators!)</em></p>
+<h3 id="printing-out-the-bounding-boxes">Printing out the bounding boxes</h3>
+<p>Ok, we haven't encoded the bounding boxes into an image, yet. but let's debug to make sure we're getting back <em>something</em>:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#c0c5ce;">println!(&quot;</span><span style="color:#a3be8c;">BBox Length: </span><span style="color:#d08770;">{}</span><span style="color:#a3be8c;">, Bboxes:</span><span style="color:#d08770;">{:#?}</span><span style="color:#c0c5ce;">&quot;, bboxes.</span><span style="color:#96b5b4;">len</span><span style="color:#c0c5ce;">(), bboxes);
+</span></pre>
+<p>Running this, what do we get back:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#c0c5ce;">BBox Length: 120, BBoxes:[
+</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">BBox {
+</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">x1: 471.4591,
+</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">y1: 287.59888,
+</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">x2: 495.3053,
+</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">y2: 317.25327,
+</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">prob: 0.9999908
+</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">},
+</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">....
+</span></pre>
+<p>Whoa! 120 faces! Awesome!</p>
+<h2 id="drawing-the-bounding-boxes">Drawing the Bounding Boxes</h2>
+<p>Great, we have some bounding boxes.  Let's draw them on the image, and save the output into a file.</p>
+<p>To draw bounding boxes, we can use the <a href="https://github.com/PistonDevelopers/imageproc">imageproc</a> library to draw simple borders around the bounding boxes.</p>
+<p>Firstly, we'll make the line colour constant green outside of our <code>main()</code> function:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">const </span><span style="color:#d08770;">LINE_COLOUR</span><span style="color:#c0c5ce;">: Rgba&lt;</span><span style="color:#b48ead;">u8</span><span style="color:#c0c5ce;">&gt; = Rgba {
+</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">data: [</span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">, </span><span style="color:#d08770;">255</span><span style="color:#c0c5ce;">, </span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">, </span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">],
+</span><span style="color:#c0c5ce;">};
+</span></pre>
+<p>Now stepping back into it.  We are feeding in the input image read only, so let's first make a clone of it that we can draw onto:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">let mut</span><span style="color:#c0c5ce;"> output_image = input_image.</span><span style="color:#96b5b4;">clone</span><span style="color:#c0c5ce;">();
+</span></pre>
+<p>Then we iterate through our bounding boxes:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">for</span><span style="color:#c0c5ce;"> bbox in bboxes {
+</span><span style="color:#c0c5ce;">    </span><span style="color:#65737e;">//Drawing Happens Here!
+</span><span style="color:#c0c5ce;">}
+</span></pre>
+<p>Next, we use the <code>draw_hollow_rect_mut</code> function.  This will take a mutable image reference, and draw a hollow rectangle (outline) specified by the input <code>Rect</code>, overwriting any existing pixels.</p>
+<p>The <code>Rect</code> takes an x and y coordinate with the <code>at</code> function, and then a width and height with the <code>of_size</code> function.  We use a bit of geometry to convert our bounding box to this format:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> rect = Rect::at(bbox.x1 as </span><span style="color:#b48ead;">i32</span><span style="color:#c0c5ce;">, bbox.y1 as </span><span style="color:#b48ead;">i32</span><span style="color:#c0c5ce;">)
+</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">.</span><span style="color:#96b5b4;">of_size</span><span style="color:#c0c5ce;">((bbox.x2 - bbox.x1) as </span><span style="color:#b48ead;">u32</span><span style="color:#c0c5ce;">, (bbox.y2 - bbox.y1) as </span><span style="color:#b48ead;">u32</span><span style="color:#c0c5ce;">);
+</span></pre>
+<p>Then draw the rect:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#96b5b4;">draw_hollow_rect_mut</span><span style="color:#c0c5ce;">(&amp;</span><span style="color:#b48ead;">mut</span><span style="color:#c0c5ce;"> img, rect, </span><span style="color:#d08770;">LINE_COLOUR</span><span style="color:#c0c5ce;">);
+</span></pre>
+<p>Once the for loop is done, we save it in the output file:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#c0c5ce;">output_image.</span><span style="color:#96b5b4;">save</span><span style="color:#c0c5ce;">(&amp;opt.output)?
+</span></pre>
+<p>And we're done. Let's run it!</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#c0c5ce;">$ cargo run rustfest.jpg output.jpg
+</span><span style="color:#c0c5ce;">   </span><span style="color:#c0c5ce;">Compiling mtcnn v0.1.0 (~/mtcnn)
+</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">Finished dev [unoptimized + debuginfo] target(s) in 5.12s
+</span><span style="color:#c0c5ce;">     </span><span style="color:#c0c5ce;">Running `target/debug/mtcnn rustfest.jpg output.jpg`
+</span><span style="color:#c0c5ce;">2019-03-28 16:15:48.194933: I tensorflow/core/platform/cpu_feature_guard.cc:141] Your CPU supports instructions that this TensorFlow binary was not compiled to use: SSE4.2 AVX AVX2 FMA
+</span><span style="color:#c0c5ce;">BBox Length: 154, BBoxes:[
+</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">BBox {
+</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">x1: 951.46875,
+</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">y1: 274.00577,
+</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">x2: 973.68304,
+</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">y2: 301.93915,
+</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">prob: 0.9999999
+</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">},
+</span><span style="color:#c0c5ce;">....
+</span></pre>
+<p>Looks good, no errors!</p>
+<h2 id="wrapping-up">Wrapping up</h2>
+<p>Let's step through what we've done in this little application:</p>
+<ul>
+<li>Loaded a pre-trained tensorflow graph</li>
+<li>Parse the command line arguments</li>
+<li>Read in image data</li>
+<li>Extracted faces by running a tensorflow session</li>
+<li>Saved the results of that session back to the image</li>
+<li>Wrote out the file</li>
+</ul>
+<p>If you got stuck at any point, have a look at the repository here: <a href="https://github.com/cetra3/mtcnn">https://github.com/cetra3/mtcnn</a></p>
+<p>Hopefully this gives you a good introduction to using tensorflow in rust</p>
+
+
+</div>
+
+    </div>
+</body>
+
+</html>

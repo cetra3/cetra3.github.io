@@ -6,7 +6,282 @@
         <generator>Zola</generator>
         <language>en</language>
         <atom:link href="https://cetra3.github.io/rss.xml" rel="self" type="application/rss+xml"/>
-        <lastBuildDate>Thu, 07 Feb 2019 00:00:00 +0000</lastBuildDate>
+        <lastBuildDate>Thu, 28 Mar 2019 00:00:00 +0000</lastBuildDate>
+        
+            <item>
+                <title>Face Detection with Tensorflow Rust</title>
+                <pubDate>Thu, 28 Mar 2019 00:00:00 +0000</pubDate>
+                <link>https://cetra3.github.io/blog/face-detection-with-tensorflow-rust/</link>
+                <guid>https://cetra3.github.io/blog/face-detection-with-tensorflow-rust/</guid>
+                <description>&lt;p&gt;One of the promises of machine learning is to be able to use it for object recognition in photos.  This includes being able to pick out features such as animals, buildings and even faces.&lt;&#x2F;p&gt;
+&lt;p&gt;This article will step you through using some existing models to accomplish face detection using rust and &lt;a href=&quot;https:&#x2F;&#x2F;www.tensorflow.org&#x2F;&quot;&gt;tensorflow&lt;&#x2F;a&gt;.  For the impatient among you, you can find the source code here: &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;mtcnn&quot;&gt;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;mtcnn&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;We will be using a pre-trained model called &lt;a href=&quot;https:&#x2F;&#x2F;kpzhang93.github.io&#x2F;MTCNN_face_detection_alignment&#x2F;index.html&quot;&gt;mtcnn&lt;&#x2F;a&gt; for face detection (&lt;em&gt;Note: training a new model is not something we&#x27;ll be concerned with in this article&lt;&#x2F;em&gt;).&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;the-challenge&quot;&gt;The Challenge&lt;&#x2F;h2&gt;
+&lt;p&gt;We want to read the photo, have the faces detected, and then return an image with the bounding boxes drawn in.&lt;&#x2F;p&gt;
+&lt;p&gt;In other words, we want to convert this (Image courtesy of the &lt;a href=&quot;https:&#x2F;&#x2F;www.rust-lang.org&#x2F;community&quot;&gt;rust community&lt;&#x2F;a&gt; page):&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;a href=&quot;&#x2F;photos&#x2F;rustfest.jpg&quot;&gt;&lt;img src=&quot;&#x2F;photos&#x2F;rustfest.jpg&quot; alt=&quot;&quot; &#x2F;&gt;&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;Into this:&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;a href=&quot;&#x2F;photos&#x2F;rustfest_faces.jpg&quot;&gt;&lt;img src=&quot;&#x2F;photos&#x2F;rustfest_faces.jpg&quot; alt=&quot;&quot; &#x2F;&gt;&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;tensorflow-and-mtcnn&quot;&gt;Tensorflow and MTCNN&lt;&#x2F;h2&gt;
+&lt;p&gt;The original MTCNN model was written using &lt;a href=&quot;http:&#x2F;&#x2F;caffe.berkeleyvision.org&#x2F;&quot;&gt;Caffe&lt;&#x2F;a&gt;, but luckily there is a number of tensorflow python implementations for mtcnn.  I&#x27;m going to pick the &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;blaueck&#x2F;tf-mtcnn&quot;&gt;following&lt;&#x2F;a&gt; as it is a straight conversion into a single graph model file.&lt;&#x2F;p&gt;
+&lt;p&gt;Firstly we want to add &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;tensorflow&#x2F;rust&quot;&gt;tensorflow rust&lt;&#x2F;a&gt; as a dependency.  Here&#x27;s a Cargo.toml to start:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#c0c5ce;&quot;&gt;[package]
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;name &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;= &amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;mtcnn&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;version &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;= &amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;0.1.0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;edition &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;= &amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;2018&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;[dependencies]
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;tensorflow &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;= &amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;0.12.0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;What we&#x27;re going to do is load a &lt;a href=&quot;https:&#x2F;&#x2F;tensorflow.github.io&#x2F;rust&#x2F;tensorflow&#x2F;struct.Graph.html&quot;&gt;Graph&lt;&#x2F;a&gt; which is the pre-trained MTCNN, and run a session.  The gist is that a Graph is the model used for computation, and a Session is one &lt;code&gt;run&lt;&#x2F;code&gt; of the Graph.  A lot more information about these concepts can be found &lt;a href=&quot;https:&#x2F;&#x2F;www.tensorflow.org&#x2F;guide&#x2F;graphs&quot;&gt;here&lt;&#x2F;a&gt;.  I like to think of the Graph as an artificial brain in a vat, just to get some great imagery when you start plugging in inputs and outputs.&lt;&#x2F;p&gt;
+&lt;p&gt;So let&#x27;s start by grabbing the existing &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;blaueck&#x2F;tf-mtcnn&#x2F;raw&#x2F;master&#x2F;mtcnn.pb&quot;&gt;mtcnn.pb&lt;&#x2F;a&gt; model and trying to load it up.  Tensorflow graphs are serialised out in protobuf format and can be loaded in using &lt;code&gt;Graph::import_graph_def&lt;&#x2F;code&gt;.&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;use &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;std::error::Error;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;use &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;tensorflow::Graph;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;use &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;tensorflow::ImportGraphDefOptions;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8fa1b3;&quot;&gt;main&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;() -&amp;gt; Result&amp;lt;(), Box&amp;lt;dyn Error&amp;gt;&amp;gt; {
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F;First, we load up the graph as a byte array
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; model = include_bytes!(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;mtcnn.pb&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;);
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F;Then we create a tensorflow graph from the model
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let mut&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; graph = Graph::new();
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;graph.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;import_graph_def&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;amp;*model, &amp;amp;ImportGraphDefOptions::new())?
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Ok(())
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Running &lt;code&gt;cargo run&lt;&#x2F;code&gt; we should see no errors:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#c0c5ce;&quot;&gt;$ cargo run
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;   &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Compiling mtcnn v0.1.0 (~&#x2F;mtcnn)
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Finished dev [unoptimized + debuginfo] target(s) in 0.89s
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;     &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Running &#96;target&#x2F;debug&#x2F;mtcnn&#96;
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Great! Looks like we can load the graph.&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;structopt-and-the-command-line&quot;&gt;StructOpt and the Command Line&lt;&#x2F;h2&gt;
+&lt;p&gt;We&#x27;re going to want to test out image generation, so let&#x27;s use &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;TeXitoi&#x2F;structopt&quot;&gt;structopt&lt;&#x2F;a&gt; to take two arguments: &lt;code&gt;input&lt;&#x2F;code&gt; and &lt;code&gt;output&lt;&#x2F;code&gt;.&lt;&#x2F;p&gt;
+&lt;p&gt;If you haven&#x27;t used structopt before: structopt is like combining &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;clap-rs&#x2F;clap&quot;&gt;clap&lt;&#x2F;a&gt; with &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;serde-rs&#x2F;serde&quot;&gt;serde&lt;&#x2F;a&gt;.  The &lt;code&gt;input&lt;&#x2F;code&gt; argument will be the path of an image file.  The &lt;code&gt;output&lt;&#x2F;code&gt; will be where we save the output image.&lt;&#x2F;p&gt;
+&lt;p&gt;So our struct looks like this:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;use &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;std::path::PathBuf;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;use &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;structopt::StructOpt
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;#[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;derive&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(StructOpt)]
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;struct &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Opt {
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;#[structopt(parse(from_os_str))]
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;input&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: PathBuf,
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;#[structopt(parse(from_os_str))]
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;output&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: PathBuf
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;The &lt;code&gt;parse(from_os_str)&lt;&#x2F;code&gt; attribute will convert a string argument directly into a &lt;code&gt;PathBuf&lt;&#x2F;code&gt; to save us some boiler plate&lt;&#x2F;p&gt;
+&lt;p&gt;We can then use this to get a struct with our command line arguments&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8fa1b3;&quot;&gt;main&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;() -&amp;gt; Result&amp;lt;(), Box&amp;lt;dyn Error&amp;gt;&amp;gt; {
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; opt = Opt::from_args();
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;....
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;&lt;h2 id=&quot;loading-image-data&quot;&gt;Loading Image Data&lt;&#x2F;h2&gt;
+&lt;p&gt;We need to provide the tensorflow graph with our image data.  So how do we do that? We use a &lt;a href=&quot;https:&#x2F;&#x2F;tensorflow.github.io&#x2F;rust&#x2F;tensorflow&#x2F;struct.Tensor.html&quot;&gt;Tensor&lt;&#x2F;a&gt;!  Tensors represent data within our graph, it sort of reminds me of sending vertices to a GPU.  You have a big slice of data, and send it in a format that tensorflow is expecting.&lt;&#x2F;p&gt;
+&lt;p&gt;The &lt;code&gt;input&lt;&#x2F;code&gt; tensor in this graph is an array of floats, with dimensions: &lt;code&gt;height&lt;&#x2F;code&gt; x &lt;code&gt;width&lt;&#x2F;code&gt; x &lt;code&gt;3&lt;&#x2F;code&gt; (for 3 colour channels).&lt;&#x2F;p&gt;
+&lt;p&gt;Let&#x27;s use the &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;PistonDevelopers&#x2F;image&quot;&gt;image&lt;&#x2F;a&gt; crate to load the image:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; input_image = image::open(&amp;amp;opt.input)?;
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Next we want to convert this image into its raw pixels by using the &lt;code&gt;GenericImage::pixels&lt;&#x2F;code&gt; function and send that to our graph. All multi-dimensional Tensor arrays are flat, and stored in row major order.  The model uses &lt;code&gt;BGR&lt;&#x2F;code&gt; instead of the traditional &lt;code&gt;RGB&lt;&#x2F;code&gt; for colours, so we&#x27;ll need to reverse the pixel values when we iterate through.&lt;&#x2F;p&gt;
+&lt;p&gt;Putting it all together:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;let mut&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; flattened: Vec&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;f32&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;gt; = Vec::new();
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;for &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(_x, _y, rgb) in input_image.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;pixels&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;() {
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;flattened.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;push&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(rgb[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;2&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;] as &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;f32&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;);
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;flattened.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;push&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(rgb[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;1&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;] as &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;f32&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;);
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;flattened.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;push&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(rgb[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;] as &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;f32&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;);
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;This simply iterates through the pixels, adding them to a flattened Vec.&lt;&#x2F;p&gt;
+&lt;p&gt;We can then load this into a tensor, specifying the image height and width as arguments:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; input = Tensor::new(&amp;amp;[input_image.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;height&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;() as &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;u64&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;, input_image.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;width&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;() as &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;u64&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;3&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;])
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;with_values&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;amp;flattened)?
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Great! we have loaded our image into a format that the graph understands.  Let&#x27;s run a session!&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;creating-a-tensorflow-session&quot;&gt;Creating a tensorflow session&lt;&#x2F;h3&gt;
+&lt;p&gt;Ok, we have a graph, the input image, but now we need a session for the graph.  We&#x27;ll just use the defaults for this:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;let mut&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; session = Session::new(&amp;amp;SessionOptions::new(), &amp;amp;graph)?;
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;&lt;h2 id=&quot;running-a-session&quot;&gt;Running a session&lt;&#x2F;h2&gt;
+&lt;p&gt;Before we run a session, we have a few other inputs the mtcnn model is expecting.  We&#x27;re gonna use the same defaults the mtcnn library for these values:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; min_size = Tensor::new(&amp;amp;[]).&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;with_values&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;amp;[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;40&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;f32&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;])?;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; thresholds = Tensor::new(&amp;amp;[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;3&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;]).&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;with_values&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;amp;[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;0.6&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;f32&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;0.7&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;f32&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;0.7&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;f32&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;])?;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; factor = Tensor::new(&amp;amp;[]).&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;with_values&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;amp;[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;0.709&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;f32&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;])?;
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;The graph can define multiple inputs&#x2F;outputs that are required before running and it depends on the specific neural net as to what these are.  For MTCNN, these are all described in the original implementation.  Probably the most important one is the &lt;code&gt;min_size&lt;&#x2F;code&gt; which describes the minimum size to find faces.&lt;&#x2F;p&gt;
+&lt;p&gt;Now we build the session arguments for the inputs:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;let mut&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; args = SessionRunArgs::new();
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F;Load our parameters for the model
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;args.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;add_feed&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;amp;graph.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;operation_by_name_required&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;min_size&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;)?, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;, &amp;amp;min_size);
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;args.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;add_feed&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;amp;graph.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;operation_by_name_required&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;thresholds&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;)?, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;, &amp;amp;thresholds);
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;args.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;add_feed&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;amp;graph.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;operation_by_name_required&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;factor&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;)?, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;, &amp;amp;factor);
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F;Load our input image
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;args.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;add_feed&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;amp;graph.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;operation_by_name_required&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;input&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;)?, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;, &amp;amp;input);
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Ok, what about outputs? There are two that we are going to request when the session is finished: bounding boxes and probabilities:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; bbox = args.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;request_fetch&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;amp;graph.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;operation_by_name_required&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;box&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;)?, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;);
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; prob = args.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;request_fetch&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;amp;graph.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;operation_by_name_required&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;prob&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;)?, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;);
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Ok cool, we have our inputs, and our outputs, let&#x27;s run it!&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#c0c5ce;&quot;&gt;session.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;run&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;mut&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; args)?;
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;&lt;h3 id=&quot;the-bbox-struct&quot;&gt;The BBox struct&lt;&#x2F;h3&gt;
+&lt;p&gt;The model outputs the following values:&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;Bounding box of the faces&lt;&#x2F;li&gt;
+&lt;li&gt;Landmarks of the faces&lt;&#x2F;li&gt;
+&lt;li&gt;Probability that it&#x27;s a face from &lt;code&gt;0&lt;&#x2F;code&gt; to &lt;code&gt;1&lt;&#x2F;code&gt;&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;In order to make it a bit more easy to work with, we&#x27;ll define a bounding box struct which encodes those values back in a more easy to read fashion:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#c0c5ce;&quot;&gt;#[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;derive&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(Copy, Clone, Debug)]
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;pub struct &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;BBox {
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;pub &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;x1&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;f32&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;,
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;pub &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;y1&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;f32&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;,
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;pub &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;x2&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;f32&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;,
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;pub &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;y2&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;f32&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;,
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;pub &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;prob&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;f32&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;,
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;We&#x27;ll omit landmarks for simplicity, but can always add them back if we need.  Our job is to convert the arrays we get back from the tensorflow session into this struct so it&#x27;s more meaningful.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;saving-the-output&quot;&gt;Saving the Output&lt;&#x2F;h3&gt;
+&lt;p&gt;Right, now let&#x27;s grab back the outputs.  Just like inputs, outputs are &lt;code&gt;Tensors&lt;&#x2F;code&gt; too:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; bbox_res: Tensor&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;f32&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;gt; = args.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;fetch&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(bbox)?;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; prob_res: Tensor&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;f32&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;gt; = args.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;fetch&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(prob)?;
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;What is the shape of &lt;code&gt;bbox&lt;&#x2F;code&gt;? Well, it&#x27;s a multi-dimensional flattened array that includes 4 floats per bounding box representing the bounding box extents.  The &lt;code&gt;prob&lt;&#x2F;code&gt; is an array with a single float value per face: the probability from &lt;code&gt;0&lt;&#x2F;code&gt; to &lt;code&gt;1&lt;&#x2F;code&gt;.  So we should expect the &lt;code&gt;bbox_res&lt;&#x2F;code&gt; length to be the &lt;code&gt;number of faces&lt;&#x2F;code&gt; x &lt;code&gt;4&lt;&#x2F;code&gt;, and &lt;code&gt;prob_res&lt;&#x2F;code&gt; to be equal to the number of faces.&lt;&#x2F;p&gt;
+&lt;p&gt;Let&#x27;s do some basic iteration and store our results into a &lt;code&gt;Vec&lt;&#x2F;code&gt;:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#c0c5ce;&quot;&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F;Let&amp;#39;s store the results as a Vec&amp;lt;BBox&amp;gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let mut&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; bboxes = Vec::new();
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let mut&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; i = &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let mut&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; j = &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F;While we have responses, iterate through
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;while&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; i &amp;lt; bbox_res.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;len&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;() {
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F;Add in the 4 floats from the &#96;bbox_res&#96; array. 
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F;Notice the y1, x1, etc.. is ordered differently to our struct definition.
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;bboxes.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;push&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(BBox {
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;y1: bbox_res[i],
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;x1: bbox_res[i + &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;1&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;],
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;y2: bbox_res[i + &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;2&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;],
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;x2: bbox_res[i + &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;3&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;],
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;prob: prob_res[j], &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F; Add in the facial probability
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;});
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F;Step &#96;i&#96; ahead by 4. 
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;i += &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;4&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F;Step &#96;i&#96; ahead by 1. 
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;j += &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;1&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;&lt;em&gt;(Note: I&#x27;m sure someone more astute could do this much cleaner with combinators!)&lt;&#x2F;em&gt;&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;printing-out-the-bounding-boxes&quot;&gt;Printing out the bounding boxes&lt;&#x2F;h3&gt;
+&lt;p&gt;Ok, we haven&#x27;t encoded the bounding boxes into an image, yet. but let&#x27;s debug to make sure we&#x27;re getting back &lt;em&gt;something&lt;&#x2F;em&gt;:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#c0c5ce;&quot;&gt;println!(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;BBox Length: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;{}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;, Bboxes:&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;{:#?}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;, bboxes.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;len&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(), bboxes);
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Running this, what do we get back:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#c0c5ce;&quot;&gt;BBox Length: 120, BBoxes:[
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;BBox {
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;x1: 471.4591,
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;y1: 287.59888,
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;x2: 495.3053,
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;y2: 317.25327,
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;prob: 0.9999908
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;},
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;....
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Whoa! 120 faces! Awesome!&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;drawing-the-bounding-boxes&quot;&gt;Drawing the Bounding Boxes&lt;&#x2F;h2&gt;
+&lt;p&gt;Great, we have some bounding boxes.  Let&#x27;s draw them on the image, and save the output into a file.&lt;&#x2F;p&gt;
+&lt;p&gt;To draw bounding boxes, we can use the &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;PistonDevelopers&#x2F;imageproc&quot;&gt;imageproc&lt;&#x2F;a&gt; library to draw simple borders around the bounding boxes.&lt;&#x2F;p&gt;
+&lt;p&gt;Firstly, we&#x27;ll make the line colour constant green outside of our &lt;code&gt;main()&lt;&#x2F;code&gt; function:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;const &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;LINE_COLOUR&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: Rgba&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;u8&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;gt; = Rgba {
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;data: [&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;255&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;],
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;};
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Now stepping back into it.  We are feeding in the input image read only, so let&#x27;s first make a clone of it that we can draw onto:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;let mut&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; output_image = input_image.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;clone&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;();
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Then we iterate through our bounding boxes:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;for&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; bbox in bboxes {
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F;Drawing Happens Here!
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Next, we use the &lt;code&gt;draw_hollow_rect_mut&lt;&#x2F;code&gt; function.  This will take a mutable image reference, and draw a hollow rectangle (outline) specified by the input &lt;code&gt;Rect&lt;&#x2F;code&gt;, overwriting any existing pixels.&lt;&#x2F;p&gt;
+&lt;p&gt;The &lt;code&gt;Rect&lt;&#x2F;code&gt; takes an x and y coordinate with the &lt;code&gt;at&lt;&#x2F;code&gt; function, and then a width and height with the &lt;code&gt;of_size&lt;&#x2F;code&gt; function.  We use a bit of geometry to convert our bounding box to this format:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; rect = Rect::at(bbox.x1 as &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;i32&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;, bbox.y1 as &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;i32&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;)
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;of_size&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;((bbox.x2 - bbox.x1) as &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;u32&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;, (bbox.y2 - bbox.y1) as &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;u32&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;);
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Then draw the rect:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#96b5b4;&quot;&gt;draw_hollow_rect_mut&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;mut&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; img, rect, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;LINE_COLOUR&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;);
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Once the for loop is done, we save it in the output file:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#c0c5ce;&quot;&gt;output_image.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;save&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;amp;opt.output)?
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;And we&#x27;re done. Let&#x27;s run it!&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#c0c5ce;&quot;&gt;$ cargo run rustfest.jpg output.jpg
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;   &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Compiling mtcnn v0.1.0 (~&#x2F;mtcnn)
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Finished dev [unoptimized + debuginfo] target(s) in 5.12s
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;     &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Running &#96;target&#x2F;debug&#x2F;mtcnn rustfest.jpg output.jpg&#96;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;2019-03-28 16:15:48.194933: I tensorflow&#x2F;core&#x2F;platform&#x2F;cpu_feature_guard.cc:141] Your CPU supports instructions that this TensorFlow binary was not compiled to use: SSE4.2 AVX AVX2 FMA
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;BBox Length: 154, BBoxes:[
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;BBox {
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;x1: 951.46875,
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;y1: 274.00577,
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;x2: 973.68304,
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;y2: 301.93915,
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;prob: 0.9999999
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;},
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;....
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Looks good, no errors!&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;wrapping-up&quot;&gt;Wrapping up&lt;&#x2F;h2&gt;
+&lt;p&gt;Let&#x27;s step through what we&#x27;ve done in this little application:&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;Loaded a pre-trained tensorflow graph&lt;&#x2F;li&gt;
+&lt;li&gt;Parse the command line arguments&lt;&#x2F;li&gt;
+&lt;li&gt;Read in image data&lt;&#x2F;li&gt;
+&lt;li&gt;Extracted faces by running a tensorflow session&lt;&#x2F;li&gt;
+&lt;li&gt;Saved the results of that session back to the image&lt;&#x2F;li&gt;
+&lt;li&gt;Wrote out the file&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;If you got stuck at any point, have a look at the repository here: &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;mtcnn&quot;&gt;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;mtcnn&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;Hopefully this gives you a good introduction to using tensorflow in rust&lt;&#x2F;p&gt;
+</description>
+            </item>
         
             <item>
                 <title>TMQ 0.1.0 Release: ZeroMQ bindings for Tokio</title>

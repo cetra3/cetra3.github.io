@@ -1,6 +1,13 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     
         <url>
+            <loc>https://cetra3.github.io/blog/face-detection-with-tensorflow-rust/</loc>
+            
+                <lastmod>2019-03-28</lastmod>
+            
+        </url>
+    
+        <url>
             <loc>https://cetra3.github.io/blog/rust-2019/</loc>
             
                 <lastmod>2018-12-14</lastmod>
