@@ -18,7 +18,7 @@ We will be using a pre-trained model called [mtcnn](https://kpzhang93.github.io/
 
 We want to read the photo, have the faces detected, and then return an image with the bounding boxes drawn in.
 
-In other words, we want to convert this (Image courtesy of the [rust community](https://www.rust-lang.org/community) page):
+In other words, we want to convert this (Image used with permission of [RustFest](https://rustfest.eu), taken by [Fiona Castiñeira](https://fionacastineira.com/)):
 
 [![](/photos/rustfest.jpg)](/photos/rustfest.jpg)
 
