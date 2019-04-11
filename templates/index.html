@@ -2,11 +2,8 @@
 
 {% block content %}
 
-
 {% set blog = get_section(path="blog/_index.md") -%}
-
 <h3>Recent Blogs</h3>
-
 {% for page in blog.pages %}
 
 <article id="{{page.title}}" class="card">
