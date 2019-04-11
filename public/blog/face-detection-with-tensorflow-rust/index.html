@@ -5,6 +5,7 @@
     <meta charset="utf-8" />
     <title> Face Detection with Tensorflow Rust - Cetra&#x27;s Thoughts </title>
     <link href="/spectre.css" rel="stylesheet">
+    <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
 </head>
 
 <body>
@@ -21,7 +22,9 @@
         
 <div class="post">
   <h1>Face Detection with Tensorflow Rust </h1>
+  
   <p> <small class="label label-primary">rust</small> <small class="label">2019-03-28</small></p>
+  
   <p>One of the promises of machine learning is to be able to use it for object recognition in photos.  This includes being able to pick out features such as animals, buildings and even faces.</p>
 <p>This article will step you through using some existing models to accomplish face detection using rust and <a href="https://www.tensorflow.org/">tensorflow</a>.  For the impatient among you, you can find the source code here: <a href="https://github.com/cetra3/mtcnn">https://github.com/cetra3/mtcnn</a></p>
 <p>We will be using a pre-trained model called <a href="https://kpzhang93.github.io/MTCNN_face_detection_alignment/index.html">mtcnn</a> for face detection (<em>Note: training a new model is not something we'll be concerned with in this article</em>).</p>

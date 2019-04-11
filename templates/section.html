@@ -2,16 +2,11 @@
 
 {% block content %}
 
-
-{% set blog = get_section(path="blog/_index.md") -%}
-
-<h3>Recent Blogs</h3>
-
-{% for page in blog.pages %}
+{% for page in paginator.pages %}
 
 <article id="{{page.title}}" class="card">
   <div class="card-header">
-     <div class="card-title h2">{{page.title}}</div>
+     <div class="card-title h3"><a href="{{page.permalink}}"  id="article_link" >{{page.title}}</a></div>
      {% if page.taxonomies %}
      <div class="card-subtitle">
      {% for tag in page.taxonomies.tags %}<small class="label label-primary">{{tag}}</small> {% endfor %}<small class="label">{{ page.date | date(format="%Y-%m-%d") }}</small>

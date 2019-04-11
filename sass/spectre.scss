@@ -35,13 +35,17 @@ pre {
     }
 }
 
+.card {
+    margin-bottom: 0.5rem;
+}
+
 // Components
 //@import "accordions";
 //@import "avatars";
 //@import "badges";
 //@import "breadcrumbs";
 //@import "bars";
-//@import "cards";
+@import "cards";
 //@import "chips";
 //@import "dropdowns";
 //@import "empty";

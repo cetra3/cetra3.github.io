@@ -1,0 +1,27 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>{% if page.title %} {{page.title}} - {% endif %}{{config.title}} </title>
+    <link href="/spectre.css" rel="stylesheet">
+    <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
+</head>
+
+<body>
+    <header class="navbar">
+        <section class="navbar-section">
+        </section>
+        <section class="navbar-center">
+        </section>
+        <section class="navbar-section">
+            <a href="https://github.com/cetra3/" class="btn btn-link">GitHub</a>
+        </section>
+    </header>
+    <div class="container grid-lg">
+        {% block content %}
+        {% endblock content %}
+    </div>
+</body>
+
+</html>
