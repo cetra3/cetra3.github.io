@@ -74,7 +74,7 @@ $ cargo run
      Running `target/debug/mtcnn`
 ```
 
-Great! Looks like we can load the graph.
+Great! Looks like we can load the graph!
 
 ## StructOpt and the Command Line
 
