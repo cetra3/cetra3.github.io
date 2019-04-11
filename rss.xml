@@ -692,7 +692,7 @@
 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Finished dev [unoptimized + debuginfo] target(s) in 0.89s
 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;     &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Running &#96;target&#x2F;debug&#x2F;mtcnn&#96;
 &lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
-&lt;p&gt;Great! Looks like we can load the graph.&lt;&#x2F;p&gt;
+&lt;p&gt;Great! Looks like we can load the graph!&lt;&#x2F;p&gt;
 &lt;h2 id=&quot;structopt-and-the-command-line&quot;&gt;StructOpt and the Command Line&lt;&#x2F;h2&gt;
 &lt;p&gt;We&#x27;re going to want to test out image generation, so let&#x27;s use &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;TeXitoi&#x2F;structopt&quot;&gt;structopt&lt;&#x2F;a&gt; to take two arguments: &lt;code&gt;input&lt;&#x2F;code&gt; and &lt;code&gt;output&lt;&#x2F;code&gt;.&lt;&#x2F;p&gt;
 &lt;p&gt;If you haven&#x27;t used structopt before: structopt is like combining &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;clap-rs&#x2F;clap&quot;&gt;clap&lt;&#x2F;a&gt; with &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;serde-rs&#x2F;serde&quot;&gt;serde&lt;&#x2F;a&gt;.  The &lt;code&gt;input&lt;&#x2F;code&gt; argument will be the path of an image file.  The &lt;code&gt;output&lt;&#x2F;code&gt; will be where we save the output image.&lt;&#x2F;p&gt;
