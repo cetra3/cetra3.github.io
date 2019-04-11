@@ -5,6 +5,7 @@
     <meta charset="utf-8" />
     <title> Face Detection with Actix Web - Cetra&#x27;s Thoughts </title>
     <link href="/spectre.css" rel="stylesheet">
+    <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
 </head>
 
 <body>
@@ -21,7 +22,9 @@
         
 <div class="post">
   <h1>Face Detection with Actix Web </h1>
+  
   <p> <small class="label label-primary">rust</small> <small class="label">2019-04-11</small></p>
+  
   <p>Last article I wrote about how to <a href="https://cetra3.github.io/blog/face-detection-with-tensorflow-rust/">use tensorflow with rust</a>.  This time we're going to take what we've built on, and serve it as an HTTP API call.  As <a href="https://github.com/actix/actix-web">Actix Web</a> is nearing its inevitable <a href="https://github.com/actix/actix-web/issues/722">1.0 release</a>, I thought it would be a great time to build something with it.</p>
 <p>This article assumes you have some knowledge about <a href="https://github.com/rust-lang-nursery/futures-rs">Futures</a> and how they work. I will do my best to explain in simpler terms, but understanding the futures ecosystem would be quite handy to help work through this article. For this, I suggest you start with <a href="https://tokio.rs/">tokio</a>.</p>
 <p><em>(Some people have suggested waiting for async/await and friends to land before diving into Futures.  I think you should get your hands dirty now: async programming will always be challenging and the changes being introduced only affect ergonomics, not fundamentals)</em></p>
