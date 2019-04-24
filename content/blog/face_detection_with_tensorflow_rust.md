@@ -152,7 +152,7 @@ Great! we have loaded our image into a format that the graph understands.  Let's
 Ok, we have a graph, the input image, but now we need a session for the graph.  We'll just use the defaults for this:
 
 ```rust
-let mut session = Session::new(&SessionOptions::new(), &graph)?;
+let session = Session::new(&SessionOptions::new(), &graph)?;
 ```
 
 ## Running a session
@@ -258,7 +258,23 @@ while i < bbox_res.len() {
 }
 ```
 
-*(Note: I'm sure someone more astute could do this much cleaner with combinators!)*
+##### Combinators
+
+Alternatively, we could use combinators to replace the one above.
+
+```rust
+let bboxes: Vec<_> = bbox_res
+    .chunks_exact(4) // Split into chunks of 4
+    .zip(prob_res.iter()) // Combine it with prob_res
+    .map(|(bbox, &prob)| BBox {
+        y1: bbox[0],
+        x1: bbox[1],
+        y2: bbox[2],
+        x2: bbox[3],
+        prob,
+    })
+    .collect();
+```
 
 ### Printing out the bounding boxes
 
@@ -298,10 +314,10 @@ const LINE_COLOUR: Rgba<u8> = Rgba {
 };
 ```
 
-Now stepping back into it.  We are feeding in the input image read only, so let's first make a clone of it that we can draw onto:
+Now stepping back into it.  We are feeding in the input image read only, so let's use the first image to draw onto:
 
 ```rust
-let mut output_image = input_image.clone();
+let mut output_image = input_image;
 ```
 
 Then we iterate through our bounding boxes:
@@ -324,13 +340,13 @@ let rect = Rect::at(bbox.x1 as i32, bbox.y1 as i32)
 Then draw the rect:
 
 ```rust
-draw_hollow_rect_mut(&mut img, rect, LINE_COLOUR);
+draw_hollow_rect_mut(&mut output_image, rect, LINE_COLOUR);
 ```
 
 Once the for loop is done, we save it in the output file:
 
 ```rust
-output_image.save(&opt.output)?
+output_image.save(&opt.output)?;
 ```
 
 And we're done. Let's run it!
