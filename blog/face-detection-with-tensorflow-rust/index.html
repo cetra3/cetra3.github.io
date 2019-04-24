@@ -127,7 +127,7 @@
 <h3 id="creating-a-tensorflow-session">Creating a tensorflow session</h3>
 <p>Ok, we have a graph, the input image, but now we need a session for the graph.  We'll just use the defaults for this:</p>
 <pre style="background-color:#2b303b;">
-<span style="color:#b48ead;">let mut</span><span style="color:#c0c5ce;"> session = Session::new(&amp;SessionOptions::new(), &amp;graph)?;
+<span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> session = Session::new(&amp;SessionOptions::new(), &amp;graph)?;
 </span></pre><h2 id="running-a-session">Running a session</h2>
 <p>Before we run a session, we have a few other inputs the mtcnn model is expecting.  We're gonna use the same defaults the mtcnn library for these values:</p>
 <pre style="background-color:#2b303b;">
@@ -209,9 +209,21 @@
 </span><span style="color:#c0c5ce;">    </span><span style="color:#65737e;">//Step `i` ahead by 1. 
 </span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">j += </span><span style="color:#d08770;">1</span><span style="color:#c0c5ce;">;
 </span><span style="color:#c0c5ce;">}
-</span></pre>
-<p><em>(Note: I'm sure someone more astute could do this much cleaner with combinators!)</em></p>
-<h3 id="printing-out-the-bounding-boxes">Printing out the bounding boxes</h3>
+</span></pre><h5 id="combinators">Combinators</h5>
+<p>Alternatively, we could use combinators to replace the one above.</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> bboxes: Vec&lt;_&gt; = bbox_res
+</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">.</span><span style="color:#96b5b4;">chunks_exact</span><span style="color:#c0c5ce;">(</span><span style="color:#d08770;">4</span><span style="color:#c0c5ce;">) </span><span style="color:#65737e;">// Split into chunks of 4
+</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">.</span><span style="color:#96b5b4;">zip</span><span style="color:#c0c5ce;">(prob_res.</span><span style="color:#96b5b4;">iter</span><span style="color:#c0c5ce;">()) </span><span style="color:#65737e;">// Combine it with prob_res
+</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">.</span><span style="color:#96b5b4;">map</span><span style="color:#c0c5ce;">(|(</span><span style="color:#bf616a;">bbox</span><span style="color:#c0c5ce;">, &amp;</span><span style="color:#bf616a;">prob</span><span style="color:#c0c5ce;">)| BBox {
+</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">y1: bbox[</span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">],
+</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">x1: bbox[</span><span style="color:#d08770;">1</span><span style="color:#c0c5ce;">],
+</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">y2: bbox[</span><span style="color:#d08770;">2</span><span style="color:#c0c5ce;">],
+</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">x2: bbox[</span><span style="color:#d08770;">3</span><span style="color:#c0c5ce;">],
+</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">prob,
+</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">})
+</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">.</span><span style="color:#96b5b4;">collect</span><span style="color:#c0c5ce;">();
+</span></pre><h3 id="printing-out-the-bounding-boxes">Printing out the bounding boxes</h3>
 <p>Ok, we haven't encoded the bounding boxes into an image, yet. but let's debug to make sure we're getting back <em>something</em>:</p>
 <pre style="background-color:#2b303b;">
 <span style="color:#c0c5ce;">println!(&quot;</span><span style="color:#a3be8c;">BBox Length: </span><span style="color:#d08770;">{}</span><span style="color:#a3be8c;">, Bboxes:</span><span style="color:#d08770;">{:#?}</span><span style="color:#c0c5ce;">&quot;, bboxes.</span><span style="color:#96b5b4;">len</span><span style="color:#c0c5ce;">(), bboxes);
@@ -238,9 +250,9 @@
 </span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">data: [</span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">, </span><span style="color:#d08770;">255</span><span style="color:#c0c5ce;">, </span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">, </span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">],
 </span><span style="color:#c0c5ce;">};
 </span></pre>
-<p>Now stepping back into it.  We are feeding in the input image read only, so let's first make a clone of it that we can draw onto:</p>
+<p>Now stepping back into it.  We are feeding in the input image read only, so let's use the first image to draw onto:</p>
 <pre style="background-color:#2b303b;">
-<span style="color:#b48ead;">let mut</span><span style="color:#c0c5ce;"> output_image = input_image.</span><span style="color:#96b5b4;">clone</span><span style="color:#c0c5ce;">();
+<span style="color:#b48ead;">let mut</span><span style="color:#c0c5ce;"> output_image = input_image;
 </span></pre>
 <p>Then we iterate through our bounding boxes:</p>
 <pre style="background-color:#2b303b;">
@@ -256,11 +268,11 @@
 </span></pre>
 <p>Then draw the rect:</p>
 <pre style="background-color:#2b303b;">
-<span style="color:#96b5b4;">draw_hollow_rect_mut</span><span style="color:#c0c5ce;">(&amp;</span><span style="color:#b48ead;">mut</span><span style="color:#c0c5ce;"> img, rect, </span><span style="color:#d08770;">LINE_COLOUR</span><span style="color:#c0c5ce;">);
+<span style="color:#96b5b4;">draw_hollow_rect_mut</span><span style="color:#c0c5ce;">(&amp;</span><span style="color:#b48ead;">mut</span><span style="color:#c0c5ce;"> output_image, rect, </span><span style="color:#d08770;">LINE_COLOUR</span><span style="color:#c0c5ce;">);
 </span></pre>
 <p>Once the for loop is done, we save it in the output file:</p>
 <pre style="background-color:#2b303b;">
-<span style="color:#c0c5ce;">output_image.</span><span style="color:#96b5b4;">save</span><span style="color:#c0c5ce;">(&amp;opt.output)?
+<span style="color:#c0c5ce;">output_image.</span><span style="color:#96b5b4;">save</span><span style="color:#c0c5ce;">(&amp;opt.output)?;
 </span></pre>
 <p>And we're done. Let's run it!</p>
 <pre style="background-color:#2b303b;">
