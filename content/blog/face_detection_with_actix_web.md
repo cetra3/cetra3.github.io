@@ -789,6 +789,10 @@ fn return_overlay(
                 .headers_mut()
                 .insert(CONTENT_TYPE, HeaderValue::from_static("image/jpeg"));
             response
+            // alternatively, use the builder pattern for response
+            // HttpResponse::Ok()
+            //     .content_type("image/jpeg")
+            //     .message(body.into())
         })
 }
 ```
@@ -811,7 +815,7 @@ HttpServer::new(move || {
 Great! Let's run it:
 
 ```
-$ curl --data-binary @rustfest.jpg  http://localhost:8000/api/v1/bboxes > output.jpg
+$ curl --data-binary @rustfest.jpg  http://localhost:8000/api/v1/overlay > output.jpg
 ```
 
 And we have our original overlay!
