@@ -1,1 +1,2 @@
 User-agent: *
+Sitemap: https://cetra3.github.io/sitemap.xml

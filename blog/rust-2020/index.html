@@ -1,0 +1,76 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title> My Wishes for Rust 2020 - Cetra&#x27;s Thoughts </title>
+    <link href="/spectre.css" rel="stylesheet">
+    <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
+</head>
+
+<body>
+    <header class="navbar">
+        <section class="navbar-section">
+        </section>
+        <section class="navbar-center">
+        </section>
+        <section class="navbar-section">
+            <a href="https://github.com/cetra3/" class="btn btn-link">GitHub</a>
+            <a href="https://mastodon.social/@cetra3" class="btn btn-link">Mastodon</a>
+        </section>
+    </header>
+    <div class="container grid-lg">
+        
+<div class="post">
+  <h1>My Wishes for Rust 2020 </h1>
+  
+  <p> <small class="label label-primary">rust</small> <small class="label">2019-10-30</small></p>
+  
+  <p>2019 was another huge year for rust, but instead of implementing the shiny new thing, it's been a focus on refining existing ideas.</p>
+<p>Having being using rust professionally for over 3 years, I feel I will very soon be regailing new rust developers of the times before NLL &amp; async, where we had to play <a href="https://github.com/rust-lang/rfcs/blob/master/text/2094-nll.md#problem-case-3-conditional-control-flow-across-functions">lexicon-fu</a> to get things like caches to work in a reasonable fashion, or using super dooper combinator chains and wrestling with futures types (<code>Either::A/B</code> anyone?).</p>
+<p>So I'd like to make clear my acknowledgement that I am happy with the direction that the rust language is heading in, and these requests are really nice to haves.</p>
+<h2 id="the-future-of-futures">The Future of Futures</h2>
+<p>The async/await is on track to be stabilised next month, which means it's not a goal for 2020, but we have to look back to the futures-rs! There is a whole ecosystem that now needs to play catchup and I hope that it does within the year 2020.</p>
+<p>I also really hope they start using the logo a bit more!</p>
+<p><img src="https://rust-lang-nursery.github.io/futures-rs/assets/images/futures-rs-logo.svg" alt="" /></p>
+<h3 id="tokio-version-1-0">Tokio version <code>1.0</code></h3>
+<p>I would like to see tokio version <code>1.0</code> in 2020.  I would also like the core of tokio to be trimmed down immensely for inclusion as a dependency.  Just a small wish I know!</p>
+<p>I understand the reluctance to brand it as <code>1.0</code> but there is already a lot of churn from the move from <code>tokio-core</code> last year.  This would also signal to users that it is mostly stabilised, since async/await is dropping soon. I haven't been following development closely to know if there are any further blockers beyond this though.</p>
+<h3 id="alternatives-to-tokio">Alternatives to tokio</h3>
+<p>I'd also like to see more than one library for async reach wide use.  I'd like to be able to mix and match executors with library code, and choose an implementation.  The promise of async/await should allow for this in theory, but we'll have to see what it's like in practice.</p>
+<p>This will both add a bit of healthy competition to the ecosystem but will also prevent future design decisions from library bias.</p>
+<p>I know that <a href="https://github.com/async-rs/async-std">async-std</a> is a great contender here and I hope that one day I could use this as a (mostly) drop in replacement for running my futures.</p>
+<p>This might already be possible, but I'd have no idea how to integrate this to my existing libraries (i.e, <a href="https://crates.io/crates/tmq">tmq</a> and <a href="https://crates.io/crates/mpart-async">mpart-async</a>) in an agnostic fashion.</p>
+<h3 id="non-async-stuff">Non-Async stuff</h3>
+<p>Some more care needs to be put into the non-async world.  There was a great thread about an <a href="https://users.rust-lang.org/t/lightweight-alternative-for-reqwest/33601">alternative to reqwest</a> which doesn't require the entire async stack to run.</p>
+<p>I would also like to see the blending of async and sync code made easier. Sometimes you want to use a db pool such as diesel, and currently that is a very messy thing to do.</p>
+<p>It would be great if that bridge was seamless and doesn't shoot you in the foot (i.e, make it a compile time guarantee to ensure no blocking code in async).</p>
+<h2 id="chat-and-community-channels">Chat and Community Channels</h2>
+<p>I really enjoyed the IRC chat room, but as <a href="http://exple.tive.org/blarg/2019/09/06/forward-motion/">Mozilla is decommissioning it</a>, it feels like there is now a massive empty hole where a good resource use to be.</p>
+<p>This isn't really something that the rust team themselves can do anything about, but I also don't think fragmenting team discussions across a variety of chat platforms sets a good precedent for the greater rust community.</p>
+<p>I don't have any direct qualms about using discord (which is currently recommended on the <a href="http://web.archive.org/web/20191006130756/https://www.rust-lang.org/community">community page</a>) but it would be preferable if whatever was chosen was both accessible and open.  I'd love it to be <a href="https://matrix.org/">matrix</a>, but <a href="https://about.riot.im/">riot</a> is a bit of a clunky client, and there isn't really a better alternative client.  Discord has much more polish.</p>
+<p>(As an aside the fediverse stuff is pretty cool! <a href="https://joinmastodon.org/">mastodon</a> and <a href="https://pixelfed.org/">pixelfed</a> are great apps and I wish we saw more rusty stuff in this space)</p>
+<h2 id="reflecting-on-last-year-s-wishes">Reflecting on Last Year's Wishes</h2>
+<p>My <a href="../rust-2019/">last blog</a> I had 3 main areas of improvement that I would like to have seen a focus on.</p>
+<h3 id="compiler-times-ide-support-and-rls">Compiler Times, IDE Support and RLS</h3>
+<p>This is still in flux but appears to be a step in the right direction.  move over <a href="https://github.com/rust-lang/rls">rls</a> and welcome <a href="https://github.com/rust-analyzer/rust-analyzer">rust-analyzer</a>.</p>
+<p>It seems the IDE story is a lot better, but still a long way off.  Who knew it could be so hard!  IntelliJ has made strides this year in making their IDE much better.  Still though, every few months I load up some of my bigger rust projects, only to have some weirdness show up.</p>
+<p>I feel like this is very much an aspirational goal though, IDEs for all languages continue and improve to get better with time.  It's not ever going to be the ideal of an IDE, but it's trending towards it.</p>
+<h3 id="async-await">Async/Await</h3>
+<p>The Async/Await story definitely improved with the imminent release (as of this blog) of <code>async</code> syntax landing on stable. </p>
+<p>While there was a substantial amount of dogfooding around the syntax, I feel that the language team has settled on an appropriate solution.  It looks a bit weird at first, but the promise of having <code>match</code> or others use the same syntax style is intruiging.</p>
+<h3 id="documentation-churn">Documentation Churn</h3>
+<p>This is still an area of concern, but has been addressed mostly in some of the frameworks I've seen.  I feel like this won't be fixed until all the ecosystem has stabilised around new language features and we land a few more <code>1.0</code> crates.</p>
+<p>It's going to be a hassle redoing examples with async keywords!</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>I am happy with the way things have progressed throughout 2019 and I feel that 2020 is going to be a massively exciting time for rust.</p>
+<p>I don't feel there is a need for another epoch just yet, considering we're still working through the current one.</p>
+<p>Let's work towards polishing the async ecosystem for this year, and hopefully we'll have a very compelling story for everyone else to get involved.</p>
+
+
+</div>
+
+    </div>
+</body>
+
+</html>

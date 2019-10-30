@@ -16,6 +16,7 @@
         </section>
         <section class="navbar-section">
             <a href="https://github.com/cetra3/" class="btn btn-link">GitHub</a>
+            <a href="https://mastodon.social/@cetra3" class="btn btn-link">Mastodon</a>
         </section>
     </header>
     <div class="container grid-lg">
@@ -42,36 +43,36 @@
 </span><span style="color:#bf616a;">name </span><span style="color:#c0c5ce;">= &quot;</span><span style="color:#a3be8c;">mtcnn</span><span style="color:#c0c5ce;">&quot;
 </span><span style="color:#bf616a;">version </span><span style="color:#c0c5ce;">= &quot;</span><span style="color:#a3be8c;">0.1.0</span><span style="color:#c0c5ce;">&quot;
 </span><span style="color:#bf616a;">edition </span><span style="color:#c0c5ce;">= &quot;</span><span style="color:#a3be8c;">2018</span><span style="color:#c0c5ce;">&quot;
-</span><span style="color:#c0c5ce;">
-</span><span style="color:#c0c5ce;">[dependencies]
+
+[dependencies]
 </span><span style="color:#bf616a;">tensorflow </span><span style="color:#c0c5ce;">= &quot;</span><span style="color:#a3be8c;">0.12.0</span><span style="color:#c0c5ce;">&quot;
 </span></pre>
 <p>What we're going to do is load a <a href="https://tensorflow.github.io/rust/tensorflow/struct.Graph.html">Graph</a> which is the pre-trained MTCNN, and run a session.  The gist is that a Graph is the model used for computation, and a Session is one <code>run</code> of the Graph.  A lot more information about these concepts can be found <a href="https://www.tensorflow.org/guide/graphs">here</a>.  I like to think of the Graph as an artificial brain in a vat, just to get some great imagery when you start plugging in inputs and outputs.</p>
 <p>So let's start by grabbing the existing <a href="https://github.com/blaueck/tf-mtcnn/raw/master/mtcnn.pb">mtcnn.pb</a> model and trying to load it up.  Tensorflow graphs are serialised out in protobuf format and can be loaded in using <code>Graph::import_graph_def</code>.</p>
 <pre style="background-color:#2b303b;">
 <span style="color:#b48ead;">use </span><span style="color:#c0c5ce;">std::error::Error;
-</span><span style="color:#c0c5ce;">
+
 </span><span style="color:#b48ead;">use </span><span style="color:#c0c5ce;">tensorflow::Graph;
 </span><span style="color:#b48ead;">use </span><span style="color:#c0c5ce;">tensorflow::ImportGraphDefOptions;
-</span><span style="color:#c0c5ce;">
+
 </span><span style="color:#b48ead;">fn </span><span style="color:#8fa1b3;">main</span><span style="color:#c0c5ce;">() -&gt; Result&lt;(), Box&lt;dyn Error&gt;&gt; {
-</span><span style="color:#c0c5ce;">
-</span><span style="color:#c0c5ce;">    </span><span style="color:#65737e;">//First, we load up the graph as a byte array
-</span><span style="color:#c0c5ce;">    </span><span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> model = include_bytes!(&quot;</span><span style="color:#a3be8c;">mtcnn.pb</span><span style="color:#c0c5ce;">&quot;);
-</span><span style="color:#c0c5ce;">
-</span><span style="color:#c0c5ce;">    </span><span style="color:#65737e;">//Then we create a tensorflow graph from the model
-</span><span style="color:#c0c5ce;">    </span><span style="color:#b48ead;">let mut</span><span style="color:#c0c5ce;"> graph = Graph::new();
-</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">graph.</span><span style="color:#96b5b4;">import_graph_def</span><span style="color:#c0c5ce;">(&amp;*model, &amp;ImportGraphDefOptions::new())?
-</span><span style="color:#c0c5ce;">
-</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">Ok(())
-</span><span style="color:#c0c5ce;">}
+
+    </span><span style="color:#65737e;">//First, we load up the graph as a byte array
+    </span><span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> model = include_bytes!(&quot;</span><span style="color:#a3be8c;">mtcnn.pb</span><span style="color:#c0c5ce;">&quot;);
+
+    </span><span style="color:#65737e;">//Then we create a tensorflow graph from the model
+    </span><span style="color:#b48ead;">let mut</span><span style="color:#c0c5ce;"> graph = Graph::new();
+    graph.</span><span style="color:#96b5b4;">import_graph_def</span><span style="color:#c0c5ce;">(&amp;*model, &amp;ImportGraphDefOptions::new())?
+
+    Ok(())
+}
 </span></pre>
 <p>Running <code>cargo run</code> we should see no errors:</p>
 <pre style="background-color:#2b303b;">
 <span style="color:#c0c5ce;">$ cargo run
-</span><span style="color:#c0c5ce;">   </span><span style="color:#c0c5ce;">Compiling mtcnn v0.1.0 (~/mtcnn)
-</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">Finished dev [unoptimized + debuginfo] target(s) in 0.89s
-</span><span style="color:#c0c5ce;">     </span><span style="color:#c0c5ce;">Running `target/debug/mtcnn`
+   Compiling mtcnn v0.1.0 (~/mtcnn)
+    Finished dev [unoptimized + debuginfo] target(s) in 0.89s
+     Running `target/debug/mtcnn`
 </span></pre>
 <p>Great! Looks like we can load the graph!</p>
 <h2 id="structopt-and-the-command-line">StructOpt and the Command Line</h2>
@@ -81,24 +82,24 @@
 <pre style="background-color:#2b303b;">
 <span style="color:#b48ead;">use </span><span style="color:#c0c5ce;">std::path::PathBuf;
 </span><span style="color:#b48ead;">use </span><span style="color:#c0c5ce;">structopt::StructOpt
-</span><span style="color:#c0c5ce;">
-</span><span style="color:#c0c5ce;">#[</span><span style="color:#bf616a;">derive</span><span style="color:#c0c5ce;">(StructOpt)]
+
+#[</span><span style="color:#bf616a;">derive</span><span style="color:#c0c5ce;">(StructOpt)]
 </span><span style="color:#b48ead;">struct </span><span style="color:#c0c5ce;">Opt {
-</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">#[structopt(parse(from_os_str))]
-</span><span style="color:#c0c5ce;">    </span><span style="color:#bf616a;">input</span><span style="color:#c0c5ce;">: PathBuf,
-</span><span style="color:#c0c5ce;">
-</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">#[structopt(parse(from_os_str))]
-</span><span style="color:#c0c5ce;">    </span><span style="color:#bf616a;">output</span><span style="color:#c0c5ce;">: PathBuf
-</span><span style="color:#c0c5ce;">}
+    #[structopt(parse(from_os_str))]
+    </span><span style="color:#bf616a;">input</span><span style="color:#c0c5ce;">: PathBuf,
+
+    #[structopt(parse(from_os_str))]
+    </span><span style="color:#bf616a;">output</span><span style="color:#c0c5ce;">: PathBuf
+}
 </span></pre>
 <p>The <code>parse(from_os_str)</code> attribute will convert a string argument directly into a <code>PathBuf</code> to save us some boiler plate</p>
 <p>We can then use this to get a struct with our command line arguments</p>
 <pre style="background-color:#2b303b;">
 <span style="color:#b48ead;">fn </span><span style="color:#8fa1b3;">main</span><span style="color:#c0c5ce;">() -&gt; Result&lt;(), Box&lt;dyn Error&gt;&gt; {
-</span><span style="color:#c0c5ce;">
-</span><span style="color:#c0c5ce;">    </span><span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> opt = Opt::from_args();
-</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">....
-</span><span style="color:#c0c5ce;">}
+
+    </span><span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> opt = Opt::from_args();
+    ....
+}
 </span></pre><h2 id="loading-image-data">Loading Image Data</h2>
 <p>We need to provide the tensorflow graph with our image data.  So how do we do that? We use a <a href="https://tensorflow.github.io/rust/tensorflow/struct.Tensor.html">Tensor</a>!  Tensors represent data within our graph, it sort of reminds me of sending vertices to a GPU.  You have a big slice of data, and send it in a format that tensorflow is expecting.</p>
 <p>The <code>input</code> tensor in this graph is an array of floats, with dimensions: <code>height</code> x <code>width</code> x <code>3</code> (for 3 colour channels).</p>
@@ -110,18 +111,18 @@
 <p>Putting it all together:</p>
 <pre style="background-color:#2b303b;">
 <span style="color:#b48ead;">let mut</span><span style="color:#c0c5ce;"> flattened: Vec&lt;</span><span style="color:#b48ead;">f32</span><span style="color:#c0c5ce;">&gt; = Vec::new();
-</span><span style="color:#c0c5ce;">
+
 </span><span style="color:#b48ead;">for </span><span style="color:#c0c5ce;">(_x, _y, rgb) in input_image.</span><span style="color:#96b5b4;">pixels</span><span style="color:#c0c5ce;">() {
-</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">flattened.</span><span style="color:#96b5b4;">push</span><span style="color:#c0c5ce;">(rgb[</span><span style="color:#d08770;">2</span><span style="color:#c0c5ce;">] as </span><span style="color:#b48ead;">f32</span><span style="color:#c0c5ce;">);
-</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">flattened.</span><span style="color:#96b5b4;">push</span><span style="color:#c0c5ce;">(rgb[</span><span style="color:#d08770;">1</span><span style="color:#c0c5ce;">] as </span><span style="color:#b48ead;">f32</span><span style="color:#c0c5ce;">);
-</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">flattened.</span><span style="color:#96b5b4;">push</span><span style="color:#c0c5ce;">(rgb[</span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">] as </span><span style="color:#b48ead;">f32</span><span style="color:#c0c5ce;">);
-</span><span style="color:#c0c5ce;">}
+    flattened.</span><span style="color:#96b5b4;">push</span><span style="color:#c0c5ce;">(rgb[</span><span style="color:#d08770;">2</span><span style="color:#c0c5ce;">] as </span><span style="color:#b48ead;">f32</span><span style="color:#c0c5ce;">);
+    flattened.</span><span style="color:#96b5b4;">push</span><span style="color:#c0c5ce;">(rgb[</span><span style="color:#d08770;">1</span><span style="color:#c0c5ce;">] as </span><span style="color:#b48ead;">f32</span><span style="color:#c0c5ce;">);
+    flattened.</span><span style="color:#96b5b4;">push</span><span style="color:#c0c5ce;">(rgb[</span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">] as </span><span style="color:#b48ead;">f32</span><span style="color:#c0c5ce;">);
+}
 </span></pre>
 <p>This simply iterates through the pixels, adding them to a flattened Vec.</p>
 <p>We can then load this into a tensor, specifying the image height and width as arguments:</p>
 <pre style="background-color:#2b303b;">
 <span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> input = Tensor::new(&amp;[input_image.</span><span style="color:#96b5b4;">height</span><span style="color:#c0c5ce;">() as </span><span style="color:#b48ead;">u64</span><span style="color:#c0c5ce;">, input_image.</span><span style="color:#96b5b4;">width</span><span style="color:#c0c5ce;">() as </span><span style="color:#b48ead;">u64</span><span style="color:#c0c5ce;">, </span><span style="color:#d08770;">3</span><span style="color:#c0c5ce;">])
-</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">.</span><span style="color:#96b5b4;">with_values</span><span style="color:#c0c5ce;">(&amp;flattened)?
+    .</span><span style="color:#96b5b4;">with_values</span><span style="color:#c0c5ce;">(&amp;flattened)?
 </span></pre>
 <p>Great! we have loaded our image into a format that the graph understands.  Let's run a session!</p>
 <h3 id="creating-a-tensorflow-session">Creating a tensorflow session</h3>
@@ -139,12 +140,12 @@
 <p>Now we build the session arguments for the inputs:</p>
 <pre style="background-color:#2b303b;">
 <span style="color:#b48ead;">let mut</span><span style="color:#c0c5ce;"> args = SessionRunArgs::new();
-</span><span style="color:#c0c5ce;">
+
 </span><span style="color:#65737e;">//Load our parameters for the model
 </span><span style="color:#c0c5ce;">args.</span><span style="color:#96b5b4;">add_feed</span><span style="color:#c0c5ce;">(&amp;graph.</span><span style="color:#96b5b4;">operation_by_name_required</span><span style="color:#c0c5ce;">(&quot;</span><span style="color:#a3be8c;">min_size</span><span style="color:#c0c5ce;">&quot;)?, </span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">, &amp;min_size);
-</span><span style="color:#c0c5ce;">args.</span><span style="color:#96b5b4;">add_feed</span><span style="color:#c0c5ce;">(&amp;graph.</span><span style="color:#96b5b4;">operation_by_name_required</span><span style="color:#c0c5ce;">(&quot;</span><span style="color:#a3be8c;">thresholds</span><span style="color:#c0c5ce;">&quot;)?, </span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">, &amp;thresholds);
-</span><span style="color:#c0c5ce;">args.</span><span style="color:#96b5b4;">add_feed</span><span style="color:#c0c5ce;">(&amp;graph.</span><span style="color:#96b5b4;">operation_by_name_required</span><span style="color:#c0c5ce;">(&quot;</span><span style="color:#a3be8c;">factor</span><span style="color:#c0c5ce;">&quot;)?, </span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">, &amp;factor);
-</span><span style="color:#c0c5ce;">
+args.</span><span style="color:#96b5b4;">add_feed</span><span style="color:#c0c5ce;">(&amp;graph.</span><span style="color:#96b5b4;">operation_by_name_required</span><span style="color:#c0c5ce;">(&quot;</span><span style="color:#a3be8c;">thresholds</span><span style="color:#c0c5ce;">&quot;)?, </span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">, &amp;thresholds);
+args.</span><span style="color:#96b5b4;">add_feed</span><span style="color:#c0c5ce;">(&amp;graph.</span><span style="color:#96b5b4;">operation_by_name_required</span><span style="color:#c0c5ce;">(&quot;</span><span style="color:#a3be8c;">factor</span><span style="color:#c0c5ce;">&quot;)?, </span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">, &amp;factor);
+
 </span><span style="color:#65737e;">//Load our input image
 </span><span style="color:#c0c5ce;">args.</span><span style="color:#96b5b4;">add_feed</span><span style="color:#c0c5ce;">(&amp;graph.</span><span style="color:#96b5b4;">operation_by_name_required</span><span style="color:#c0c5ce;">(&quot;</span><span style="color:#a3be8c;">input</span><span style="color:#c0c5ce;">&quot;)?, </span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">, &amp;input);
 </span></pre>
@@ -167,12 +168,12 @@
 <pre style="background-color:#2b303b;">
 <span style="color:#c0c5ce;">#[</span><span style="color:#bf616a;">derive</span><span style="color:#c0c5ce;">(Copy, Clone, Debug)]
 </span><span style="color:#b48ead;">pub struct </span><span style="color:#c0c5ce;">BBox {
-</span><span style="color:#c0c5ce;">    </span><span style="color:#b48ead;">pub </span><span style="color:#bf616a;">x1</span><span style="color:#c0c5ce;">: </span><span style="color:#b48ead;">f32</span><span style="color:#c0c5ce;">,
-</span><span style="color:#c0c5ce;">    </span><span style="color:#b48ead;">pub </span><span style="color:#bf616a;">y1</span><span style="color:#c0c5ce;">: </span><span style="color:#b48ead;">f32</span><span style="color:#c0c5ce;">,
-</span><span style="color:#c0c5ce;">    </span><span style="color:#b48ead;">pub </span><span style="color:#bf616a;">x2</span><span style="color:#c0c5ce;">: </span><span style="color:#b48ead;">f32</span><span style="color:#c0c5ce;">,
-</span><span style="color:#c0c5ce;">    </span><span style="color:#b48ead;">pub </span><span style="color:#bf616a;">y2</span><span style="color:#c0c5ce;">: </span><span style="color:#b48ead;">f32</span><span style="color:#c0c5ce;">,
-</span><span style="color:#c0c5ce;">    </span><span style="color:#b48ead;">pub </span><span style="color:#bf616a;">prob</span><span style="color:#c0c5ce;">: </span><span style="color:#b48ead;">f32</span><span style="color:#c0c5ce;">,
-</span><span style="color:#c0c5ce;">}
+    </span><span style="color:#b48ead;">pub </span><span style="color:#bf616a;">x1</span><span style="color:#c0c5ce;">: </span><span style="color:#b48ead;">f32</span><span style="color:#c0c5ce;">,
+    </span><span style="color:#b48ead;">pub </span><span style="color:#bf616a;">y1</span><span style="color:#c0c5ce;">: </span><span style="color:#b48ead;">f32</span><span style="color:#c0c5ce;">,
+    </span><span style="color:#b48ead;">pub </span><span style="color:#bf616a;">x2</span><span style="color:#c0c5ce;">: </span><span style="color:#b48ead;">f32</span><span style="color:#c0c5ce;">,
+    </span><span style="color:#b48ead;">pub </span><span style="color:#bf616a;">y2</span><span style="color:#c0c5ce;">: </span><span style="color:#b48ead;">f32</span><span style="color:#c0c5ce;">,
+    </span><span style="color:#b48ead;">pub </span><span style="color:#bf616a;">prob</span><span style="color:#c0c5ce;">: </span><span style="color:#b48ead;">f32</span><span style="color:#c0c5ce;">,
+}
 </span></pre>
 <p>We'll omit landmarks for simplicity, but can always add them back if we need.  Our job is to convert the arrays we get back from the tensorflow session into this struct so it's more meaningful.</p>
 <h3 id="saving-the-output">Saving the Output</h3>
@@ -187,42 +188,42 @@
 <span style="color:#c0c5ce;">
 </span><span style="color:#65737e;">//Let&#39;s store the results as a Vec&lt;BBox&gt;
 </span><span style="color:#b48ead;">let mut</span><span style="color:#c0c5ce;"> bboxes = Vec::new();
-</span><span style="color:#c0c5ce;">
+
 </span><span style="color:#b48ead;">let mut</span><span style="color:#c0c5ce;"> i = </span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">;
 </span><span style="color:#b48ead;">let mut</span><span style="color:#c0c5ce;"> j = </span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">;
-</span><span style="color:#c0c5ce;">
+
 </span><span style="color:#65737e;">//While we have responses, iterate through
 </span><span style="color:#b48ead;">while</span><span style="color:#c0c5ce;"> i &lt; bbox_res.</span><span style="color:#96b5b4;">len</span><span style="color:#c0c5ce;">() {
-</span><span style="color:#c0c5ce;">
-</span><span style="color:#c0c5ce;">    </span><span style="color:#65737e;">//Add in the 4 floats from the `bbox_res` array. 
-</span><span style="color:#c0c5ce;">    </span><span style="color:#65737e;">//Notice the y1, x1, etc.. is ordered differently to our struct definition.
-</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">bboxes.</span><span style="color:#96b5b4;">push</span><span style="color:#c0c5ce;">(BBox {
-</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">y1: bbox_res[i],
-</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">x1: bbox_res[i + </span><span style="color:#d08770;">1</span><span style="color:#c0c5ce;">],
-</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">y2: bbox_res[i + </span><span style="color:#d08770;">2</span><span style="color:#c0c5ce;">],
-</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">x2: bbox_res[i + </span><span style="color:#d08770;">3</span><span style="color:#c0c5ce;">],
-</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">prob: prob_res[j], </span><span style="color:#65737e;">// Add in the facial probability
-</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">});
-</span><span style="color:#c0c5ce;">
-</span><span style="color:#c0c5ce;">    </span><span style="color:#65737e;">//Step `i` ahead by 4. 
-</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">i += </span><span style="color:#d08770;">4</span><span style="color:#c0c5ce;">;
-</span><span style="color:#c0c5ce;">    </span><span style="color:#65737e;">//Step `i` ahead by 1. 
-</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">j += </span><span style="color:#d08770;">1</span><span style="color:#c0c5ce;">;
-</span><span style="color:#c0c5ce;">}
+
+    </span><span style="color:#65737e;">//Add in the 4 floats from the `bbox_res` array. 
+    //Notice the y1, x1, etc.. is ordered differently to our struct definition.
+</span><span style="color:#c0c5ce;">    bboxes.</span><span style="color:#96b5b4;">push</span><span style="color:#c0c5ce;">(BBox {
+        y1: bbox_res[i],
+        x1: bbox_res[i + </span><span style="color:#d08770;">1</span><span style="color:#c0c5ce;">],
+        y2: bbox_res[i + </span><span style="color:#d08770;">2</span><span style="color:#c0c5ce;">],
+        x2: bbox_res[i + </span><span style="color:#d08770;">3</span><span style="color:#c0c5ce;">],
+        prob: prob_res[j], </span><span style="color:#65737e;">// Add in the facial probability
+    </span><span style="color:#c0c5ce;">});
+
+    </span><span style="color:#65737e;">//Step `i` ahead by 4. 
+</span><span style="color:#c0c5ce;">    i += </span><span style="color:#d08770;">4</span><span style="color:#c0c5ce;">;
+    </span><span style="color:#65737e;">//Step `i` ahead by 1. 
+</span><span style="color:#c0c5ce;">    j += </span><span style="color:#d08770;">1</span><span style="color:#c0c5ce;">;
+}
 </span></pre><h5 id="combinators">Combinators</h5>
 <p>Alternatively, we could use combinators to replace the one above.</p>
 <pre style="background-color:#2b303b;">
 <span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> bboxes: Vec&lt;_&gt; = bbox_res
-</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">.</span><span style="color:#96b5b4;">chunks_exact</span><span style="color:#c0c5ce;">(</span><span style="color:#d08770;">4</span><span style="color:#c0c5ce;">) </span><span style="color:#65737e;">// Split into chunks of 4
-</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">.</span><span style="color:#96b5b4;">zip</span><span style="color:#c0c5ce;">(prob_res.</span><span style="color:#96b5b4;">iter</span><span style="color:#c0c5ce;">()) </span><span style="color:#65737e;">// Combine it with prob_res
-</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">.</span><span style="color:#96b5b4;">map</span><span style="color:#c0c5ce;">(|(</span><span style="color:#bf616a;">bbox</span><span style="color:#c0c5ce;">, &amp;</span><span style="color:#bf616a;">prob</span><span style="color:#c0c5ce;">)| BBox {
-</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">y1: bbox[</span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">],
-</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">x1: bbox[</span><span style="color:#d08770;">1</span><span style="color:#c0c5ce;">],
-</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">y2: bbox[</span><span style="color:#d08770;">2</span><span style="color:#c0c5ce;">],
-</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">x2: bbox[</span><span style="color:#d08770;">3</span><span style="color:#c0c5ce;">],
-</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">prob,
-</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">})
-</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">.</span><span style="color:#96b5b4;">collect</span><span style="color:#c0c5ce;">();
+    .</span><span style="color:#96b5b4;">chunks_exact</span><span style="color:#c0c5ce;">(</span><span style="color:#d08770;">4</span><span style="color:#c0c5ce;">) </span><span style="color:#65737e;">// Split into chunks of 4
+    </span><span style="color:#c0c5ce;">.</span><span style="color:#96b5b4;">zip</span><span style="color:#c0c5ce;">(prob_res.</span><span style="color:#96b5b4;">iter</span><span style="color:#c0c5ce;">()) </span><span style="color:#65737e;">// Combine it with prob_res
+    </span><span style="color:#c0c5ce;">.</span><span style="color:#96b5b4;">map</span><span style="color:#c0c5ce;">(|(</span><span style="color:#bf616a;">bbox</span><span style="color:#c0c5ce;">, &amp;</span><span style="color:#bf616a;">prob</span><span style="color:#c0c5ce;">)| BBox {
+        y1: bbox[</span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">],
+        x1: bbox[</span><span style="color:#d08770;">1</span><span style="color:#c0c5ce;">],
+        y2: bbox[</span><span style="color:#d08770;">2</span><span style="color:#c0c5ce;">],
+        x2: bbox[</span><span style="color:#d08770;">3</span><span style="color:#c0c5ce;">],
+        prob,
+    })
+    .</span><span style="color:#96b5b4;">collect</span><span style="color:#c0c5ce;">();
 </span></pre><h3 id="printing-out-the-bounding-boxes">Printing out the bounding boxes</h3>
 <p>Ok, we haven't encoded the bounding boxes into an image, yet. but let's debug to make sure we're getting back <em>something</em>:</p>
 <pre style="background-color:#2b303b;">
@@ -231,14 +232,14 @@
 <p>Running this, what do we get back:</p>
 <pre style="background-color:#2b303b;">
 <span style="color:#c0c5ce;">BBox Length: 120, BBoxes:[
-</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">BBox {
-</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">x1: 471.4591,
-</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">y1: 287.59888,
-</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">x2: 495.3053,
-</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">y2: 317.25327,
-</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">prob: 0.9999908
-</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">},
-</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">....
+    BBox {
+        x1: 471.4591,
+        y1: 287.59888,
+        x2: 495.3053,
+        y2: 317.25327,
+        prob: 0.9999908
+    },
+    ....
 </span></pre>
 <p>Whoa! 120 faces! Awesome!</p>
 <h2 id="drawing-the-bounding-boxes">Drawing the Bounding Boxes</h2>
@@ -247,8 +248,8 @@
 <p>Firstly, we'll make the line colour constant green outside of our <code>main()</code> function:</p>
 <pre style="background-color:#2b303b;">
 <span style="color:#b48ead;">const </span><span style="color:#d08770;">LINE_COLOUR</span><span style="color:#c0c5ce;">: Rgba&lt;</span><span style="color:#b48ead;">u8</span><span style="color:#c0c5ce;">&gt; = Rgba {
-</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">data: [</span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">, </span><span style="color:#d08770;">255</span><span style="color:#c0c5ce;">, </span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">, </span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">],
-</span><span style="color:#c0c5ce;">};
+        data: [</span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">, </span><span style="color:#d08770;">255</span><span style="color:#c0c5ce;">, </span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">, </span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">],
+};
 </span></pre>
 <p>Now stepping back into it.  We are feeding in the input image read only, so let's use the first image to draw onto:</p>
 <pre style="background-color:#2b303b;">
@@ -257,14 +258,14 @@
 <p>Then we iterate through our bounding boxes:</p>
 <pre style="background-color:#2b303b;">
 <span style="color:#b48ead;">for</span><span style="color:#c0c5ce;"> bbox in bboxes {
-</span><span style="color:#c0c5ce;">    </span><span style="color:#65737e;">//Drawing Happens Here!
+    </span><span style="color:#65737e;">//Drawing Happens Here!
 </span><span style="color:#c0c5ce;">}
 </span></pre>
 <p>Next, we use the <code>draw_hollow_rect_mut</code> function.  This will take a mutable image reference, and draw a hollow rectangle (outline) specified by the input <code>Rect</code>, overwriting any existing pixels.</p>
 <p>The <code>Rect</code> takes an x and y coordinate with the <code>at</code> function, and then a width and height with the <code>of_size</code> function.  We use a bit of geometry to convert our bounding box to this format:</p>
 <pre style="background-color:#2b303b;">
 <span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> rect = Rect::at(bbox.x1 as </span><span style="color:#b48ead;">i32</span><span style="color:#c0c5ce;">, bbox.y1 as </span><span style="color:#b48ead;">i32</span><span style="color:#c0c5ce;">)
-</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">.</span><span style="color:#96b5b4;">of_size</span><span style="color:#c0c5ce;">((bbox.x2 - bbox.x1) as </span><span style="color:#b48ead;">u32</span><span style="color:#c0c5ce;">, (bbox.y2 - bbox.y1) as </span><span style="color:#b48ead;">u32</span><span style="color:#c0c5ce;">);
+    .</span><span style="color:#96b5b4;">of_size</span><span style="color:#c0c5ce;">((bbox.x2 - bbox.x1) as </span><span style="color:#b48ead;">u32</span><span style="color:#c0c5ce;">, (bbox.y2 - bbox.y1) as </span><span style="color:#b48ead;">u32</span><span style="color:#c0c5ce;">);
 </span></pre>
 <p>Then draw the rect:</p>
 <pre style="background-color:#2b303b;">
@@ -277,19 +278,19 @@
 <p>And we're done. Let's run it!</p>
 <pre style="background-color:#2b303b;">
 <span style="color:#c0c5ce;">$ cargo run rustfest.jpg output.jpg
-</span><span style="color:#c0c5ce;">   </span><span style="color:#c0c5ce;">Compiling mtcnn v0.1.0 (~/mtcnn)
-</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">Finished dev [unoptimized + debuginfo] target(s) in 5.12s
-</span><span style="color:#c0c5ce;">     </span><span style="color:#c0c5ce;">Running `target/debug/mtcnn rustfest.jpg output.jpg`
-</span><span style="color:#c0c5ce;">2019-03-28 16:15:48.194933: I tensorflow/core/platform/cpu_feature_guard.cc:141] Your CPU supports instructions that this TensorFlow binary was not compiled to use: SSE4.2 AVX AVX2 FMA
-</span><span style="color:#c0c5ce;">BBox Length: 154, BBoxes:[
-</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">BBox {
-</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">x1: 951.46875,
-</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">y1: 274.00577,
-</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">x2: 973.68304,
-</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">y2: 301.93915,
-</span><span style="color:#c0c5ce;">        </span><span style="color:#c0c5ce;">prob: 0.9999999
-</span><span style="color:#c0c5ce;">    </span><span style="color:#c0c5ce;">},
-</span><span style="color:#c0c5ce;">....
+   Compiling mtcnn v0.1.0 (~/mtcnn)
+    Finished dev [unoptimized + debuginfo] target(s) in 5.12s
+     Running `target/debug/mtcnn rustfest.jpg output.jpg`
+2019-03-28 16:15:48.194933: I tensorflow/core/platform/cpu_feature_guard.cc:141] Your CPU supports instructions that this TensorFlow binary was not compiled to use: SSE4.2 AVX AVX2 FMA
+BBox Length: 154, BBoxes:[
+    BBox {
+        x1: 951.46875,
+        y1: 274.00577,
+        x2: 973.68304,
+        y2: 301.93915,
+        prob: 0.9999999
+    },
+....
 </span></pre>
 <p>Looks good, no errors!</p>
 <h2 id="wrapping-up">Wrapping up</h2>
