@@ -2,25 +2,216 @@
 <rss xmlns:atom="http://www.w3.org/2005/Atom" version="2.0">
     <channel>
         <title>Cetra&#x27;s Thoughts</title>
-        <link>https%3A//cetra3.github.io</link>
+        <link>https://cetra3.github.io</link>
         <description>Notes and Discussion pieces</description>
         <generator>Zola</generator>
         <language>en</language>
-        <atom:link href="https%3A//cetra3.github.io/rss.xml" rel="self" type="application/rss+xml"/>
-        <lastBuildDate>Wed, 30 Oct 2019 00:00:00 +0000</lastBuildDate>
+        <atom:link href="https://cetra3.github.io/rss.xml" rel="self" type="application/rss+xml"/>
+        <lastBuildDate>Wed, 22 Jan 2020 00:00:00 +0000</lastBuildDate>
+        
+            <item>
+                <title>Lessons learnt updating a library to std::future</title>
+                <pubDate>Wed, 22 Jan 2020 00:00:00 +0000</pubDate>
+                <link>https://cetra3.github.io/blog/mpart-async-0-3-0/</link>
+                <guid>https://cetra3.github.io/blog/mpart-async-0-3-0/</guid>
+                <description>&lt;p&gt;With the new &lt;code&gt;std::future&lt;&#x2F;code&gt; way of doing things and &lt;a href=&quot;https:&#x2F;&#x2F;tokio.rs&quot;&gt;tokio&lt;&#x2F;a&gt; slowly reaching maturation, it&#x27;s time to look at updating the libraries out there that are using &lt;em&gt;the old ways&lt;&#x2F;em&gt;.  For one of my libraries, &lt;a href=&quot;https:&#x2F;&#x2F;crates.io&#x2F;crates&#x2F;tmq&quot;&gt;tmq&lt;&#x2F;a&gt;, a Tokio ZeroMQ library, there is some &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;tmq&#x2F;pull&#x2F;5&quot;&gt;awesome work already done&lt;&#x2F;a&gt; to get this updated.&lt;&#x2F;p&gt;
+&lt;p&gt;But, I thought it pertinent to at least get my feet in the water to see how hard it would be, from a library maintainer perspective, to update to &lt;code&gt;std::future&lt;&#x2F;code&gt;.  For this effort, I chose my small library: &lt;a href=&quot;https:&#x2F;&#x2F;crates.io&#x2F;crates&#x2F;mpart-async&quot;&gt;mpart-async&lt;&#x2F;a&gt;.   You can see the changes I have made by comparing the &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;mpart-async&#x2F;compare&#x2F;0.2.1...0.3.0&quot;&gt;versions&lt;&#x2F;a&gt; here.  This blog is a small collection of notes &amp;amp; gotches I found when porting code across.&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;code&gt;mpart-async&lt;&#x2F;code&gt; is a &lt;em&gt;mostly&lt;&#x2F;em&gt; agnostic library for client side &lt;code&gt;multipart&#x2F;form-data&lt;&#x2F;code&gt; requests.  There are existing libraries out there, like &lt;a href=&quot;https:&#x2F;&#x2F;crates.io&#x2F;crates&#x2F;multipart&quot;&gt;multipart&lt;&#x2F;a&gt;, but I found the API a little unwieldy for my taste (That: and async support is &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;abonander&#x2F;multipart-async&quot;&gt;still in alpha&lt;&#x2F;a&gt; according to the readme). I wanted something that worked, and was simple, but didn&#x27;t offer an opinion on the web client. I use both the &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;actix&#x2F;actix-web&#x2F;tree&#x2F;master&#x2F;awc&quot;&gt;actix client&lt;&#x2F;a&gt; &amp;amp;  &lt;a href=&quot;https:&#x2F;&#x2F;crates.io&#x2F;crates&#x2F;hyper&quot;&gt;hyper&lt;&#x2F;a&gt; to make multipart requests depending on the project.&lt;&#x2F;p&gt;
+&lt;p&gt;The challenge is that with multipart requests you mostly have fields &amp;amp; binary files.  For binary files, you can appreciate, should not be buffered entirely in memory, but streamed out as the bytes become available.  So &lt;code&gt;mpart-async&lt;&#x2F;code&gt; works with multiple internal streams of files and also provides a &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;mpart-async&#x2F;blob&#x2F;981ba0437e19fa47f94a913cf9aaa4717fbe12bc&#x2F;src&#x2F;filestream.rs&quot;&gt;convenience wrapper&lt;&#x2F;a&gt; (if using tokio) for sending files given a path.&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;a-new-example&quot;&gt;A New Example&lt;&#x2F;h2&gt;
+&lt;p&gt;All these changes to support &lt;code&gt;async fn&lt;&#x2F;code&gt; and is it actually easier to consume&#x2F;use async libraries?&lt;&#x2F;p&gt;
+&lt;p&gt;Given the &lt;a href=&quot;https:&#x2F;&#x2F;crates.io&#x2F;crates&#x2F;hyper&quot;&gt;hyper&lt;&#x2F;a&gt; example, I would say yes.&lt;&#x2F;p&gt;
+&lt;p&gt;Compare the &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;mpart-async&#x2F;blob&#x2F;981ba0437e19fa47f94a913cf9aaa4717fbe12bc&#x2F;examples&#x2F;hyper.rs&quot;&gt;new example&lt;&#x2F;a&gt;:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#c0c5ce;&quot;&gt;#[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;tokio&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;main&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;]
+async &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8fa1b3;&quot;&gt;main&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;() -&amp;gt; Result&amp;lt;(), Error&amp;gt; {
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F;Setup a mock server to accept connections.
+    &#x2F;&#x2F;....
+
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; client = Client::new();
+
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let mut&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; mpart = MultipartRequest::default();
+
+    mpart.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;add_field&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;foo&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;, &amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;bar&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;);
+    mpart.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;add_file&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;test&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;, &amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;Cargo.toml&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;);
+
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; request = Request::post(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;http:&#x2F;&#x2F;localhost:3000&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;)
+        .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;header&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;CONTENT_TYPE&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;,
+            format!(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;multipart&#x2F;form-data; boundary=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;{}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;, mpart.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;get_boundary&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;()),
+        )
+        .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;body&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(Body::wrap_stream(mpart))?;
+
+    client.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;request&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(request).await?;
+
+    Ok(())
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;With the &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;mpart-async&#x2F;blob&#x2F;c928f015fa31cd57533d4ba43551a9a96b61b0a2&#x2F;examples&#x2F;hyper.rs&quot;&gt;older one&lt;&#x2F;a&gt;:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8fa1b3;&quot;&gt;main&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;() {
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F; current_thread::Runtime can&amp;#39;t be used because of the blocking file operations
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let mut&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; rt = Runtime::new().&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;expect&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;new rt&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;);
+
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F;Setup a mock server to accept connections.
+    &#x2F;&#x2F;....
+
+    &#x2F;&#x2F; Open `Cargo.toml` file and create a request
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; request = File::open(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;Cargo.toml&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;)
+        .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;map_err&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(|&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;e&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;| format!(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;{}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;, e))
+        .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;and_then&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(|&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;file&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;| {
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F; A Stream of BytesMut decoded from an AsyncRead
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; framed = FramedRead::new(file, BytesCodec::new());
+
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let mut&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; mpart = MultipartRequest::default();
+            mpart.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;add_field&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;foo&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;, &amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;bar&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;);
+            mpart.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;add_stream&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(
+                &amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;foofile&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;,
+                &amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;Cargo.toml&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;,
+                &amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;application&#x2F;toml&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;,
+                framed.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;map&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(|&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;b&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;| b.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;freeze&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;()),
+            );
+            Request::post(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;http:&#x2F;&#x2F;localhost:3000&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;)
+                .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;header&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(
+                    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;CONTENT_TYPE&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;,
+                    format!(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;multipart&#x2F;form-data; boundary=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;{}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;, mpart.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;get_boundary&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;()),
+                ).&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;body&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(Body::wrap_stream(mpart))
+                .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;into_future&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;()
+                .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;map_err&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(|&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;e&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;| format!(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;{}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;, e))
+        });
+
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F; Send request
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; task = request.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;and_then&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(|&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;request&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;| {
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; client = hyper::Client::new();
+        client
+            .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;request&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(request)
+            .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;map_err&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(|&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;e&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;| format!(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;{}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;, e))
+            .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;and_then&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(|&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;response&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;| {
+                response
+                    .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;into_body&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;()
+                    .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;concat2&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;()
+                    .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;map_err&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(|&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;e&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;| format!(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;{}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;, e))
+                    .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;and_then&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(|&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;body&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;| {
+                        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;if let &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Ok(data) = &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;str&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;::from_utf8(&amp;amp;body) {
+                            println!(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;Response: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;{}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;, data);
+                        }
+                        Ok(())
+                    })
+            })
+    });
+
+    rt.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;block_on&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(task).&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;expect&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;request failed&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;);
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;While there are still a few warts (such as having to manually add the boundary header), I find the code a lot more readable and easy to follow, rather than your standard combinator paths.&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;no-more-error-associated-type&quot;&gt;No more &lt;code&gt;Error&lt;&#x2F;code&gt; Associated Type&lt;&#x2F;h2&gt;
+&lt;p&gt;The most drastic change to the &lt;code&gt;Stream&lt;&#x2F;code&gt; trait is that there is no longer an &lt;code&gt;Error&lt;&#x2F;code&gt; associated type.  The old &lt;code&gt;Stream&lt;&#x2F;code&gt;&#x2F;&lt;code&gt;Future&lt;&#x2F;code&gt; traits had both &lt;code&gt;Item&lt;&#x2F;code&gt; and &lt;code&gt;Error&lt;&#x2F;code&gt;, as it assumed that streams were always going to be fallible.  The new traits do away with the &lt;code&gt;Error&lt;&#x2F;code&gt; associated type.  Instead, if you want your &lt;code&gt;Stream&lt;&#x2F;code&gt; to possibly be an error then you need to return a &lt;code&gt;Result&lt;&#x2F;code&gt; as your &lt;code&gt;Item&lt;&#x2F;code&gt; type.&lt;&#x2F;p&gt;
+&lt;p&gt;For the &lt;code&gt;Stream&lt;&#x2F;code&gt; trait, the method you implement has changed to &lt;code&gt;poll_next&lt;&#x2F;code&gt; and uses the &lt;code&gt;std::task::Poll&lt;&#x2F;code&gt; enum as a return type.&lt;&#x2F;p&gt;
+&lt;p&gt;The &lt;code&gt;Poll&lt;&#x2F;code&gt; enum did feel a little inside out when I started using it, but makes sense in terms of there being no &lt;code&gt;Error&lt;&#x2F;code&gt; type.  You don&#x27;t return a &lt;code&gt;Result&amp;lt;Async&amp;lt;Option&amp;gt;, _&amp;gt;...&lt;&#x2F;code&gt; you instead return a &lt;code&gt;Poll&amp;lt;Option&amp;lt;Result&amp;lt;_,_&amp;gt;&amp;gt;&amp;gt;&lt;&#x2F;code&gt;.&lt;&#x2F;p&gt;
+&lt;p&gt;Generally, this means if you wrote this:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;return &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Ok(Async::Ready(Some(bytes)))
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;You instead will return:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;return &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Poll::Ready(Some(Ok(bytes)))
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;&lt;h2 id=&quot;streamext-traits-and-friends&quot;&gt;&lt;code&gt;StreamExt&lt;&#x2F;code&gt; traits and friends&lt;&#x2F;h2&gt;
+&lt;p&gt;As a consequence of no &lt;code&gt;Error&lt;&#x2F;code&gt; associated type, and an example of different ergonomics, if you are dealing with &lt;code&gt;Result&lt;&#x2F;code&gt; items, you may want to use the &lt;a href=&quot;https:&#x2F;&#x2F;docs.rs&#x2F;futures&#x2F;0.3.1&#x2F;futures&#x2F;stream&#x2F;trait.TryStreamExt.html&quot;&gt;TryStreamExt&lt;&#x2F;a&gt; trait instead of &lt;a href=&quot;https:&#x2F;&#x2F;docs.rs&#x2F;futures&#x2F;0.3.1&#x2F;futures&#x2F;stream&#x2F;trait.StreamExt.html&quot;&gt;StreamExt&lt;&#x2F;a&gt;.  They are basically the same trait but one deals with &lt;code&gt;Result&lt;&#x2F;code&gt; a bit more nicely.  I&#x27;m not sure whether a simpler solution will be possible with higher kinded types in the future, but for now it is a tiny bit more complex than futures 0.1.&lt;&#x2F;p&gt;
+&lt;p&gt;Interestingly, the &lt;a href=&quot;https:&#x2F;&#x2F;docs.rs&#x2F;futures&#x2F;0.3.1&#x2F;futures&#x2F;stream&#x2F;index.html&quot;&gt;index page&lt;&#x2F;a&gt; for stream docs doesn&#x27;t currently mention that the &lt;code&gt;TryStreamExt&lt;&#x2F;code&gt; trait exists &amp;amp; I only found out about it by asking questions in the &lt;a href=&quot;https:&#x2F;&#x2F;discord.gg&#x2F;tokio&quot;&gt;discord chat&lt;&#x2F;a&gt;.&lt;&#x2F;p&gt;
+&lt;p&gt;But wait, there is also &lt;a href=&quot;https:&#x2F;&#x2F;docs.rs&#x2F;tokio&#x2F;0.2.10&#x2F;tokio&#x2F;stream&#x2F;trait.StreamExt.html&quot;&gt;StreamExt&lt;&#x2F;a&gt; from tokio  which is subtly different, but does as of &lt;code&gt;0.2.10&lt;&#x2F;code&gt; allow you to run &lt;code&gt;collect()&lt;&#x2F;code&gt; on &lt;code&gt;Result&amp;lt;Bytes, _&amp;gt;&lt;&#x2F;code&gt; item streams.&lt;&#x2F;p&gt;
+&lt;p&gt;When would you use either &lt;code&gt;StreamExt&lt;&#x2F;code&gt;?  I would say that if you want to be more general, you should probably use the &lt;code&gt;futures&lt;&#x2F;code&gt;  implementation.  Bearing in mind you can&#x27;t run &lt;a href=&quot;https:&#x2F;&#x2F;docs.rs&#x2F;futures&#x2F;0.3.1&#x2F;futures&#x2F;stream&#x2F;trait.TryStreamExt.html#method.try_collect&quot;&gt;&lt;code&gt;try_collect()&lt;&#x2F;code&gt;&lt;&#x2F;a&gt; on &lt;code&gt;Result&amp;lt;Bytes, _&amp;gt;&lt;&#x2F;code&gt; at the moment due to an &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;tokio-rs&#x2F;bytes&#x2F;issues&#x2F;324&quot;&gt;outstanding issue&lt;&#x2F;a&gt; with the bytes crate.  Why does this matter? Well, &lt;a href=&quot;https:&#x2F;&#x2F;hyper.rs&#x2F;&quot;&gt;hyper&lt;&#x2F;a&gt; passes around streams of &lt;code&gt;Result&amp;lt;Bytes, _&amp;gt;&lt;&#x2F;code&gt; when you are streaming a body in &amp;amp; out of a request.  Working with this particular stream signature is a bit clunky still, but I&#x27;m sure that this will be resolved in due course.&lt;&#x2F;p&gt;
+&lt;p&gt;So we have:&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;StreamExt&lt;&#x2F;code&gt; from &lt;code&gt;futures&lt;&#x2F;code&gt; that works on &lt;code&gt;Stream&lt;&#x2F;code&gt; that aren&#x27;t &lt;code&gt;Result&lt;&#x2F;code&gt;&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;code&gt;TryStreamExt&lt;&#x2F;code&gt; from &lt;code&gt;futures&lt;&#x2F;code&gt; that works on &lt;code&gt;Stream&lt;&#x2F;code&gt; that are &lt;code&gt;Result&lt;&#x2F;code&gt; but doesn&#x27;t work well with &lt;code&gt;Result&amp;lt;Bytes,_&amp;gt;&lt;&#x2F;code&gt; when trying to &lt;code&gt;try_collect()&lt;&#x2F;code&gt;&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;code&gt;StreamExt&lt;&#x2F;code&gt; from &lt;code&gt;tokio&lt;&#x2F;code&gt; that works with &lt;code&gt;Result&amp;lt;Bytes,_&amp;gt;&lt;&#x2F;code&gt; and allows you to &lt;code&gt;collect()&lt;&#x2F;code&gt; to get the output but now means you have a dependency on &lt;code&gt;tokio&lt;&#x2F;code&gt;&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;This might end up confusing more than just me, and I do hope that it&#x27;s simplified in the future.&lt;&#x2F;p&gt;
+&lt;p&gt;Luckily in the core of the API I don&#x27;t need to use them, only for tests &amp;amp; filestream, which means I&#x27;m quite happy to depend on the &lt;code&gt;tokio&lt;&#x2F;code&gt; implementation.&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;wrapping-inner-streams-in-pin&quot;&gt;Wrapping inner streams in &lt;code&gt;Pin&lt;&#x2F;code&gt;&lt;&#x2F;h2&gt;
+&lt;p&gt;I got tripped up on this for a while, and needed to again ask in chat for the answer here. If you have an inner stream and you want to call &lt;code&gt;poll_next&lt;&#x2F;code&gt; on it, you need to wrap it in a &lt;code&gt;Pin&lt;&#x2F;code&gt;, otherwise the &lt;code&gt;Stream&lt;&#x2F;code&gt; trait does not stick and you will get some gnarly error message with some weird suggestions:&lt;&#x2F;p&gt;
+&lt;p&gt;The my original shot at the code was:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#c0c5ce;&quot;&gt;stream.stream.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;poll_next&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(cx)
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;But it needs to be:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Pin::new(&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;mut&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; stream.stream).&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;poll_next&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(cx)
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;The compiler error message is not too helpful here, and insists I restrict &lt;code&gt;S&lt;&#x2F;code&gt; by &lt;code&gt;Stream&lt;&#x2F;code&gt;, even though it is already restricted by &lt;code&gt;Stream&lt;&#x2F;code&gt;.&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#c0c5ce;&quot;&gt;error[E0599]: no method named `poll_next` found for type `S` in the current scope
+   --&amp;gt; src&#x2F;lib.rs:282:41
+    |
+282 |                     match stream.stream.poll_next(cx) {
+    |                                         ^^^^^^^^^ method not found in `S`
+    |
+    = help: items from traits can only be used if the type parameter is bounded by the trait
+help: the following trait defines an item `poll_next`, perhaps you need to restrict type parameter `S` with it:
+    |
+254 | impl&amp;lt;E, S: futures::Stream + Stream&amp;gt; Stream for MultipartRequest&amp;lt;S&amp;gt;
+    |         ^^^^^^^^^^^^^^^^^^^^
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;You need to make sure that your inner stream implements &lt;code&gt;Unpin&lt;&#x2F;code&gt; as well to go down this path:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;impl&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;lt;E, S&amp;gt; Stream &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;for &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;MultipartRequest&amp;lt;S&amp;gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;where&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;
+    S: Stream&amp;lt;Item = Result&amp;lt;Bytes, E&amp;gt;&amp;gt; + Unpin,
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;&lt;h2 id=&quot;storing-the-results-from-an-async-fn-in-a-struct&quot;&gt;Storing the results from an &lt;code&gt;async fn&lt;&#x2F;code&gt; in a struct&lt;&#x2F;h2&gt;
+&lt;p&gt;Some of the methods in tokio are returns from an &lt;code&gt;async fn&lt;&#x2F;code&gt; , like the &lt;a href=&quot;https:&#x2F;&#x2F;docs.rs&#x2F;tokio&#x2F;0.2.10&#x2F;tokio&#x2F;fs&#x2F;struct.File.html#method.open&quot;&gt;File::open&lt;&#x2F;a&gt; method, which I use for &lt;code&gt;FileStream&lt;&#x2F;code&gt;.  I found the answer on &lt;a href=&quot;https:&#x2F;&#x2F;stackoverflow.com&#x2F;questions&#x2F;58354633&#x2F;cannot-use-impl-future-to-store-async-function-in-a-vector&quot;&gt;stack overflow&lt;&#x2F;a&gt; as to how to do this with &lt;code&gt;std::future&lt;&#x2F;code&gt;, since &lt;code&gt;async fn&lt;&#x2F;code&gt; returns an opaque type.&lt;&#x2F;p&gt;
+&lt;p&gt;For the older version, the OpenFuture was a concrete type:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;pub struct &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;FileStream {
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;inner&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: Option&amp;lt;FramedRead&amp;lt;File, BytesCodec&amp;gt;&amp;gt;,
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;file&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: OpenFuture&amp;lt;PathBuf&amp;gt;,
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;The newer version is a return from an &lt;code&gt;async fn&lt;&#x2F;code&gt; and is opaque, so we wrap it using &lt;code&gt;Box::pin&lt;&#x2F;code&gt;:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;pub struct &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;FileStream {
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;inner&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: Option&amp;lt;FramedRead&amp;lt;File, BytesCodec&amp;gt;&amp;gt;,
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;file&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: Pin&amp;lt;Box&amp;lt;dyn Future&amp;lt;Output = Result&amp;lt;File, Error&amp;gt;&amp;gt; + Send + Sync&amp;gt;&amp;gt;,
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;You can then instantiate this with:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Box::pin(File::open(file.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;into&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;()))
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Then it&#x27;s easy to call passing on the context from an existing &lt;code&gt;poll()&lt;&#x2F;code&gt;:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#bf616a;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;.file.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;as_mut&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;().&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;poll&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(cx)
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;&lt;h2 id=&quot;notifying-a-task&quot;&gt;Notifying a task&lt;&#x2F;h2&gt;
+&lt;p&gt;&lt;code&gt;FileStream&lt;&#x2F;code&gt; has two stages.  One is the future to open the file. The second is streaming out the bytes of the file.  When the future resolves to open the file, I want to notify the context that it should be polled again to start streaming.&lt;&#x2F;p&gt;
+&lt;p&gt;The old way of doing this was &lt;code&gt;task::current().notify()&lt;&#x2F;code&gt;:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#bf616a;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;.inner = Some(FramedRead::new(file, BytesCodec::new()));
+task::current().&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;notify&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;();
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;The new way appears to be using  &lt;code&gt;cx.waker().wake_by_ref()&lt;&#x2F;code&gt; where &lt;code&gt;cx&lt;&#x2F;code&gt; is the context received from the poll:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#bf616a;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;.inner = Some(FramedRead::new(file, BytesCodec::new()));
+cx.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;waker&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;().&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;wake_by_ref&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;();
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;I say appears because the test written works without &lt;code&gt;wake_by_ref()&lt;&#x2F;code&gt; being called.  Requires a bit more investigation here I think to know exactly what&#x27;s going on.  My &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;mpart-async&#x2F;blob&#x2F;981ba0437e19fa47f94a913cf9aaa4717fbe12bc&#x2F;src&#x2F;filestream.rs#L56&quot;&gt;simple test example&lt;&#x2F;a&gt; works either way, strangely.&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;conclusion&quot;&gt;Conclusion&lt;&#x2F;h2&gt;
+&lt;p&gt;It is not too onerous to convert to &lt;code&gt;std::future&lt;&#x2F;code&gt; for an existing library.  I would assume the leap from the old &lt;code&gt;tokio-core&lt;&#x2F;code&gt; would be harder, as the changes &lt;em&gt;feel&lt;&#x2F;em&gt; mostly cosmetic here.&lt;&#x2F;p&gt;
+&lt;p&gt;The omission of the &lt;code&gt;Error&lt;&#x2F;code&gt; associated type to me actually makes things less ergonomic and things a little more fragmented (as evidenced by 3 &lt;code&gt;*StreamExt&lt;&#x2F;code&gt; traits..).  I was an advocate of this initially, but there probably needs to be a bit more work in making this nicer.&lt;&#x2F;p&gt;
+&lt;p&gt;There are still a lot of libraries out there that will be required to be updated, a lot of old blogs that are no longer relevant, and a lot of exploration that needs to be done to see how the async ecosystem falls out.  But considering the friction of updating is quite small, I am quitely optimistic!&lt;&#x2F;p&gt;
+</description>
+            </item>
         
             <item>
                 <title>My Wishes for Rust 2020</title>
                 <pubDate>Wed, 30 Oct 2019 00:00:00 +0000</pubDate>
-                <link>https%3A//cetra3.github.io/blog/rust-2020/</link>
-                <guid>https%3A//cetra3.github.io/blog/rust-2020/</guid>
+                <link>https://cetra3.github.io/blog/rust-2020/</link>
+                <guid>https://cetra3.github.io/blog/rust-2020/</guid>
                 <description>&lt;p&gt;2019 was another huge year for rust, but instead of implementing the shiny new thing, it&#x27;s been a focus on refining existing ideas.&lt;&#x2F;p&gt;
 &lt;p&gt;Having being using rust professionally for over 3 years, I feel I will very soon be regailing new rust developers of the times before NLL &amp;amp; async, where we had to play &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;rust-lang&#x2F;rfcs&#x2F;blob&#x2F;master&#x2F;text&#x2F;2094-nll.md#problem-case-3-conditional-control-flow-across-functions&quot;&gt;lexicon-fu&lt;&#x2F;a&gt; to get things like caches to work in a reasonable fashion, or using super dooper combinator chains and wrestling with futures types (&lt;code&gt;Either::A&#x2F;B&lt;&#x2F;code&gt; anyone?).&lt;&#x2F;p&gt;
 &lt;p&gt;So I&#x27;d like to make clear my acknowledgement that I am happy with the direction that the rust language is heading in, and these requests are really nice to haves.&lt;&#x2F;p&gt;
 &lt;h2 id=&quot;the-future-of-futures&quot;&gt;The Future of Futures&lt;&#x2F;h2&gt;
 &lt;p&gt;The async&#x2F;await is on track to be stabilised next month, which means it&#x27;s not a goal for 2020, but we have to look back to the futures-rs! There is a whole ecosystem that now needs to play catchup and I hope that it does within the year 2020.&lt;&#x2F;p&gt;
 &lt;p&gt;I also really hope they start using the logo a bit more!&lt;&#x2F;p&gt;
-&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;rust-lang-nursery.github.io&#x2F;futures-rs&#x2F;assets&#x2F;images&#x2F;futures-rs-logo.svg&quot; alt=&quot;&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;rust-lang.github.io&#x2F;futures-rs&#x2F;assets&#x2F;images&#x2F;futures-rs-logo.svg&quot; alt=&quot;&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
 &lt;h3 id=&quot;tokio-version-1-0&quot;&gt;Tokio version &lt;code&gt;1.0&lt;&#x2F;code&gt;&lt;&#x2F;h3&gt;
 &lt;p&gt;I would like to see tokio version &lt;code&gt;1.0&lt;&#x2F;code&gt; in 2020.  I would also like the core of tokio to be trimmed down immensely for inclusion as a dependency.  Just a small wish I know!&lt;&#x2F;p&gt;
 &lt;p&gt;I understand the reluctance to brand it as &lt;code&gt;1.0&lt;&#x2F;code&gt; but there is already a lot of churn from the move from &lt;code&gt;tokio-core&lt;&#x2F;code&gt; last year.  This would also signal to users that it is mostly stabilised, since async&#x2F;await is dropping soon. I haven&#x27;t been following development closely to know if there are any further blockers beyond this though.&lt;&#x2F;p&gt;
@@ -60,8 +251,8 @@
             <item>
                 <title>Face Detection with Actix Web</title>
                 <pubDate>Thu, 11 Apr 2019 00:00:00 +0000</pubDate>
-                <link>https%3A//cetra3.github.io/blog/face-detection-with-actix-web/</link>
-                <guid>https%3A//cetra3.github.io/blog/face-detection-with-actix-web/</guid>
+                <link>https://cetra3.github.io/blog/face-detection-with-actix-web/</link>
+                <guid>https://cetra3.github.io/blog/face-detection-with-actix-web/</guid>
                 <description>&lt;p&gt;Last article I wrote about how to &lt;a href=&quot;https:&#x2F;&#x2F;cetra3.github.io&#x2F;blog&#x2F;face-detection-with-tensorflow-rust&#x2F;&quot;&gt;use tensorflow with rust&lt;&#x2F;a&gt;.  This time we&#x27;re going to take what we&#x27;ve built on, and serve it as an HTTP API call.  As &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;actix&#x2F;actix-web&quot;&gt;Actix Web&lt;&#x2F;a&gt; is nearing its inevitable &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;actix&#x2F;actix-web&#x2F;issues&#x2F;722&quot;&gt;1.0 release&lt;&#x2F;a&gt;, I thought it would be a great time to build something with it.&lt;&#x2F;p&gt;
 &lt;p&gt;This article assumes you have some knowledge about &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;rust-lang-nursery&#x2F;futures-rs&quot;&gt;Futures&lt;&#x2F;a&gt; and how they work. I will do my best to explain in simpler terms, but understanding the futures ecosystem would be quite handy to help work through this article. For this, I suggest you start with &lt;a href=&quot;https:&#x2F;&#x2F;tokio.rs&#x2F;&quot;&gt;tokio&lt;&#x2F;a&gt;.&lt;&#x2F;p&gt;
 &lt;p&gt;&lt;em&gt;(Some people have suggested waiting for async&#x2F;await and friends to land before diving into Futures.  I think you should get your hands dirty now: async programming will always be challenging and the changes being introduced only affect ergonomics, not fundamentals)&lt;&#x2F;em&gt;&lt;&#x2F;p&gt;
@@ -183,14 +374,14 @@ args.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;add_feed&lt;
 &lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
 &lt;p&gt;Uh oh.  We&#x27;re getting a compiler error here... &lt;&#x2F;p&gt;
 &lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
-&lt;span style=&quot;color:#c0c5ce;&quot;&gt;error[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;E0596&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;]: cannot borrow &#96;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;.session&#96; as mutable, as it is behind a &#96;&amp;amp;&#96; reference
+&lt;span style=&quot;color:#c0c5ce;&quot;&gt;error[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;E0596&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;]: cannot borrow `&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;.session` as mutable, as it is behind a `&amp;amp;` reference
   --&amp;gt; src&#x2F;mtcnn.rs:&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;68&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;:&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;10
    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;|
 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;36 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;|     &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;pub fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8fa1b3;&quot;&gt;run&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;img&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: &amp;amp;DynamicImage) -&amp;gt; Result&amp;lt;DynamicImage, Box&amp;lt;dyn Error&amp;gt;&amp;gt; {
-   |                ----- help: consider changing this to be a mutable reference: &#96;&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;mut &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&#96;
+   |                ----- help: consider changing this to be a mutable reference: `&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;mut &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;`
 ...
 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;68 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;|         &amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;.session.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;run&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;mut&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; args)?;
-   |          ^^^^^^^^^^^^ &#96;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&#96; is a &#96;&amp;amp;&#96; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;reference&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;, so the data it refers to cannot be borrowed as mutable
+   |          ^^^^^^^^^^^^ `&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;` is a `&amp;amp;` &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;reference&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;, so the data it refers to cannot be borrowed as mutable
 &lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
 &lt;p&gt;Turns out that the &lt;code&gt;Session::run()&lt;&#x2F;code&gt; function takes &lt;code&gt;&amp;amp;mut self&lt;&#x2F;code&gt;.&lt;&#x2F;p&gt;
 &lt;p&gt;What can we do to resolve this:&lt;&#x2F;p&gt;
@@ -219,7 +410,7 @@ args.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;add_feed&lt;
 
 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F;While we have responses, iterate through
 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;while&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; i &amp;lt; bbox_res.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;len&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;() {
-    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F;Add in the 4 floats from the &#96;bbox_res&#96; array.
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F;Add in the 4 floats from the `bbox_res` array.
     &#x2F;&#x2F;Notice the y1, x1, etc.. is ordered differently to our struct definition.
 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    bboxes.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;push&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(BBox {
         y1: bbox_res[i],
@@ -229,9 +420,9 @@ args.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;add_feed&lt;
         prob: prob_res[j], &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F; Add in the facial probability
     &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;});
 
-    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F;Step &#96;i&#96; ahead by 4.
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F;Step `i` ahead by 4.
 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    i += &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;4&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;;
-    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F;Step &#96;i&#96; ahead by 1.
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F;Step `i` ahead by 1.
 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    j += &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;1&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;;
 }
 
@@ -265,7 +456,7 @@ Ok(bboxes)
 
 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F;Iterate through all bounding boxes
 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;for&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; bbox in bboxes {
-    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F;Create a &#96;Rect&#96; from the bounding box.
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F;Create a `Rect` from the bounding box.
     &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; rect = Rect::at(bbox.x1 as &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;i32&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;, bbox.y1 as &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;i32&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;)
         .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;of_size&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;((bbox.x2 - bbox.x1) as &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;u32&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;, (bbox.y2 - bbox.y1) as &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;u32&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;);
 
@@ -295,7 +486,7 @@ output_image
 &lt;p&gt;Let&#x27;s move on from using &lt;code&gt;println!&lt;&#x2F;code&gt; and instead use log.  I like using &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;seanmonstar&#x2F;pretty-env-logger&quot;&gt;pretty_env_logger&lt;&#x2F;a&gt; as it prints different levels as a different colour, and we can have timestamps which is useful.&lt;&#x2F;p&gt;
 &lt;p&gt;&lt;code&gt;pretty_env_logger&lt;&#x2F;code&gt; still uses environment vars.  Let&#x27;s cheat and set our &lt;code&gt;RUST_LOG&lt;&#x2F;code&gt; var if none is provided then initiate our logger&lt;&#x2F;p&gt;
 &lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
-&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F;Set the &#96;RUST_LOG&#96; var if none is provided
+&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F;Set the `RUST_LOG` var if none is provided
 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;env::var(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;RUST_LOG&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;).&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;is_err&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;() {
     env::set_var(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;RUST_LOG&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;, &amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;mtcnn=DEBUG,actix_web=DEBUG&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;);
 }
@@ -388,14 +579,14 @@ output_image
 &lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
 &lt;p&gt;Ok, that is giving us few really gnarly errors when we try and compile it:&lt;&#x2F;p&gt;
 &lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
-&lt;span style=&quot;color:#c0c5ce;&quot;&gt;error[E0271]: type mismatch resolving &#96;&amp;lt;impl futures::future::Future as futures::future::IntoFuture&amp;gt;::Error == actix_http::error::PayloadError&#96;
+&lt;span style=&quot;color:#c0c5ce;&quot;&gt;error[E0271]: type mismatch resolving `&amp;lt;impl futures::future::Future as futures::future::IntoFuture&amp;gt;::Error == actix_http::error::PayloadError`
   --&amp;gt; src&#x2F;main.rs:67:22
    |
 67 |     stream.concat2().and_then(move |bytes| {
-   |                      ^^^^^^^^ expected enum &#96;actix_threadpool::BlockingError&#96;, found enum &#96;actix_http::error::PayloadError&#96;
+   |                      ^^^^^^^^ expected enum `actix_threadpool::BlockingError`, found enum `actix_http::error::PayloadError`
    |
-   = note: expected type &#96;actix_threadpool::BlockingError&amp;lt;image::image::ImageError&amp;gt;&#96;
-              found type &#96;actix_http::error::PayloadError&#96;
+   = note: expected type `actix_threadpool::BlockingError&amp;lt;image::image::ImageError&amp;gt;`
+              found type `actix_http::error::PayloadError`
 &lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
 &lt;p&gt;There&#x27;s a couple more that aren&#x27;t listed.&lt;&#x2F;p&gt;
 &lt;p&gt;When you are combining streams, mapping them as futures, and otherwise trying to get some output from these combinators you are actually dealing with both the &lt;code&gt;Item&lt;&#x2F;code&gt; type, and the &lt;code&gt;Error&lt;&#x2F;code&gt; type.&lt;&#x2F;p&gt;
@@ -436,15 +627,15 @@ output_image
 &lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
 &lt;p&gt;But does this compile? Not yet:&lt;&#x2F;p&gt;
 &lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
-&lt;span style=&quot;color:#c0c5ce;&quot;&gt;error[E0277]: &#96;*mut tensorflow_sys::TF_Status&#96; cannot be sent between threads safely
+&lt;span style=&quot;color:#c0c5ce;&quot;&gt;error[E0277]: `*mut tensorflow_sys::TF_Status` cannot be sent between threads safely
   --&amp;gt; src&#x2F;main.rs:75:5
    |
 75 |     web::block(move || mtcnn.run(&amp;amp;img)).from_err()
-   |     ^^^^^^^^^^ &#96;*mut tensorflow_sys::TF_Status&#96; cannot be sent between threads safely
+   |     ^^^^^^^^^^ `*mut tensorflow_sys::TF_Status` cannot be sent between threads safely
    |
-   = help: within &#96;tensorflow::Status&#96;, the trait &#96;std::marker::Send&#96; is not implemented for &#96;*mut tensorflow_sys::TF_Status&#96;
-   = note: required because it appears within the type &#96;tensorflow::Status&#96;
-   = note: required by &#96;actix_web::web::block&#96;
+   = help: within `tensorflow::Status`, the trait `std::marker::Send` is not implemented for `*mut tensorflow_sys::TF_Status`
+   = note: required because it appears within the type `tensorflow::Status`
+   = note: required by `actix_web::web::block`
 &lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
 &lt;p&gt;&lt;code&gt;tensorflow::Status&lt;&#x2F;code&gt;, which is the error type, can&#x27;t be sent between threads.&lt;&#x2F;p&gt;
 &lt;p&gt;Let&#x27;s just shortcut here, and convert the error to a &lt;code&gt;String&lt;&#x2F;code&gt;:&lt;&#x2F;p&gt;
@@ -534,11 +725,11 @@ output_img.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;write_
   --&amp;gt; src&#x2F;main.rs:82:5
    |
 82 |     web::block(move || {
-   |     ^^^^^^^^^^ cannot infer type for &#96;E&#96;
+   |     ^^^^^^^^^^ cannot infer type for `E`
 &lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
 &lt;p&gt;Why is there an issue with the type? Well, it relates to this line here:&lt;&#x2F;p&gt;
 &lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
-&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Ok(buffer) &#x2F;&#x2F; What&amp;#39;s the &#96;Error&#96; type here?
+&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Ok(buffer) &#x2F;&#x2F; What&amp;#39;s the `Error` type here?
 &lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
 &lt;p&gt;At the moment, the only error type is from the &lt;code&gt;write_to&lt;&#x2F;code&gt; method which is &lt;code&gt;ImageError&lt;&#x2F;code&gt;.  But this line here doesn&#x27;t have an error type, and could be anything.&lt;&#x2F;p&gt;
 &lt;p&gt;There are 3 ways I can immediately think to handle this:&lt;&#x2F;p&gt;
@@ -567,7 +758,7 @@ output_img.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;write_
 
         output_img.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;write_to&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;mut&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; buffer, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;JPEG&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;)?;
 
-        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F; Type annotations required for the &#96;web::block&#96;
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F; Type annotations required for the `web::block`
         &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Ok(buffer) as Result&amp;lt;_, ImageError&amp;gt; 
     }).&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;from_err&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;()
 }
@@ -624,7 +815,7 @@ output_img.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;write_
 &lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F;Create our image overlay
 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;and_then&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(|(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;img&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;bbox&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;)| &lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;get_overlay&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(img, bbox))
 .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;map&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(|&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;buffer&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;| {
-&lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F; Return a &#96;HttpResponse&#96; here
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F; Return a `HttpResponse` here
 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;})
 &lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;&lt;h3 id=&quot;generating-the-response&quot;&gt;Generating the Response&lt;&#x2F;h3&gt;
 &lt;p&gt;Our &lt;code&gt;HttpResponse&lt;&#x2F;code&gt; needs to wrap the buffer into a Http Request with the buffer as the body:&lt;&#x2F;p&gt;
@@ -691,8 +882,8 @@ response
             <item>
                 <title>Face Detection with Tensorflow Rust</title>
                 <pubDate>Thu, 28 Mar 2019 00:00:00 +0000</pubDate>
-                <link>https%3A//cetra3.github.io/blog/face-detection-with-tensorflow-rust/</link>
-                <guid>https%3A//cetra3.github.io/blog/face-detection-with-tensorflow-rust/</guid>
+                <link>https://cetra3.github.io/blog/face-detection-with-tensorflow-rust/</link>
+                <guid>https://cetra3.github.io/blog/face-detection-with-tensorflow-rust/</guid>
                 <description>&lt;p&gt;One of the promises of machine learning is to be able to use it for object recognition in photos.  This includes being able to pick out features such as animals, buildings and even faces.&lt;&#x2F;p&gt;
 &lt;p&gt;This article will step you through using some existing models to accomplish face detection using rust and &lt;a href=&quot;https:&#x2F;&#x2F;www.tensorflow.org&#x2F;&quot;&gt;tensorflow&lt;&#x2F;a&gt;.  For the impatient among you, you can find the source code here: &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;mtcnn&quot;&gt;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;mtcnn&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
 &lt;p&gt;We will be using a pre-trained model called &lt;a href=&quot;https:&#x2F;&#x2F;kpzhang93.github.io&#x2F;MTCNN_face_detection_alignment&#x2F;index.html&quot;&gt;mtcnn&lt;&#x2F;a&gt; for face detection (&lt;em&gt;Note: training a new model is not something we&#x27;ll be concerned with in this article&lt;&#x2F;em&gt;).&lt;&#x2F;p&gt;
@@ -739,7 +930,7 @@ response
 &lt;span style=&quot;color:#c0c5ce;&quot;&gt;$ cargo run
    Compiling mtcnn v0.1.0 (~&#x2F;mtcnn)
     Finished dev [unoptimized + debuginfo] target(s) in 0.89s
-     Running &#96;target&#x2F;debug&#x2F;mtcnn&#96;
+     Running `target&#x2F;debug&#x2F;mtcnn`
 &lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
 &lt;p&gt;Great! Looks like we can load the graph!&lt;&#x2F;p&gt;
 &lt;h2 id=&quot;structopt-and-the-command-line&quot;&gt;StructOpt and the Command Line&lt;&#x2F;h2&gt;
@@ -862,7 +1053,7 @@ args.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;add_feed&lt;
 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F;While we have responses, iterate through
 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;while&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; i &amp;lt; bbox_res.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;len&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;() {
 
-    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F;Add in the 4 floats from the &#96;bbox_res&#96; array. 
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F;Add in the 4 floats from the `bbox_res` array. 
     &#x2F;&#x2F;Notice the y1, x1, etc.. is ordered differently to our struct definition.
 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    bboxes.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;push&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(BBox {
         y1: bbox_res[i],
@@ -872,9 +1063,9 @@ args.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;add_feed&lt;
         prob: prob_res[j], &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F; Add in the facial probability
     &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;});
 
-    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F;Step &#96;i&#96; ahead by 4. 
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F;Step `i` ahead by 4. 
 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    i += &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;4&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;;
-    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F;Step &#96;i&#96; ahead by 1. 
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F;Step `i` ahead by 1. 
 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;    j += &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;1&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;;
 }
 &lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;&lt;h5 id=&quot;combinators&quot;&gt;Combinators&lt;&#x2F;h5&gt;
@@ -947,7 +1138,7 @@ args.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;add_feed&lt;
 &lt;span style=&quot;color:#c0c5ce;&quot;&gt;$ cargo run rustfest.jpg output.jpg
    Compiling mtcnn v0.1.0 (~&#x2F;mtcnn)
     Finished dev [unoptimized + debuginfo] target(s) in 5.12s
-     Running &#96;target&#x2F;debug&#x2F;mtcnn rustfest.jpg output.jpg&#96;
+     Running `target&#x2F;debug&#x2F;mtcnn rustfest.jpg output.jpg`
 2019-03-28 16:15:48.194933: I tensorflow&#x2F;core&#x2F;platform&#x2F;cpu_feature_guard.cc:141] Your CPU supports instructions that this TensorFlow binary was not compiled to use: SSE4.2 AVX AVX2 FMA
 BBox Length: 154, BBoxes:[
     BBox {
@@ -978,8 +1169,8 @@ BBox Length: 154, BBoxes:[
             <item>
                 <title>TMQ 0.1.0 Release: ZeroMQ bindings for Tokio</title>
                 <pubDate>Thu, 07 Feb 2019 00:00:00 +0000</pubDate>
-                <link>https%3A//cetra3.github.io/blog/tmq-0-1-0/</link>
-                <guid>https%3A//cetra3.github.io/blog/tmq-0-1-0/</guid>
+                <link>https://cetra3.github.io/blog/tmq-0-1-0/</link>
+                <guid>https://cetra3.github.io/blog/tmq-0-1-0/</guid>
                 <description>&lt;p&gt;&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;tmq&quot;&gt;TMQ&lt;&#x2F;a&gt; is a rust library to use &lt;a href=&quot;http:&#x2F;&#x2F;zeromq.org&#x2F;&quot;&gt;ZeroMQ&lt;&#x2F;a&gt; within the &lt;a href=&quot;https:&#x2F;&#x2F;tokio.rs&#x2F;&quot;&gt;Tokio&lt;&#x2F;a&gt; ecosystem.  ZeroMQ is a distributed messaging queue written in C supporting a number of different messaging patterns.  While there are other options out there (including gRPC, etc..), I settled on ZeroMQ due to its cross-language support, great documentation and battle-tested nature.&lt;&#x2F;p&gt;
 &lt;p&gt;&lt;a href=&quot;https:&#x2F;&#x2F;crates.io&#x2F;crates&#x2F;tmq&#x2F;0.1.0&quot;&gt;Version &lt;code&gt;0.1.0&lt;&#x2F;code&gt;&lt;&#x2F;a&gt; is an alpha release which implements &lt;code&gt;request&lt;&#x2F;code&gt;, &lt;code&gt;response&lt;&#x2F;code&gt;, &lt;code&gt;publish&lt;&#x2F;code&gt; and &lt;code&gt;subscribe&lt;&#x2F;code&gt; style sockets.&lt;&#x2F;p&gt;
 &lt;h2 id=&quot;usage-example&quot;&gt;Usage Example&lt;&#x2F;h2&gt;
@@ -1098,8 +1289,8 @@ BBox Length: 154, BBoxes:[
             <item>
                 <title>My Wishes for Rust 2019</title>
                 <pubDate>Fri, 14 Dec 2018 00:00:00 +0000</pubDate>
-                <link>https%3A//cetra3.github.io/blog/rust-2019/</link>
-                <guid>https%3A//cetra3.github.io/blog/rust-2019/</guid>
+                <link>https://cetra3.github.io/blog/rust-2019/</link>
+                <guid>https://cetra3.github.io/blog/rust-2019/</guid>
                 <description>&lt;p&gt;2018 was a massive year for rust, and it&#x27;s great to reflect back on how far we&#x27;ve all come.  My main wish for the new year is to put on the breaks a little bit, and finish off what has been started without taking on anything majorly new.&lt;&#x2F;p&gt;
 &lt;p&gt;There are a couple of areas that I feel need more attention than most (purely for selfish reasons of course!):&lt;&#x2F;p&gt;
 &lt;h2 id=&quot;compiler-times-ide-support-and-rls&quot;&gt;Compiler Times, IDE Support and RLS&lt;&#x2F;h2&gt;
