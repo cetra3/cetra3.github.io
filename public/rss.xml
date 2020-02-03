@@ -7,7 +7,92 @@
         <generator>Zola</generator>
         <language>en</language>
         <atom:link href="https://cetra3.github.io/rss.xml" rel="self" type="application/rss+xml"/>
-        <lastBuildDate>Wed, 22 Jan 2020 00:00:00 +0000</lastBuildDate>
+        <lastBuildDate>Mon, 03 Feb 2020 00:00:00 +0000</lastBuildDate>
+        
+            <item>
+                <title>Handling Breaking API Changes</title>
+                <pubDate>Mon, 03 Feb 2020 00:00:00 +0000</pubDate>
+                <link>https://cetra3.github.io/blog/breaking-api-changes/</link>
+                <guid>https://cetra3.github.io/blog/breaking-api-changes/</guid>
+                <description>&lt;p&gt;While upgrading dependencies (basically deleting &lt;code&gt;Cargo.lock&lt;&#x2F;code&gt;) in a big rust project I hit an issue.  A &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;serde-rs&#x2F;json&#x2F;commit&#x2F;97f87f2587037dcd50b9504815ee1f1540b1c2b8&quot;&gt;new commit&lt;&#x2F;a&gt; in &lt;code&gt;serde_json&lt;&#x2F;code&gt; caused has upstream failure in another library, &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;mtdowling&#x2F;jmespath.rs&#x2F;issues&#x2F;33&quot;&gt;jmespath&lt;&#x2F;a&gt;, and possibly more crates. Strictly speaking, because these structs and enums were essentially &lt;em&gt;public&lt;&#x2F;em&gt; and are now no longer public, this is a breaking change.&lt;&#x2F;p&gt;
+&lt;p&gt;While &lt;code&gt;jmespath&lt;&#x2F;code&gt; was doing the wrong thing here, using undocumented API, it got me thinking about what can library maintainers and library consumers do to ensure semver compatibility, and what tools are out there to assist both groups.&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;what-is-semantic-versioning&quot;&gt;What is Semantic Versioning&lt;&#x2F;h2&gt;
+&lt;p&gt;Semantic versioning (semver) is one standard used for version numbers which appears to have gained the most traction.   Since cargo and friends use semver to identify what versions to use, it is important to understand (excuse my pun) the semantics of what this means.&lt;&#x2F;p&gt;
+&lt;p&gt;The full documentation of semver is on &lt;a href=&quot;https:&#x2F;&#x2F;semver.org&#x2F;&quot;&gt;https:&#x2F;&#x2F;semver.org&#x2F;&lt;&#x2F;a&gt;, but for brevity there are 3 numbers:&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;Major: Any breaking API changes&lt;&#x2F;li&gt;
+&lt;li&gt;Minor: Additions of new features or functionality that are backwards compatible&lt;&#x2F;li&gt;
+&lt;li&gt;Patch: Bugfixes&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;There is some interesting differences for libraries &lt;code&gt;&amp;lt; 1.0.0&lt;&#x2F;code&gt; which I was not aware of for longer than I care to admit.  Namely either minor or patch numbers can be changes as you see fit.  I.e, &lt;code&gt;0.3.0&lt;&#x2F;code&gt; could be wildly different from &lt;code&gt;0.3.1&lt;&#x2F;code&gt;, including breaking changes.  What I have seen in practice is usually the minor number indicates breaking changes, such as &lt;code&gt;0.2.0&lt;&#x2F;code&gt; to &lt;code&gt;0.3.0&lt;&#x2F;code&gt;, even though it&#x27;s not explicit within semver.&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;why-we-need-it&quot;&gt;Why we need it&lt;&#x2F;h2&gt;
+&lt;p&gt;We need some way of portraying changes to an API and, while it&#x27;s not perfect, it appears to be a defacto standard which makes interoperability with other libraries and crates a lot easier.&lt;&#x2F;p&gt;
+&lt;p&gt;It also gives cargo a programmatic way of finding updated versions, when it&#x27;s used appropriately.&lt;&#x2F;p&gt;
+&lt;p&gt;So it is one part advertising the intent of the version and another part ensuring that things will compile if you bump up certain numbers.&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;api-evolution-rfc&quot;&gt;API Evolution RFC&lt;&#x2F;h2&gt;
+&lt;p&gt;The Semver website is very general in its language and isn&#x27;t specific to rust.  There is, however, a great RFC that has some excellent guidelines both for the language itself &amp;amp; for library maintainers: &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;rust-lang&#x2F;rfcs&#x2F;blob&#x2F;master&#x2F;text&#x2F;1105-api-evolution.md&quot;&gt;RFC 1105: API Evolution&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;Here are a couple of excerpts:&lt;&#x2F;p&gt;
+&lt;blockquote&gt;
+&lt;h4 id=&quot;major-change-going-from-stable-to-nightly&quot;&gt;Major change: going from stable to nightly&lt;&#x2F;h4&gt;
+&lt;p&gt;Changing a crate from working on stable Rust to &lt;em&gt;requiring&lt;&#x2F;em&gt; a nightly is
+considered a breaking change. That includes using &lt;code&gt;#[feature]&lt;&#x2F;code&gt; directly, or
+using a dependency that does so. Crate authors should consider using Cargo
+&lt;a href=&quot;http:&#x2F;&#x2F;doc.crates.io&#x2F;manifest.html#the-%5Bfeatures%5D-section&quot;&gt;&amp;quot;features&amp;quot;&lt;&#x2F;a&gt; for
+their crate to make such use opt-in.&lt;&#x2F;p&gt;
+&lt;&#x2F;blockquote&gt;
+&lt;blockquote&gt;
+&lt;h4 id=&quot;major-change-renaming-moving-removing-any-public-items&quot;&gt;Major change: renaming&#x2F;moving&#x2F;removing any public items.&lt;&#x2F;h4&gt;
+&lt;p&gt;Although renaming an item might seem like a minor change, according to the
+general policy design this is not a permitted form of breakage: it&#x27;s not
+possible to annotate code in advance to avoid the breakage, nor is it possible
+to prevent the breakage from affecting dependencies.&lt;&#x2F;p&gt;
+&lt;&#x2F;blockquote&gt;
+&lt;p&gt;This RFC has some great advice, and I wish it was more publicly known, but seems relatively obscure.&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;the-non-exhaustive-attribute&quot;&gt;The Non-Exhaustive Attribute&lt;&#x2F;h2&gt;
+&lt;p&gt;Another RFC related to versioning is &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;rust-lang&#x2F;rfcs&#x2F;blob&#x2F;master&#x2F;text&#x2F;2008-non-exhaustive.md&quot;&gt;Non-Exhaustive&lt;&#x2F;a&gt;, which is a handy way of planning breaking changes ahead of time.  It works with enums by forcing open ended &lt;code&gt;match&lt;&#x2F;code&gt; statements, which means consumers of your enum won&#x27;t break if a new variant is introducted. It also works with structs and ensures users consuming libraries can&#x27;t create them.&lt;&#x2F;p&gt;
+&lt;p&gt;This was recently &lt;a href=&quot;https:&#x2F;&#x2F;blog.rust-lang.org&#x2F;2019&#x2F;12&#x2F;19&#x2F;Rust-1.40.0.html&quot;&gt;stabilised in Rust 1.40&lt;&#x2F;a&gt; so it&#x27;s a rather new feature of the language (on a side note: it&#x27;s not easy to find when a particular RFC is stabilised, it would be great to have this reflected in the RFC somewhere).&lt;&#x2F;p&gt;
+&lt;p&gt;As an example if you have an enum like this:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#c0c5ce;&quot;&gt;#[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;non_exhaustive&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;]
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;pub enum &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Error {
+    Message(String),
+    Other,
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;You would need to &lt;code&gt;match&lt;&#x2F;code&gt; against the enum like this:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;match&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; error {
+    Message(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;ref&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; s) =&amp;gt; ...,
+    Other =&amp;gt; ...,
+    _ =&amp;gt; ...,
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Your library could then introduce a new variant, which wouldn&#x27;t break the existing consumer:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#c0c5ce;&quot;&gt;#[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;non_exhaustive&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;]
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;pub enum &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Error {
+    Message(String),
+    IOError,
+    Other,
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;&lt;h2 id=&quot;other-tools&quot;&gt;Other Tools&lt;&#x2F;h2&gt;
+&lt;p&gt;There have been some tools to both manage breaking changes in the past, a lot of the things I found were unmaintained or not in active use.  There might also be some great language features that I haven&#x27;t discovered yet that crate authors are already using.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;the-semver-trick&quot;&gt;The Semver Trick&lt;&#x2F;h3&gt;
+&lt;p&gt;Documented here is the &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;dtolnay&#x2F;semver-trick&quot;&gt;semver trick&lt;&#x2F;a&gt;, which touts to be able to assist in this with downstream dependencies.&lt;&#x2F;p&gt;
+&lt;p&gt;There is mention of a &lt;code&gt;libcpocalypse&lt;&#x2F;code&gt;, which does not sound nice and may happen again if there is a &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;rust-lang&#x2F;libc&#x2F;issues&#x2F;547&quot;&gt;major version increase&lt;&#x2F;a&gt; to &lt;code&gt;libc&lt;&#x2F;code&gt;.  I tried to find some information about where this had happened before but searching for the term circles back to this project and doesn&#x27;t give a great overview of the pains users had to go through before.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;semantic-rs&quot;&gt;Semantic-RS&lt;&#x2F;h3&gt;
+&lt;p&gt;An existing tool called &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;semantic-rs&#x2F;semantic-rs&quot;&gt;semantic-rs&lt;&#x2F;a&gt; touts to be able to do this for your crates automatically.  This doesn&#x27;t appear to have any changes for over a year, but does have an active issue register, but no PRs have been accepted for a while.  It is highly opinionated as well, and may not be appropriate to bolt on to an existing library.  This looks like something you need to use from the beginning as well.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;rust-breaking-changes&quot;&gt;Rust Breaking Changes&lt;&#x2F;h3&gt;
+&lt;p&gt;This also doesn&#x27;t appear to be maintained, but was an automatic listing of breaking changes to rust: &lt;a href=&quot;https:&#x2F;&#x2F;killercup.github.io&#x2F;bitrust&#x2F;&quot;&gt;https:&#x2F;&#x2F;killercup.github.io&#x2F;bitrust&#x2F;&lt;&#x2F;a&gt;.   I do wonder though how many of those changes are internal, as I don&#x27;t believe there have been many external breaking changes.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;future-proofing&quot;&gt;Future Proofing&lt;&#x2F;h3&gt;
+&lt;p&gt;There is a chapter of the &lt;a href=&quot;https:&#x2F;&#x2F;rust-lang.github.io&#x2F;api-guidelines&#x2F;about.html&quot;&gt;Rust API Guidelines&lt;&#x2F;a&gt; which deals with how to future proof an API, but as with other tools I have found does not appear to be updated in &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;rust-lang&#x2F;api-guidelines&#x2F;commits&#x2F;master&#x2F;src&#x2F;future-proofing.md&quot;&gt;quite a while&lt;&#x2F;a&gt;:&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;strong&gt;Future Proofing&lt;&#x2F;strong&gt;: &lt;a href=&quot;https:&#x2F;&#x2F;rust-lang.github.io&#x2F;api-guidelines&#x2F;future-proofing.html&quot;&gt;https:&#x2F;&#x2F;rust-lang.github.io&#x2F;api-guidelines&#x2F;future-proofing.html&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;conclusion&quot;&gt;Conclusion&lt;&#x2F;h2&gt;
+&lt;p&gt;While there has been a &lt;a href=&quot;https:&#x2F;&#x2F;blog.rust-lang.org&#x2F;2018&#x2F;03&#x2F;12&#x2F;roadmap.html#library-improvements&quot;&gt;historic push to get crates to 1.0.0&lt;&#x2F;a&gt;, There does not appear to be much in the way of modern tooling in order to help with this and the focus of previous efforts see them moving elsewhere.&lt;&#x2F;p&gt;
+&lt;p&gt;With more libraries reaching &lt;code&gt;1.0.0&lt;&#x2F;code&gt; I think it&#x27;s important to introduce more safety nets for library authors and consumers.  As an idea, we can potentially see whether a crate has breaking change through lints etc.. so why don&#x27;t we do that when we publish to crates.io?&lt;&#x2F;p&gt;
+&lt;p&gt;There is a lot of room for improvement here, and as new users come on board and new companies look at adopting, it&#x27;s important that the stability of semver is maintained.  I still think the way that cargo handles this is much better than other ecosystems.&lt;&#x2F;p&gt;
+</description>
+            </item>
         
             <item>
                 <title>Lessons learnt updating a library to std::future</title>
