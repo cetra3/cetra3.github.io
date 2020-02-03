@@ -37,7 +37,11 @@
 <li>Minor: Additions of new features or functionality that are backwards compatible</li>
 <li>Patch: Bugfixes</li>
 </ul>
-<p>There is some interesting differences for libraries <code>&lt; 1.0.0</code> which I was not aware of for longer than I care to admit.  Namely either minor or patch numbers can be changes as you see fit.  I.e, <code>0.3.0</code> could be wildly different from <code>0.3.1</code>, including breaking changes.  What I have seen in practice is usually the minor number indicates breaking changes, such as <code>0.2.0</code> to <code>0.3.0</code>, even though it's not explicit within semver.</p>
+<p>There is some interesting differences for libraries <code>&lt; 1.0.0</code> which I was not aware of for longer than I care to admit.  Namely either minor or patch numbers can be changes as you see fit.  I.e, <code>0.3.0</code> could be wildly different from <code>0.3.1</code>, including breaking changes.</p>
+<p>However: Cargo is <a href="https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html">more strict</a> than the semver documentation for <code>&lt; 1.0.0</code> libraries:</p>
+<blockquote>
+<p>This compatibility convention is different from SemVer in the way it treats versions before 1.0.0. While SemVer says there is no compatibility before 1.0.0, Cargo considers <code>0.x.y</code> to be compatible with <code>0.x.z</code>, where <code>y ≥ z</code> and <code>x &gt; 0</code>.</p>
+</blockquote>
 <h2 id="why-we-need-it">Why we need it</h2>
 <p>We need some way of portraying changes to an API and, while it's not perfect, it appears to be a defacto standard which makes interoperability with other libraries and crates a lot easier.</p>
 <p>It also gives cargo a programmatic way of finding updated versions, when it's used appropriately.</p>
@@ -93,6 +97,11 @@ to prevent the breakage from affecting dependencies.</p>
 <h3 id="the-semver-trick">The Semver Trick</h3>
 <p>Documented here is the <a href="https://github.com/dtolnay/semver-trick">semver trick</a>, which touts to be able to assist in this with downstream dependencies.</p>
 <p>There is mention of a <code>libcpocalypse</code>, which does not sound nice and may happen again if there is a <a href="https://github.com/rust-lang/libc/issues/547">major version increase</a> to <code>libc</code>.  I tried to find some information about where this had happened before but searching for the term circles back to this project and doesn't give a great overview of the pains users had to go through before.</p>
+<h3 id="rust-semverver">Rust Semverver</h3>
+<p><a href="https://github.com/rust-dev-tools/rust-semverver">rust-semverver</a> is a Google Summer of Code Project which checks semver compliance with rust crates by using a novel approach:</p>
+<blockquote>
+<p>The approach taken is to compile both versions of the crate to rlibs and to link them as dependencies of a third, empty, dummy crate. Then, a custom compiler driver is run on the said dummy and all necessary analysis is performed in that context, where type information and other resources are available.</p>
+</blockquote>
 <h3 id="semantic-rs">Semantic-RS</h3>
 <p>An existing tool called <a href="https://github.com/semantic-rs/semantic-rs">semantic-rs</a> touts to be able to do this for your crates automatically.  This doesn't appear to have any changes for over a year, but does have an active issue register, but no PRs have been accepted for a while.  It is highly opinionated as well, and may not be appropriate to bolt on to an existing library.  This looks like something you need to use from the beginning as well.</p>
 <h3 id="rust-breaking-changes">Rust Breaking Changes</h3>

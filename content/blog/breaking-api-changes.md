@@ -23,7 +23,12 @@ The full documentation of semver is on [https://semver.org/](https://semver.org/
 * Minor: Additions of new features or functionality that are backwards compatible
 * Patch: Bugfixes
 
-There is some interesting differences for libraries `< 1.0.0` which I was not aware of for longer than I care to admit.  Namely either minor or patch numbers can be changes as you see fit.  I.e, `0.3.0` could be wildly different from `0.3.1`, including breaking changes.  What I have seen in practice is usually the minor number indicates breaking changes, such as `0.2.0` to `0.3.0`, even though it's not explicit within semver.
+There is some interesting differences for libraries `< 1.0.0` which I was not aware of for longer than I care to admit.  Namely either minor or patch numbers can be changes as you see fit.  I.e, `0.3.0` could be wildly different from `0.3.1`, including breaking changes.
+
+However: Cargo is [more strict](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html) than the semver documentation for `< 1.0.0` libraries:
+
+> This compatibility convention is different from SemVer in the way it treats versions before 1.0.0. While SemVer says there is no compatibility before 1.0.0, Cargo considers `0.x.y` to be compatible with `0.x.z`, where `y ≥ z` and `x > 0`.
+
 
 ## Why we need it
 
@@ -103,6 +108,12 @@ There have been some tools to both manage breaking changes in the past, a lot of
 Documented here is the [semver trick](https://github.com/dtolnay/semver-trick), which touts to be able to assist in this with downstream dependencies.
 
 There is mention of a `libcpocalypse`, which does not sound nice and may happen again if there is a [major version increase](https://github.com/rust-lang/libc/issues/547) to `libc`.  I tried to find some information about where this had happened before but searching for the term circles back to this project and doesn't give a great overview of the pains users had to go through before.
+
+### Rust Semverver
+
+[rust-semverver](https://github.com/rust-dev-tools/rust-semverver) is a Google Summer of Code Project which checks semver compliance with rust crates by using a novel approach:
+
+> The approach taken is to compile both versions of the crate to rlibs and to link them as dependencies of a third, empty, dummy crate. Then, a custom compiler driver is run on the said dummy and all necessary analysis is performed in that context, where type information and other resources are available.
 
 ### Semantic-RS
 
