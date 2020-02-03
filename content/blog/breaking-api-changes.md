@@ -9,7 +9,7 @@ date = 2020-02-03
 tags = ["rust", "semver"]
 +++
 
-While upgrading dependencies (basically deleting `Cargo.lock`) in a big rust project I hit an issue.  A [new commit](https://github.com/serde-rs/json/commit/97f87f2587037dcd50b9504815ee1f1540b1c2b8) in `serde_json` caused has upstream failure in another library, [jmespath](https://github.com/mtdowling/jmespath.rs/issues/33), and possibly more crates. Strictly speaking, because these structs and enums were essentially *public* and are now no longer public, this is a breaking change.
+While upgrading dependencies (basically deleting `Cargo.lock`) in a big rust project I hit an issue.  A [new commit](https://github.com/serde-rs/json/commit/97f87f2587037dcd50b9504815ee1f1540b1c2b8) in `serde_json` caused has upstream failure in another library, [jmespath](https://github.com/mtdowling/jmespath.rs/issues/33), and possibly more crates. Because these structs and enums visibility has changed, this could be interpreted as a breaking change, depending on what you consider *public*.
 
 While `jmespath` was doing the wrong thing here, using undocumented API, it got me thinking about what can library maintainers and library consumers do to ensure semver compatibility, and what tools are out there to assist both groups.
 
