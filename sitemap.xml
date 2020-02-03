@@ -12,6 +12,13 @@
         </url>
     
         <url>
+            <loc>https://cetra3.github.io/blog/breaking-api-changes/</loc>
+            
+                <lastmod>2020-02-03</lastmod>
+            
+        </url>
+    
+        <url>
             <loc>https://cetra3.github.io/blog/face-detection-with-actix-web/</loc>
             
                 <lastmod>2019-04-11</lastmod>
