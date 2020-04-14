@@ -22,4 +22,14 @@
 </article>
 {% endfor %}
 
+
+{% if paginator.previous %}
+<a href="{{paginator.previous}}">Previous</a>
+{% endif %}
+Page {{paginator.current_index}} of {{paginator.number_pagers}}
+{% if paginator.next %}
+<a href="{{paginator.next}}">Next</a>
+{% endif %}
+
+
 {% endblock content %}

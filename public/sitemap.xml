@@ -12,6 +12,16 @@
         </url>
     
         <url>
+            <loc>https://cetra3.github.io/blog/archive/1/</loc>
+            
+        </url>
+    
+        <url>
+            <loc>https://cetra3.github.io/blog/archive/2/</loc>
+            
+        </url>
+    
+        <url>
             <loc>https://cetra3.github.io/blog/breaking-api-changes/</loc>
             
                 <lastmod>2020-02-03</lastmod>
@@ -33,19 +43,16 @@
         </url>
     
         <url>
+            <loc>https://cetra3.github.io/blog/implementing-a-jobq/</loc>
+            
+                <lastmod>2020-04-09</lastmod>
+            
+        </url>
+    
+        <url>
             <loc>https://cetra3.github.io/blog/mpart-async-0-3-0/</loc>
             
                 <lastmod>2020-01-22</lastmod>
-            
-        </url>
-    
-        <url>
-            <loc>https://cetra3.github.io/blog/pages/1/</loc>
-            
-        </url>
-    
-        <url>
-            <loc>https://cetra3.github.io/blog/pages/2/</loc>
             
         </url>
     
