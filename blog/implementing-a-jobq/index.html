@@ -1,0 +1,576 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> Implementing a Job queue with Tokio, PostgreSQL &amp; ZeroMQ - Cetra&#x27;s Thoughts </title>
+    <link href="/spectre.css" rel="stylesheet">
+    <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
+</head>
+
+<body>
+    <header class="navbar">
+        <section class="navbar-section">
+        </section>
+        <section class="navbar-center">
+        </section>
+        <section class="navbar-section">
+            <a href="https://github.com/cetra3/" class="btn btn-link">GitHub</a>
+            <a href="https://twitter.com/cetra3" class="btn btn-link">Twitter</a>
+            <a href="https://mastodon.social/@cetra3" class="btn btn-link">Mastodon</a>
+        </section>
+    </header>
+    <div class="container grid-lg">
+        
+<div class="post">
+  <h1>Implementing a Job queue with Tokio, PostgreSQL &amp; ZeroMQ </h1>
+  
+  <p> <small class="label label-primary">rust</small> <small class="label label-primary">tmq</small> <small class="label">2020-04-09</small></p>
+  
+  <p>One of the challenges I have had with on premise solutions is the lack of reliable environments and constrained resources.   Not only are you limited in your ability to control things, you need to ensure that things continue on in the case of failure.</p>
+<p>I was tasked with rewriting the job processing pipeline for my company's product, <a href="https://www.schoolbench.com.au/">SchoolBench</a>, to ensure a greater level of robustness in the case of service or system failure.</p>
+<p>This article steps through an approach to this using async rust &amp; the help of tokio ZeroMQ library: <a href="https://github.com/cetra3/tmq">tmq</a> along with <a href="https://crates.io/crates/tokio-postgres">tokio-postgres</a>.</p>
+<p>As some excellent work has been put in bringing tmq to async, I thought it pertinent to look at reapproaching the pipeline using async code.  I have published an <a href="https://github.com/cetra3/jobq">initial prototype</a> of what the end result may look like, and will be stepping through the approach here, and some of the tradeoffs I made</p>
+<h2 id="why-tmq-zeromq">Why TMQ/ZeroMQ?</h2>
+<p>For those not familiar with <a href="https://zeromq.org/">ZeroMQ</a>, it is a messaging library with a lot of features, from standard publish/subscribe to more elaborate arrangements.  <a href="https://github.com/cetra3/tmq">tmq</a> is a <a href="https://www.tokio.rs">tokio</a> compatible binding that allows you to bridge ZeroMQ with the async world of rust.</p>
+<p>You would use ZeroMQ if you need to interact with other languages easily and don't want it to be too opinionated on what message formats are being sent.  If you are purely using rust then this may be not be a great fit, but it does still provide you some great interprocess &amp; internetwork capabilities that you won't get from just tokio.</p>
+<p>We use ZeroMQ in SchoolBench as it is a polyglot application and has a lot of components written in python &amp; java as well as rust.  It is lightweight enough not to cause overheads &amp; complex enough for the use cases I have thrown at it so far.</p>
+<h2 id="prior-work">Prior Work</h2>
+<p>There are some existing rust based job queues that do similar things and may be more suited to your own personal tastes:</p>
+<ul>
+<li><a href="https://github.com/kureuil/batch-rs">https://github.com/kureuil/batch-rs</a></li>
+<li><a href="https://github.com/badboy/oppgave">https://github.com/badboy/oppgave</a></li>
+<li><a href="https://github.com/rusty-celery/rusty-celery">https://github.com/rusty-celery/rusty-celery</a></li>
+<li>Probably lots more I haven't found</li>
+</ul>
+<p>Most of them use some sort of message broker, such as <a href="https://www.rabbitmq.com/">RabbitMQ</a> or <a href="https://redis.io/">Redis</a>.</p>
+<h2 id="what-is-a-job">What is a Job?</h2>
+<p>It helps to explain what a job is.  In the context of SchoolBench a job is a piece of work that may take some time to do (think seconds), is quite intensive, and may fail. Once an asset is saved into SchoolBench, lots of processes are kicked off in the background to <em>fill in the blanks</em> and provide information about the asset.</p>
+<p>Some examples of jobs are:</p>
+<ul>
+<li>Running <a href="../face-detection-with-tensorflow-rust/">Facial Recognition</a> on images using tensorflow</li>
+<li>Generating Thumbnails and Watermarked renditions of images</li>
+<li>Calculating whether a <a href="https://github.com/cetra3/dhash">photo is a duplicate</a> of another photo and marking the set of duplicates</li>
+</ul>
+<p>A lot of these are quite intensive &amp; can sometimes fail in weird and wonderful ways:  An image uploaded may be corrupted, so renditions may not run;  There may be an issue running the neural net;  The VM may be experience ballooning and fail to allocate memory, etc...</p>
+<p>So we need a way of describing a discrete piece of work which may happen some time in the future and may happen by a completely isolated process.</p>
+<h3 id="resource-contention">Resource Contention</h3>
+<p>We have very limited resources in an on premise environment. After providing a minimum recommendation it is important to tune for that worst case.  This is different in a cloud environment where you can spin up guests in a work stealing fashion if you throw more money at your infrastructure. on premise is usually more fixed in terms of server and hardware allocations, and so we need to plan for that.</p>
+<p>This is one area where the job queue deviates from a lot of existing systems out there: we assume we're just running on the one set of CPUs and so there is a fixed number of active jobs at any given time.</p>
+<p>We also want a simple way to prioritise tasks as they are submitted, so that some jobs finish first, with higher value jobs such as thumbnail generation happening first. The job queue uses a simple 3-tier priority system to do this: High, Medium &amp; Low.</p>
+<p>This simple system could mean if there are not enough resources to finish jobs then there is a chance that lower tier jobs may never get around to completing.  In practice the sort of work loads we have seen this is not the case, but it is a possibility. In which case more processors would be needed to keep up with the load or another style of priority to be implemented (such as fair queueing).</p>
+<h3 id="persistence">Persistence</h3>
+<p>Jobs need to survive crashes and server restarts in a robust fashion.  Existing job queues utilise an existing persistence layer/message broker such as <a href="https://redis.io/">Redis</a> or <a href="https://www.rabbitmq.com/">RabbitMQ</a>.  I have chosen PostgreSQL as the persistence layer as it is performant enough, and is already in use for metadata storage.  However, you could easily swap out another type of persistence with a bit of refactoring.</p>
+<h2 id="the-overall-process">The Overall Process</h2>
+<p>The high level proces is as follows:</p>
+<ul>
+<li>A User Action triggers some sort of logic which requests a job.  This could be an automatic rule somewhere or could be the a user specifically requesting a job to run</li>
+<li>A server listens for requests and puts them into a queue</li>
+<li>If there are jobs that can be processed then they are submitted to the individual worker who is responsible for finishing the job</li>
+<li>When a job completes or fails, then it is marked as so with a duration on how long things take</li>
+<li>Everytime a new event is triggered, such as a job in a queue or a job completed/failed, the server checks to see if it can mark jobs as processing</li>
+<li>All job status updates &amp; information is persisted to a db, so that things can pick up again if there is a failure &amp; reports can be ran using standard SQL tools</li>
+</ul>
+<h3 id="client-server-worker">Client, Server, Worker</h3>
+<p>We split the roles of the job queue into 3 different types:</p>
+<ul>
+<li><strong>Clients</strong> that submit requests to the server</li>
+<li>The <strong>Server</strong> which does the main job queue loop</li>
+<li>The <strong>Workers</strong> that receive jobs and do work, returning whether the work was completed <em>(not the work outcome itself, just the status; we assume that the worker will update something out of band like another db or filesystem)</em></li>
+</ul>
+<p>One possible thing to note is that there is only ever one server, but there can be as many workers and clients as allowed.  The workers themselves can also be clients and submit requests if they want to.</p>
+<h3 id="communication">Communication</h3>
+<p>The server, worker and clients all communicate via a ZeroMQ <code>DEALER/ROUTER</code> socket.</p>
+<p>Clients and Workers use the <code>DEALER</code> style socket to retrieve &amp; send messages, but also identify themselves, and the server uses <code>ROUTER</code>. The identity is included as the first ZeroMQ multipart frame when it is received and so can be used to route messages back to the appropriate place.</p>
+<p>The messages are serialised on the wire as <a href="https://cbor.io/">CBOR</a> using <a href="https://crates.io/crates/serde_cbor">serde_cbor</a>.  CBOR was chosen because it allows for the message type to be flexible &amp; there are plenty of implementations in other languages.  JSON could be used as well, as arguably the support for JSON is much higher, but would mean larger message sizes. </p>
+<p>With serde it's pretty easy to adjust what serialisation is used, so some experimentation could be worthwhile.</p>
+<h2 id="the-job-structs">The Job Structs</h2>
+<p>The <a href="https://github.com/cetra3/jobq/blob/a09ebcaff164c2153cdceba0031dbfb7caa1ea3b/src/lib.rs#L42-L50"><code>Job</code> struct</a> is defined as follows (with the <code>Status</code> &amp; <code>Priority</code> enums listed too):</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">pub struct </span><span style="color:#c0c5ce;">Job {
+    </span><span style="color:#b48ead;">pub </span><span style="color:#bf616a;">id</span><span style="color:#c0c5ce;">: </span><span style="color:#b48ead;">i64</span><span style="color:#c0c5ce;">, </span><span style="color:#65737e;">// ID of the Job so it can be tracked
+    </span><span style="color:#b48ead;">pub </span><span style="color:#bf616a;">username</span><span style="color:#c0c5ce;">: String, </span><span style="color:#65737e;">// Username of who submitted the job
+    </span><span style="color:#b48ead;">pub </span><span style="color:#bf616a;">name</span><span style="color:#c0c5ce;">: String, </span><span style="color:#65737e;">// Name of the job/worker, `rendition`, etc..
+    </span><span style="color:#b48ead;">pub </span><span style="color:#bf616a;">uuid</span><span style="color:#c0c5ce;">: Uuid, </span><span style="color:#65737e;">// Unique ID of the asset
+    </span><span style="color:#b48ead;">pub </span><span style="color:#bf616a;">params</span><span style="color:#c0c5ce;">: Value,</span><span style="color:#65737e;">// Any parameters of the job in question
+    </span><span style="color:#b48ead;">pub </span><span style="color:#bf616a;">priority</span><span style="color:#c0c5ce;">: Priority, </span><span style="color:#65737e;">// The priority of the job
+    </span><span style="color:#b48ead;">pub </span><span style="color:#bf616a;">status</span><span style="color:#c0c5ce;">: Status,</span><span style="color:#65737e;">// The status of the job
+</span><span style="color:#c0c5ce;">}
+</span></pre>
+<p>The job has a current status which starts with <code>Queued</code>, goes to <code>Processing</code> when it is active and then marked as either <code>Completed</code> or <code>Failed</code>:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">pub enum </span><span style="color:#c0c5ce;">Status {
+    Queued,
+    Processing,
+    Completed,
+    Failed,
+}
+</span></pre>
+<p>The priority is a simple 3-tier system of <code>High</code>, <code>Normal</code> &amp; <code>Low</code>:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">pub enum </span><span style="color:#c0c5ce;">Priority {
+    High,
+    Normal,
+    Low,
+}
+</span></pre><h3 id="message-types">Message types</h3>
+<p>Messages are split up based upon who the destination is with a shared <code>Hello</code> message that can be serialised as any enum:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#c0c5ce;">#[</span><span style="color:#bf616a;">derive</span><span style="color:#c0c5ce;">(Serialize, Deserialize, Debug)]
+</span><span style="color:#b48ead;">pub enum </span><span style="color:#c0c5ce;">ServerMessage {
+    Hello,
+    Request(JobRequest),
+    Completed(Job),
+    Failed(Job, String),
+}
+
+#[</span><span style="color:#bf616a;">derive</span><span style="color:#c0c5ce;">(Serialize, Deserialize, Debug)]
+</span><span style="color:#b48ead;">pub enum </span><span style="color:#c0c5ce;">ClientMessage {
+    Hello,
+    Acknowledged(Job),
+}
+
+#[</span><span style="color:#bf616a;">derive</span><span style="color:#c0c5ce;">(Serialize, Deserialize, Debug)]
+</span><span style="color:#b48ead;">pub enum </span><span style="color:#c0c5ce;">WorkerMessage {
+    Hello,
+    Order(Job),
+}
+</span></pre>
+<p>The  <code>JobRequest</code> is very similar to a <code>Job</code> but does not have an allocated id or status yet:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">pub struct </span><span style="color:#c0c5ce;">JobRequest {
+    </span><span style="color:#b48ead;">pub </span><span style="color:#bf616a;">name</span><span style="color:#c0c5ce;">: String,
+    </span><span style="color:#b48ead;">pub </span><span style="color:#bf616a;">username</span><span style="color:#c0c5ce;">: String,
+    </span><span style="color:#b48ead;">pub </span><span style="color:#bf616a;">uuid</span><span style="color:#c0c5ce;">: Uuid,
+    </span><span style="color:#b48ead;">pub </span><span style="color:#bf616a;">params</span><span style="color:#c0c5ce;">: Value,
+    </span><span style="color:#b48ead;">pub </span><span style="color:#bf616a;">priority</span><span style="color:#c0c5ce;">: Priority,
+}
+</span></pre><h3 id="the-params-value">The Params Value</h3>
+<p>One thing to note is the <code>params</code> is of the type <code>serde_json::Value</code>.  This is really to allow the greatest flexibility into what parameters are sent with each job &amp; also to have it persist to PostgreSQL as a <code>jsonb</code> column.</p>
+<p>Alternatively, a tighter <code>enum</code> could be used for different job names if you knew ahead of time the jobs that will be requested.</p>
+<h3 id="serialisation-helpers">Serialisation helpers</h3>
+<p>To reduce some of the repetitiveness, there is a serialisation helper which simply serialises to <code>CBOR</code> for any struct that implements <code>Serialize</code>:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">pub trait </span><span style="color:#c0c5ce;">ToMpart {
+    </span><span style="color:#b48ead;">fn </span><span style="color:#8fa1b3;">to_mpart</span><span style="color:#c0c5ce;">(&amp;</span><span style="color:#bf616a;">self</span><span style="color:#c0c5ce;">) -&gt; Result&lt;Multipart, Error&gt;;
+
+    </span><span style="color:#b48ead;">fn </span><span style="color:#8fa1b3;">to_msg</span><span style="color:#c0c5ce;">(&amp;</span><span style="color:#bf616a;">self</span><span style="color:#c0c5ce;">) -&gt; Result&lt;Message, Error&gt;;
+}
+
+</span><span style="color:#b48ead;">impl</span><span style="color:#c0c5ce;">&lt;T: serde::ser::Serialize&gt; ToMpart </span><span style="color:#b48ead;">for </span><span style="color:#c0c5ce;">T {
+    </span><span style="color:#b48ead;">fn </span><span style="color:#8fa1b3;">to_mpart</span><span style="color:#c0c5ce;">(&amp;</span><span style="color:#bf616a;">self</span><span style="color:#c0c5ce;">) -&gt; Result&lt;Multipart, Error&gt; {
+        </span><span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> bytes = serde_cbor::to_vec(&amp;</span><span style="color:#bf616a;">self</span><span style="color:#c0c5ce;">)?;
+
+        Ok(Multipart::from(vec![&amp;bytes]))
+    }
+
+    </span><span style="color:#b48ead;">fn </span><span style="color:#8fa1b3;">to_msg</span><span style="color:#c0c5ce;">(&amp;</span><span style="color:#bf616a;">self</span><span style="color:#c0c5ce;">) -&gt; Result&lt;Message, Error&gt; {
+        </span><span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> bytes = serde_cbor::to_vec(&amp;</span><span style="color:#bf616a;">self</span><span style="color:#c0c5ce;">)?;
+
+        Ok(Message::from(&amp;bytes))
+    }
+}
+</span></pre><h2 id="client-requests">Client Requests</h2>
+<p>Clients can send requests by constructing job requests and sending them to the server.  They just need to construct the <code>Request</code> enum and send it on the wire:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">let </span><span style="color:#c0c5ce;">(</span><span style="color:#b48ead;">mut</span><span style="color:#c0c5ce;"> send, </span><span style="color:#b48ead;">mut</span><span style="color:#c0c5ce;"> recv) = </span><span style="color:#96b5b4;">dealer</span><span style="color:#c0c5ce;">(&amp;Context::new())
+    .</span><span style="color:#96b5b4;">set_identity</span><span style="color:#c0c5ce;">(</span><span style="color:#b48ead;">b</span><span style="color:#c0c5ce;">&quot;</span><span style="color:#a3be8c;">test_client</span><span style="color:#c0c5ce;">&quot;)
+    .</span><span style="color:#96b5b4;">connect</span><span style="color:#c0c5ce;">(&amp;config.job_address)?
+    .split::&lt;Multipart&gt;();
+
+</span><span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> job = JobRequest {
+    name: &quot;</span><span style="color:#a3be8c;">test</span><span style="color:#c0c5ce;">&quot;.</span><span style="color:#96b5b4;">into</span><span style="color:#c0c5ce;">(),
+    username: &quot;</span><span style="color:#a3be8c;">test_client</span><span style="color:#c0c5ce;">&quot;.</span><span style="color:#96b5b4;">into</span><span style="color:#c0c5ce;">(),
+    params: Value::Null,
+    uuid: Uuid::new_v4(),
+    priority: PriorityLow,
+};
+
+send.</span><span style="color:#96b5b4;">send</span><span style="color:#c0c5ce;">(ServerMessage::Request(job).</span><span style="color:#96b5b4;">to_mpart</span><span style="color:#c0c5ce;">()?).await?;
+</span></pre><h2 id="worker-processing">Worker Processing</h2>
+<p>For workers doing the work, they should do something &amp; then return whether it's failed or completed.</p>
+<p>To make this easier, a <code>Worker</code> trait is implemented.  Since some work will be async &amp; some not, we want our trait to be async-capable.  At the writing of this article you can't have <code>async</code> in trait definitions, but there is the <a href="https://crates.io/crates/async-trait">async_trait</a> crate that allows you to decorate a trait definition and do what we're after.</p>
+<p>For errors we're going to use the <a href="https://crates.io/crates/anyhow">anyhow</a> crate, but a more generic error approach could be used with a bit of a refactor.</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#c0c5ce;">#[</span><span style="color:#bf616a;">async_trait</span><span style="color:#c0c5ce;">]
+</span><span style="color:#b48ead;">pub trait </span><span style="color:#c0c5ce;">Worker: Sized {
+    </span><span style="color:#b48ead;">const </span><span style="color:#d08770;">JOB_NAME</span><span style="color:#c0c5ce;">: &amp;</span><span style="color:#b48ead;">&#39;static str</span><span style="color:#c0c5ce;">;
+
+    async </span><span style="color:#b48ead;">fn </span><span style="color:#8fa1b3;">process</span><span style="color:#c0c5ce;">(&amp;</span><span style="color:#bf616a;">self</span><span style="color:#c0c5ce;">, </span><span style="color:#bf616a;">job</span><span style="color:#c0c5ce;">: Job) -&gt; Result&lt;(), Error&gt;
+}
+</span></pre>
+<p>The implementation of this trait means that you can do lots within the <code>process</code> body and simplifies it.</p>
+<p>An original version had the <code>process</code> method accept <code>&amp;mut self</code>, but that caused some contention when trying to process jobs concurrently.  Instead you'll need some interior mutability if you need to provide any mutable references to <code>&amp;self</code>.</p>
+<p>As an <a href="https://github.com/cetra3/jobq/blob/2028ea12388bd077056d984016ecf46c88e6626c/src/worker.rs#L82-L94">example</a>, the test worker will simply wait for 100 milliseconds and then fail every 12th job based upon the id:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">impl </span><span style="color:#c0c5ce;">Worker </span><span style="color:#b48ead;">for </span><span style="color:#c0c5ce;">TestWorker {
+    </span><span style="color:#b48ead;">const </span><span style="color:#d08770;">JOB_NAME</span><span style="color:#c0c5ce;">: &amp;</span><span style="color:#b48ead;">&#39;static str </span><span style="color:#c0c5ce;">= &quot;</span><span style="color:#a3be8c;">test</span><span style="color:#c0c5ce;">&quot;;
+
+    async </span><span style="color:#b48ead;">fn </span><span style="color:#8fa1b3;">process</span><span style="color:#c0c5ce;">(&amp;</span><span style="color:#bf616a;">self</span><span style="color:#c0c5ce;">, </span><span style="color:#bf616a;">job</span><span style="color:#c0c5ce;">: Job) -&gt; Result&lt;(), Error&gt; {
+        </span><span style="color:#96b5b4;">delay_for</span><span style="color:#c0c5ce;">(Duration::from_millis(</span><span style="color:#d08770;">100</span><span style="color:#c0c5ce;">)).await;
+        </span><span style="color:#b48ead;">if</span><span style="color:#c0c5ce;"> job.id % </span><span style="color:#d08770;">12 </span><span style="color:#c0c5ce;">== </span><span style="color:#d08770;">0 </span><span style="color:#c0c5ce;">{
+            </span><span style="color:#b48ead;">return </span><span style="color:#c0c5ce;">Err(anyhow!(&quot;</span><span style="color:#a3be8c;">Simulating failure</span><span style="color:#c0c5ce;">&quot;));
+        }
+
+        Ok(())
+    }
+}
+</span></pre><h3 id="the-work-method">The Work Method</h3>
+<p>There is another method, <code>work</code>, <a href="https://github.com/cetra3/jobq/blob/2028ea12388bd077056d984016ecf46c88e6626c/src/worker.rs#L16">on the trait</a> which sets up &amp; hides some of the complexity away of getting a worker to listen for requests coming through.   This is plumbing to make it easy to run a <code>Worker</code>.</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#c0c5ce;">async </span><span style="color:#b48ead;">fn </span><span style="color:#8fa1b3;">work</span><span style="color:#c0c5ce;">(&amp;</span><span style="color:#bf616a;">self</span><span style="color:#c0c5ce;">, </span><span style="color:#bf616a;">job_address</span><span style="color:#c0c5ce;">: &amp;</span><span style="color:#b48ead;">str</span><span style="color:#c0c5ce;">) -&gt; Result&lt;(), Error&gt; {
+    ...
+} 
+</span></pre>
+<p>You can <code>await</code> this method for anything that implements <code>Worker</code> to have it process incoming requests:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">use </span><span style="color:#c0c5ce;">jobq::worker::{Worker, TestWorker};
+
+tokio::spawn(async </span><span style="color:#b48ead;">move </span><span style="color:#c0c5ce;">{
+    </span><span style="color:#b48ead;">if let </span><span style="color:#c0c5ce;">Err(err) = TestWorker.</span><span style="color:#96b5b4;">work</span><span style="color:#c0c5ce;">(&amp;worker_config.job_address).await {
+        error!(&quot;</span><span style="color:#a3be8c;">{}</span><span style="color:#c0c5ce;">&quot;, err);
+    }
+});
+</span></pre>
+<p>Under the hood it uses the job address to communicate with a Server and glues up some requests</p>
+<p>Firstly, <a href="https://github.com/cetra3/jobq/blob/2028ea12388bd077056d984016ecf46c88e6626c/src/worker.rs#L20-L23">it creates a dealer socket</a>, setting the identity accordingly:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">let </span><span style="color:#c0c5ce;">(</span><span style="color:#b48ead;">mut</span><span style="color:#c0c5ce;"> send_skt, recv) = </span><span style="color:#96b5b4;">dealer</span><span style="color:#c0c5ce;">(&amp;Context::new())
+    .</span><span style="color:#96b5b4;">set_identity</span><span style="color:#c0c5ce;">(job_name.</span><span style="color:#96b5b4;">as_bytes</span><span style="color:#c0c5ce;">())
+    .</span><span style="color:#96b5b4;">connect</span><span style="color:#c0c5ce;">(&amp;job_address)?
+    .split::&lt;Multipart&gt;();
+</span></pre>
+<p>As ZeroMQ sockets are <code>Send</code> but not <code>Sync</code>, we spin up a background task connected by an <code>unbounded</code> queue which allows the sender to be cloned.  This allows both heartbeats to be sent every 10 seconds from a background task &amp; also send results of processing:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">let </span><span style="color:#c0c5ce;">(send, </span><span style="color:#b48ead;">mut</span><span style="color:#c0c5ce;"> recv_skt) = unbounded::&lt;ServerMessage&gt;();
+
+tokio::spawn(async </span><span style="color:#b48ead;">move </span><span style="color:#c0c5ce;">{
+    </span><span style="color:#b48ead;">while let </span><span style="color:#c0c5ce;">Some(jobq_message) = recv_skt.</span><span style="color:#96b5b4;">next</span><span style="color:#c0c5ce;">().await {
+        </span><span style="color:#b48ead;">if let </span><span style="color:#c0c5ce;">Ok(msg) = jobq_message.</span><span style="color:#96b5b4;">to_mpart</span><span style="color:#c0c5ce;">() {
+            </span><span style="color:#b48ead;">if let </span><span style="color:#c0c5ce;">Err(err) = send_skt.</span><span style="color:#96b5b4;">send</span><span style="color:#c0c5ce;">(msg).await {
+                error!(&quot;</span><span style="color:#a3be8c;">Error sending message:{}</span><span style="color:#c0c5ce;">&quot;, err);
+            }
+        }
+    }
+});
+</span></pre>
+<p>The <a href="https://github.com/cetra3/jobq/blob/2028ea12388bd077056d984016ecf46c88e6626c/src/worker.rs#L39-L46">10 second heartbeat</a> is similiarly set up as a separate task:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#c0c5ce;">tokio::spawn(async </span><span style="color:#b48ead;">move </span><span style="color:#c0c5ce;">{
+    </span><span style="color:#b48ead;">loop </span><span style="color:#c0c5ce;">{
+        </span><span style="color:#b48ead;">if let </span><span style="color:#c0c5ce;">Err(err) = ping_sender.</span><span style="color:#96b5b4;">send</span><span style="color:#c0c5ce;">(ServerMessage::Hello).await {
+            error!(&quot;</span><span style="color:#a3be8c;">Error:{}</span><span style="color:#c0c5ce;">&quot;, err);
+        };
+        </span><span style="color:#96b5b4;">delay_for</span><span style="color:#c0c5ce;">(Duration::from_millis(</span><span style="color:#d08770;">10000</span><span style="color:#c0c5ce;">)).await;
+    }
+});
+</span></pre>
+<p>There is then a <a href="https://github.com/cetra3/jobq/blob/2028ea12388bd077056d984016ecf46c88e6626c/src/worker.rs#L48-L75">big combinator statement</a> which in effect listens for job requests &amp; then runs them in parallel:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#c0c5ce;">recv.</span><span style="color:#96b5b4;">filter_map</span><span style="color:#c0c5ce;">(|</span><span style="color:#bf616a;">val</span><span style="color:#c0c5ce;">| {
+    </span><span style="color:#b48ead;">match</span><span style="color:#c0c5ce;"> val
+        .</span><span style="color:#96b5b4;">map_err</span><span style="color:#c0c5ce;">(Error::from)
+        .</span><span style="color:#96b5b4;">and_then</span><span style="color:#c0c5ce;">(|</span><span style="color:#bf616a;">msg</span><span style="color:#c0c5ce;">| serde_cbor::from_slice(&amp;msg[</span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">]).</span><span style="color:#96b5b4;">map_err</span><span style="color:#c0c5ce;">(Error::from))
+    {
+        Ok(WorkerMessage::Order(job)) =&gt; </span><span style="color:#b48ead;">return </span><span style="color:#96b5b4;">ready</span><span style="color:#c0c5ce;">(Some(job)),
+        Ok(WorkerMessage::Hello) =&gt; {
+            debug!(&quot;</span><span style="color:#a3be8c;">Pong: {}</span><span style="color:#c0c5ce;">&quot;, job_type);
+        }
+        Err(err) =&gt; {
+            error!(&quot;</span><span style="color:#a3be8c;">Error decoding message:{}</span><span style="color:#c0c5ce;">&quot;, err);
+        }
+    }
+
+    </span><span style="color:#b48ead;">return </span><span style="color:#96b5b4;">ready</span><span style="color:#c0c5ce;">(None);
+})
+.</span><span style="color:#96b5b4;">map</span><span style="color:#c0c5ce;">(|</span><span style="color:#bf616a;">job</span><span style="color:#c0c5ce;">| (</span><span style="color:#bf616a;">self</span><span style="color:#c0c5ce;">.</span><span style="color:#96b5b4;">process</span><span style="color:#c0c5ce;">(job.</span><span style="color:#96b5b4;">clone</span><span style="color:#c0c5ce;">()), send.</span><span style="color:#96b5b4;">clone</span><span style="color:#c0c5ce;">(), job))
+.</span><span style="color:#96b5b4;">for_each_concurrent</span><span style="color:#c0c5ce;">(None, |(</span><span style="color:#bf616a;">status</span><span style="color:#c0c5ce;">, </span><span style="color:#bf616a;">mut send</span><span style="color:#c0c5ce;">, </span><span style="color:#bf616a;">job</span><span style="color:#c0c5ce;">)| async </span><span style="color:#b48ead;">move </span><span style="color:#c0c5ce;">{
+    </span><span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> server_message = </span><span style="color:#b48ead;">match</span><span style="color:#c0c5ce;"> status.await {
+        Ok(()) =&gt; ServerMessage::Completed(job),
+        Err(err) =&gt; ServerMessage::Failed(job, err.</span><span style="color:#96b5b4;">to_string</span><span style="color:#c0c5ce;">()),
+    };
+
+    </span><span style="color:#b48ead;">if let </span><span style="color:#c0c5ce;">Err(err) = send.</span><span style="color:#96b5b4;">send</span><span style="color:#c0c5ce;">(server_message).await {
+        error!(&quot;</span><span style="color:#a3be8c;">Error sending server message: {}</span><span style="color:#c0c5ce;">&quot;, err);
+    }
+})
+.await;
+</span></pre>
+<p>There is a bit of cloning here that could probably be avoided, but the overhead of cloning a job is not that big.</p>
+<p>The <a href="https://docs.rs/futures/0.3.4/futures/stream/trait.StreamExt.html#method.for_each_concurrent"><code>for_each_concurrent</code></a> allows the worker to run concurrently, and is one of the reasons the trait takes <code>&amp;self</code> rather than <code>&amp;mut self</code>.</p>
+<p>All of this is essentially generic on the <code>Worker</code> trait, meaning this plumbing is handled for you when you call <code>work(&amp;address)</code>.</p>
+<h3 id="blocking-tasks">Blocking Tasks</h3>
+<p>Some tasks may be blocking, which is a no-no in the async world.  If one of the async worker threads is blocked then it can't listen for more events &amp; will slow things down.  Luckily tokio does provide the <a href="https://docs.rs/tokio/0.2.18/tokio/task/fn.spawn_blocking.html"><code>spawn_blocking</code></a> helper for executing blocking work on a dedicated threadpool:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> result =
+   tokio::task::spawn_blocking(</span><span style="color:#b48ead;">move </span><span style="color:#c0c5ce;">|| </span><span style="color:#96b5b4;">do_blocking_work</span><span style="color:#c0c5ce;">(job));
+
+result.await??;
+</span></pre>
+<p>The double <code>.await??</code> is because the <code>JoinHandle</code> returned from <code>spawn_blocking</code> itself could fail and the internal result from the closure could fail.</p>
+<p>To control how many threads are used for blocking operations, you need to manually <a href="https://docs.rs/tokio/0.2.18/tokio/runtime/struct.Builder.html">build your tokio run time</a>, rather than use the <code>tokio::main</code> macro.</p>
+<p>The the number of blocking threads is <code>max_threads - core_threads</code>.  For instance, if you wanted only 2 dedicated blocking threads:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">let mut</span><span style="color:#c0c5ce;"> rt = tokio::runtime::Builder::new()
+    .</span><span style="color:#96b5b4;">threaded_scheduler</span><span style="color:#c0c5ce;">()
+    .</span><span style="color:#96b5b4;">enable_all</span><span style="color:#c0c5ce;">()
+    .</span><span style="color:#96b5b4;">core_threads</span><span style="color:#c0c5ce;">(</span><span style="color:#d08770;">4</span><span style="color:#c0c5ce;">)
+    .</span><span style="color:#96b5b4;">max_threads</span><span style="color:#c0c5ce;">(</span><span style="color:#d08770;">6</span><span style="color:#c0c5ce;">)
+    .</span><span style="color:#96b5b4;">build</span><span style="color:#c0c5ce;">()?
+</span></pre><h2 id="the-server-loop">The Server Loop</h2>
+<p>The <a href="https://github.com/cetra3/jobq/blob/master/src/server.rs">server loop</a> is the main loop responsible for coordinating tasks &amp; otherwise tasks are finished in the order they are supposed to.  The server here responds to messages from the ZeroMQ socket &amp; acts according to the message received.</p>
+<h3 id="setup-phase">Setup Phase</h3>
+<p>The <a href="https://github.com/cetra3/jobq/blob/2028ea12388bd077056d984016ecf46c88e6626c/src/server.rs#L26-L36">setup phase</a> involves setting up a db handle, then querying the database for any outstanding processing jobs.  This is to ensure that they don't become stuck as part of a server restart, but can mean that there may be duplicate jobs submitted.  If your jobs provide the same outcome based upon the job at hand this isn't a big deal, so the workers should do work that is idempotent if at all possible.</p>
+<p>Once that is done, the server keeps an active count of jobs &amp; increments/decrements them when jobs finish/fail or start.</p>
+<h3 id="main-loop">Main Loop</h3>
+<p>The <a href="https://github.com/cetra3/jobq/blob/2028ea12388bd077056d984016ecf46c88e6626c/src/server.rs#L38-L119">main loop</a> simply waits until a message is received, and acts accordingly:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">while let </span><span style="color:#c0c5ce;">Some(msg) = recv.</span><span style="color:#96b5b4;">try_next</span><span style="color:#c0c5ce;">().await? {
+
+    </span><span style="color:#65737e;">// This is the `ROUTER` socket identity
+    </span><span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> client_name = &amp;msg[</span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">];
+    </span><span style="color:#65737e;">// This is the message
+    </span><span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> server_msg = serde_cbor::from_slice::&lt;ServerMessage&gt;(&amp;msg[</span><span style="color:#d08770;">1</span><span style="color:#c0c5ce;">]);
+    
+    </span><span style="color:#b48ead;">match</span><span style="color:#c0c5ce;"> server_msg {
+        ...
+    }
+
+}
+</span></pre><h4 id="hello-message">Hello Message</h4>
+<p>If a <code>Hello</code> message is received then the server will send any outstanding processing jobs it knows about:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#65737e;">//Drain out existing processing jobs
+</span><span style="color:#b48ead;">let </span><span style="color:#c0c5ce;">(jobs, outstanding): (Vec&lt;Job&gt;, Vec&lt;Job&gt;) =
+    processing.</span><span style="color:#96b5b4;">into_iter</span><span style="color:#c0c5ce;">().</span><span style="color:#96b5b4;">partition</span><span style="color:#c0c5ce;">(|</span><span style="color:#bf616a;">job</span><span style="color:#c0c5ce;">| job.name == name);
+
+processing = outstanding;
+
+</span><span style="color:#b48ead;">for</span><span style="color:#c0c5ce;"> job in jobs {
+    </span><span style="color:#96b5b4;">send_job</span><span style="color:#c0c5ce;">(&amp;handle, job, &amp;</span><span style="color:#b48ead;">mut</span><span style="color:#c0c5ce;"> send).await?;
+}
+</span></pre>
+<p>The <code>processing</code> vec is only ever populated at <a href="https://github.com/cetra3/jobq/blob/2028ea12388bd077056d984016ecf46c88e6626c/src/server.rs#L34">server start</a>, and so should mostly be empty unless the server was restarted with jobs that were active.</p>
+<p>After checking all this it responds back with a <code>Hello</code></p>
+<h4 id="job-request">Job Request</h4>
+<p>If a <code>Request</code> message comes in, the <a href="https://github.com/cetra3/jobq/blob/2028ea12388bd077056d984016ecf46c88e6626c/src/server.rs#L70">server adds this to the db</a> &amp; then sends an <code>Acknowledged</code> message <a href="https://github.com/cetra3/jobq/blob/2028ea12388bd077056d984016ecf46c88e6626c/src/server.rs#L84-L91">back to the client</a> with the populated details.  This doesn't yet start the job however, merely it sets the job in a <code>Queued</code> state.</p>
+<h4 id="completed">Completed</h4>
+<p>If a <code>Completed</code> message comes in then the <a href="https://github.com/cetra3/jobq/blob/2028ea12388bd077056d984016ecf46c88e6626c/src/server.rs#L93-L97">server marks it as completed</a> decrementing the active job count.</p>
+<h4 id="failed">Failed</h4>
+<p>If a <code>Failed</code> message comes in the <a href="https://github.com/cetra3/jobq/blob/2028ea12388bd077056d984016ecf46c88e6626c/src/server.rs#L98-L102">server will mark the job as failed</a> and submit the reason with it, decrementing the active job count</p>
+<h4 id="error-deserialising">Error Deserialising</h4>
+<p>There is a possibility that a connected client could send an invalid message, so we just log with a <code>warn</code> level in this case, skipping the message:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">match</span><span style="color:#c0c5ce;"> server_msg {
+    ....
+    Err(err) =&gt; {
+        warn!(&quot;</span><span style="color:#a3be8c;">Could not deserialize message:{}</span><span style="color:#c0c5ce;">&quot;, err);
+    }
+}
+</span></pre><h3 id="submit-tasks">Submit Tasks</h3>
+<p>After the main loop matching against the message types, the server checks to see if there are any active slots &amp; if so, queries the database for any queued jobs:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#65737e;">// If we have less active tasks lets check the queued stuff
+</span><span style="color:#b48ead;">if</span><span style="color:#c0c5ce;"> active &lt; </span><span style="color:#bf616a;">self</span><span style="color:#c0c5ce;">.num {
+    </span><span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> jobs = handle
+        .</span><span style="color:#96b5b4;">get_queued_jobs</span><span style="color:#c0c5ce;">(</span><span style="color:#bf616a;">self</span><span style="color:#c0c5ce;">.num as </span><span style="color:#b48ead;">i64 </span><span style="color:#c0c5ce;">- active as </span><span style="color:#b48ead;">i64</span><span style="color:#c0c5ce;">)
+        .await?;
+
+    </span><span style="color:#b48ead;">for</span><span style="color:#c0c5ce;"> job in jobs {
+        </span><span style="color:#96b5b4;">send_job</span><span style="color:#c0c5ce;">(&amp;handle, job, &amp;</span><span style="color:#b48ead;">mut</span><span style="color:#c0c5ce;"> send).await?;
+        active = active + </span><span style="color:#d08770;">1</span><span style="color:#c0c5ce;">;
+    }
+}
+</span></pre>
+<p>After this processing, the server then waits again for the next message.</p>
+<h2 id="database-persistence">Database Persistence</h2>
+<p>One of the requirements is ensuring that jobs stay around and are persisted somewhere.   The prototype uses <a href="https://www.postgresql.org/">PostgreSQL</a> to do this.</p>
+<p>As this is async, we'll use <a href="https://crates.io/crates/tokio-postgres">tokio-postgres</a> to perform updates.  tokio postgres has some <a href="https://docs.rs/tokio-postgres/0.5.3/tokio_postgres/">nice docs</a> to get us started, so we will use their example to build a <a href="https://github.com/cetra3/jobq/blob/a09ebcaff164c2153cdceba0031dbfb7caa1ea3b/src/db.rs">database handler</a>:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">use </span><span style="color:#c0c5ce;">tokio_postgres::{NoTls, Error};
+
+#[</span><span style="color:#bf616a;">tokio</span><span style="color:#c0c5ce;">::</span><span style="color:#bf616a;">main</span><span style="color:#c0c5ce;">] </span><span style="color:#65737e;">// By default, tokio_postgres uses the tokio crate as its runtime.
+</span><span style="color:#c0c5ce;">async </span><span style="color:#b48ead;">fn </span><span style="color:#8fa1b3;">main</span><span style="color:#c0c5ce;">() -&gt; Result&lt;(), Error&gt; {
+    </span><span style="color:#65737e;">// Connect to the database.
+    </span><span style="color:#b48ead;">let </span><span style="color:#c0c5ce;">(client, connection) =
+        tokio_postgres::connect(&quot;</span><span style="color:#a3be8c;">host=localhost user=postgres</span><span style="color:#c0c5ce;">&quot;, NoTls).await?;
+
+    </span><span style="color:#65737e;">// The connection object performs the actual communication with the database,
+    // so spawn it off to run on its own.
+    </span><span style="color:#c0c5ce;">tokio::spawn(async </span><span style="color:#b48ead;">move </span><span style="color:#c0c5ce;">{
+        </span><span style="color:#b48ead;">if let </span><span style="color:#c0c5ce;">Err(e) = connection.await {
+            eprintln!(&quot;</span><span style="color:#a3be8c;">connection error: {}</span><span style="color:#c0c5ce;">&quot;, e);
+        }
+    });
+
+    </span><span style="color:#65737e;">// Now we can execute a simple statement that just returns its parameter.
+    </span><span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> rows = client
+        .</span><span style="color:#96b5b4;">query</span><span style="color:#c0c5ce;">(&quot;</span><span style="color:#a3be8c;">SELECT $1::TEXT</span><span style="color:#c0c5ce;">&quot;, &amp;[&amp;&quot;</span><span style="color:#a3be8c;">hello world</span><span style="color:#c0c5ce;">&quot;])
+        .await?;
+
+    </span><span style="color:#65737e;">// And then check that we got back the same string we sent over.
+    </span><span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> value: &amp;</span><span style="color:#b48ead;">str </span><span style="color:#c0c5ce;">= rows[</span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">].</span><span style="color:#96b5b4;">get</span><span style="color:#c0c5ce;">(</span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">);
+    assert_eq!(value, &quot;</span><span style="color:#a3be8c;">hello world</span><span style="color:#c0c5ce;">&quot;);
+
+    Ok(())
+}
+</span></pre><h3 id="enums-and-postgres-types">Enums and Postgres Types</h3>
+<p>You can use the <a href="https://crates.io/crates/postgres-types"><code>postgres_types</code></a> crate to save simple enums to a table.</p>
+<p>So the <code>Priority</code> struct can be persisted to the db like so:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">CREATE TYPE</span><span style="color:#c0c5ce;"> &quot;</span><span style="color:#8fa1b3;">Priority</span><span style="color:#c0c5ce;">&quot; </span><span style="color:#b48ead;">as</span><span style="color:#c0c5ce;"> enum (&#39;</span><span style="color:#a3be8c;">High</span><span style="color:#c0c5ce;">&#39;, &#39;</span><span style="color:#a3be8c;">Normal</span><span style="color:#c0c5ce;">&#39;, &#39;</span><span style="color:#a3be8c;">Low</span><span style="color:#c0c5ce;">&#39;);
+</span></pre><h3 id="a-simple-migration">A Simple Migration</h3>
+<p>Hopefully our schema never changes.. Right?</p>
+<p>Well, in the prototype it won't. So we can simply embed an <a href="https://github.com/cetra3/jobq/blob/master/src/setup.sql">SQL script</a> to run when the a db handler <a href="https://github.com/cetra3/jobq/blob/a09ebcaff164c2153cdceba0031dbfb7caa1ea3b/src/db.rs#L13-L27">starts up</a>:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">pub struct </span><span style="color:#c0c5ce;">DbHandle {
+    </span><span style="color:#bf616a;">client</span><span style="color:#c0c5ce;">: Arc&lt;Client&gt;,
+}
+
+</span><span style="color:#b48ead;">impl </span><span style="color:#c0c5ce;">DbHandle {
+    </span><span style="color:#b48ead;">pub</span><span style="color:#c0c5ce;">(</span><span style="color:#b48ead;">crate</span><span style="color:#c0c5ce;">) async </span><span style="color:#b48ead;">fn </span><span style="color:#8fa1b3;">new</span><span style="color:#c0c5ce;">(</span><span style="color:#bf616a;">url</span><span style="color:#c0c5ce;">: &amp;</span><span style="color:#b48ead;">str</span><span style="color:#c0c5ce;">) -&gt; Result&lt;</span><span style="color:#b48ead;">Self</span><span style="color:#c0c5ce;">, Error&gt; {
+        </span><span style="color:#b48ead;">let </span><span style="color:#c0c5ce;">(client, connection) = tokio_postgres::connect(&amp;url, NoTls).await?;
+
+        tokio::spawn(async </span><span style="color:#b48ead;">move </span><span style="color:#c0c5ce;">{
+            </span><span style="color:#b48ead;">if let </span><span style="color:#c0c5ce;">Err(e) = connection.await {
+                error!(&quot;</span><span style="color:#a3be8c;">connection error: {}</span><span style="color:#c0c5ce;">&quot;, e);
+            }
+        });
+
+        client.</span><span style="color:#96b5b4;">batch_execute</span><span style="color:#c0c5ce;">(include_str!(&quot;</span><span style="color:#a3be8c;">setup.sql</span><span style="color:#c0c5ce;">&quot;)).await?;
+
+        Ok(DbHandle {
+            client: Arc::new(client),
+        })
+    }
+    ...
+}
+</span></pre>
+<p>This <code>setup.sql</code> script should be designed to run more than once, but skip the parts that it's already done.  There are a couple tricks to do this, but obviously doesn't work if you are adding/removing columns from a table etc..</p>
+<p>For the enum types, you can just check the <code>pg_type</code> to make sure that they exist &amp; if not add them:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#c0c5ce;">IF NOT EXISTS (</span><span style="color:#b48ead;">SELECT </span><span style="color:#d08770;">1 </span><span style="color:#b48ead;">FROM</span><span style="color:#c0c5ce;"> pg_type </span><span style="color:#b48ead;">WHERE</span><span style="color:#c0c5ce;"> typname = &#39;</span><span style="color:#a3be8c;">Status</span><span style="color:#c0c5ce;">&#39;) </span><span style="color:#b48ead;">THEN
+    CREATE TYPE</span><span style="color:#c0c5ce;"> &quot;</span><span style="color:#8fa1b3;">Status</span><span style="color:#c0c5ce;">&quot; </span><span style="color:#b48ead;">as</span><span style="color:#c0c5ce;"> enum (&#39;</span><span style="color:#a3be8c;">Queued</span><span style="color:#c0c5ce;">&#39;, &#39;</span><span style="color:#a3be8c;">Processing</span><span style="color:#c0c5ce;">&#39;, &#39;</span><span style="color:#a3be8c;">Completed</span><span style="color:#c0c5ce;">&#39;, &#39;</span><span style="color:#a3be8c;">Failed</span><span style="color:#c0c5ce;">&#39;);
+</span><span style="color:#b48ead;">END</span><span style="color:#c0c5ce;"> IF
+</span></pre>
+<p>With the table &amp; indexes you can do a <code>CREATE &lt;blah&gt; IF NOT EXISTS</code>:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">CREATE INDEX </span><span style="color:#8fa1b3;">IF</span><span style="color:#c0c5ce;"> NOT EXISTS status_idx </span><span style="color:#b48ead;">ON</span><span style="color:#c0c5ce;"> jobq (
+    status
+);
+</span></pre>
+<p>This won't error out if the index/table already exists, meaning you're safe to run the <code>setup.sql</code> multiple times!</p>
+<h3 id="getting-jobs-from-the-db">Getting jobs from the DB</h3>
+<p>Querying for jobs is quite simple, you just select the columns you want and do a <code>get()</code> or <code>try_get()</code> on them:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">impl </span><span style="color:#c0c5ce;">DbHandle {
+    ....
+    </span><span style="color:#b48ead;">pub</span><span style="color:#c0c5ce;">(</span><span style="color:#b48ead;">crate</span><span style="color:#c0c5ce;">) async </span><span style="color:#b48ead;">fn </span><span style="color:#8fa1b3;">get_queued_jobs</span><span style="color:#c0c5ce;">(&amp;</span><span style="color:#bf616a;">self</span><span style="color:#c0c5ce;">, </span><span style="color:#bf616a;">num</span><span style="color:#c0c5ce;">: </span><span style="color:#b48ead;">i64</span><span style="color:#c0c5ce;">) -&gt; Result&lt;Vec&lt;Job&gt;, Error&gt; {
+        </span><span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> query = &quot;</span><span style="color:#a3be8c;">select 
+                        id,
+                        name,
+                        username,
+                        uuid,
+                        params,
+                        priority,
+                        status
+                     from jobq
+                     where 
+                        status = &#39;Queued&#39;
+                     order by
+                     priority asc, time asc
+                     limit $1</span><span style="color:#c0c5ce;">&quot;;
+
+        </span><span style="color:#b48ead;">let mut</span><span style="color:#c0c5ce;"> jobs = Vec::new();
+
+        </span><span style="color:#b48ead;">for</span><span style="color:#c0c5ce;"> row in result {
+            </span><span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> id = row.</span><span style="color:#96b5b4;">try_get</span><span style="color:#c0c5ce;">(</span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">)?;
+            </span><span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> name = row.</span><span style="color:#96b5b4;">try_get</span><span style="color:#c0c5ce;">(</span><span style="color:#d08770;">1</span><span style="color:#c0c5ce;">)?;
+            </span><span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> username = row.</span><span style="color:#96b5b4;">try_get</span><span style="color:#c0c5ce;">(</span><span style="color:#d08770;">2</span><span style="color:#c0c5ce;">)?;
+            </span><span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> uuid = row.</span><span style="color:#96b5b4;">try_get</span><span style="color:#c0c5ce;">(</span><span style="color:#d08770;">3</span><span style="color:#c0c5ce;">)?;
+            </span><span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> params = row.</span><span style="color:#96b5b4;">try_get</span><span style="color:#c0c5ce;">(</span><span style="color:#d08770;">4</span><span style="color:#c0c5ce;">)?;
+            </span><span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> priority = row.</span><span style="color:#96b5b4;">try_get</span><span style="color:#c0c5ce;">(</span><span style="color:#d08770;">5</span><span style="color:#c0c5ce;">)?;
+            </span><span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> status = row.</span><span style="color:#96b5b4;">try_get</span><span style="color:#c0c5ce;">(</span><span style="color:#d08770;">6</span><span style="color:#c0c5ce;">)?;
+
+            jobs.</span><span style="color:#96b5b4;">push</span><span style="color:#c0c5ce;">({
+                Job {
+                    id,
+                    username,
+                    name,
+                    uuid,
+                    params,
+                    priority,
+                    status,
+                }
+            });
+        }
+
+        Ok(jobs)
+    }
+    ...
+</span></pre>
+<p>There are a number of other methods as <a href="https://github.com/cetra3/jobq/blob/2028ea12388bd077056d984016ecf46c88e6626c/src/db.rs#L29">complete_job</a>, <a href="https://github.com/cetra3/jobq/blob/2028ea12388bd077056d984016ecf46c88e6626c/src/db.rs#L37">fail_job</a> that handle the SQL stuff &amp; make it simple for the Server to use.</p>
+<p>Keeping things persisted in the database means we can use standard SQL tools to introspect the job queue and see where it's at.</p>
+<h3 id="recording-the-job-duration">Recording the job duration</h3>
+<p>The duration of the job is recorded when the <a href="https://github.com/cetra3/jobq/blob/2028ea12388bd077056d984016ecf46c88e6626c/src/db.rs#L29-L35">job is finished/failed</a>:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">pub</span><span style="color:#c0c5ce;">(</span><span style="color:#b48ead;">crate</span><span style="color:#c0c5ce;">) async </span><span style="color:#b48ead;">fn </span><span style="color:#8fa1b3;">complete_job</span><span style="color:#c0c5ce;">(&amp;</span><span style="color:#bf616a;">self</span><span style="color:#c0c5ce;">, </span><span style="color:#bf616a;">id</span><span style="color:#c0c5ce;">: </span><span style="color:#b48ead;">i64</span><span style="color:#c0c5ce;">) -&gt; Result&lt;(), Error&gt; {
+    </span><span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> query = &quot;</span><span style="color:#a3be8c;">update jobq set status = &#39;Completed&#39;, duration = extract(epoch from now() - </span><span style="color:#96b5b4;">\&quot;</span><span style="color:#a3be8c;">time</span><span style="color:#96b5b4;">\&quot;</span><span style="color:#a3be8c;">) where id = $1</span><span style="color:#c0c5ce;">&quot;;
+
+    </span><span style="color:#bf616a;">self</span><span style="color:#c0c5ce;">.client.</span><span style="color:#96b5b4;">query</span><span style="color:#c0c5ce;">(query, &amp;[&amp;id]).await?;
+
+    Ok(())
+}
+</span></pre>
+<p>This could've been done inside rust as well using <code>Instant</code> but would require a bit more state to be handled in the Server.  I've elected here to use a PostgreSQL solution instead to lean on the db.</p>
+<h2 id="running-the-example">Running the example</h2>
+<p>The example starts the test worker, a server and a client to submit 500 simple jobs:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">for</span><span style="color:#c0c5ce;"> i in </span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">..</span><span style="color:#d08770;">500 </span><span style="color:#c0c5ce;">{
+    </span><span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> priority = </span><span style="color:#b48ead;">if</span><span style="color:#c0c5ce;"> i % </span><span style="color:#d08770;">2 </span><span style="color:#c0c5ce;">== </span><span style="color:#d08770;">0 </span><span style="color:#c0c5ce;">{
+        Priority::High
+    } </span><span style="color:#b48ead;">else </span><span style="color:#c0c5ce;">{
+        Priority::Normal
+    };
+
+    </span><span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> job = JobRequest {
+        name: &quot;</span><span style="color:#a3be8c;">test</span><span style="color:#c0c5ce;">&quot;.</span><span style="color:#96b5b4;">into</span><span style="color:#c0c5ce;">(),
+        username: &quot;</span><span style="color:#a3be8c;">test_client</span><span style="color:#c0c5ce;">&quot;.</span><span style="color:#96b5b4;">into</span><span style="color:#c0c5ce;">(),
+        params: Value::Null,
+        uuid: Uuid::new_v4(),
+        priority,
+    };
+
+    send.</span><span style="color:#96b5b4;">send</span><span style="color:#c0c5ce;">(ServerMessage::Request(job).</span><span style="color:#96b5b4;">to_mpart</span><span style="color:#c0c5ce;">()?).await?;
+}
+</span></pre>
+<p>Running with <code>cargo run</code> you will see the output after some time, with the simulated failures:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#c0c5ce;">2020-04-14 16:04:33 DEBUG jobq         &gt; Message:Acknowledged(Job { id: 2999, username: &quot;test_client&quot;, name: &quot;test&quot;, uuid: fe6e21fc-8064-4c9a-965d-b1d124f2416d, params: Null, priority: High, status: Queued })
+2020-04-14 16:04:33 DEBUG jobq::server &gt; New: Job { id: 3000, username: &quot;test_client&quot;, name: &quot;test&quot;, uuid: d20b4e9b-477b-45ca-9a6a-1f6423378779, params: Null, priority: Normal, status: Queued }
+2020-04-14 16:04:33 DEBUG jobq         &gt; Message:Acknowledged(Job { id: 3000, username: &quot;test_client&quot;, name: &quot;test&quot;, uuid: d20b4e9b-477b-45ca-9a6a-1f6423378779, params: Null, priority: Normal, status: Queued })
+2020-04-14 16:04:39 WARN  jobq::server &gt; Job failed: 3000, Reason: Simulating failure
+2020-04-14 16:04:39 WARN  jobq::server &gt; Job failed: 2988, Reason: Simulating failure
+2020-04-14 16:04:39 WARN  jobq::server &gt; Job failed: 2976, Reason: Simulating failure
+</span></pre>
+<p>You can also run some simple stats directly against the db to see how long things have taken (hopefully ~100ms):</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">select </span><span style="color:#96b5b4;">avg</span><span style="color:#c0c5ce;">(duration) </span><span style="color:#b48ead;">from</span><span style="color:#c0c5ce;"> jobq;
+
+    avg     
+</span><span style="color:#65737e;">------------
+ </span><span style="color:#d08770;">0</span><span style="color:#c0c5ce;">.</span><span style="color:#d08770;">10634147</span><span style="color:#c0c5ce;">
+(</span><span style="color:#d08770;">1</span><span style="color:#c0c5ce;"> row)
+</span></pre><h2 id="conclusions">Conclusions</h2>
+<p>I hope for anyone new that this article will help dip their feet into the waters of rust and async to see what can be built.</p>
+<p>Taking a few libraries and gluing them together we can get a pretty decent, albeit rough, outline of a background job queue.  The new <code>async/await</code> ecosystem while embryonic already has the tools there to build some cool stuff.</p>
+<p>There will be a separate article around the release of <code>tmq</code> version <code>0.2.0</code> and some of the changes that have been made, but thought it might be great to provide a good example of working code before getting aroudn to that.</p>
+
+
+</div>
+
+    </div>
+</body>
+
+</html>

@@ -7,7 +7,553 @@
         <generator>Zola</generator>
         <language>en</language>
         <atom:link href="https://cetra3.github.io/rss.xml" rel="self" type="application/rss+xml"/>
-        <lastBuildDate>Mon, 03 Feb 2020 00:00:00 +0000</lastBuildDate>
+        <lastBuildDate>Thu, 09 Apr 2020 00:00:00 +0000</lastBuildDate>
+        
+            <item>
+                <title>Implementing a Job queue with Tokio, PostgreSQL &amp; ZeroMQ</title>
+                <pubDate>Thu, 09 Apr 2020 00:00:00 +0000</pubDate>
+                <link>https://cetra3.github.io/blog/implementing-a-jobq/</link>
+                <guid>https://cetra3.github.io/blog/implementing-a-jobq/</guid>
+                <description>&lt;p&gt;One of the challenges I have had with on premise solutions is the lack of reliable environments and constrained resources.   Not only are you limited in your ability to control things, you need to ensure that things continue on in the case of failure.&lt;&#x2F;p&gt;
+&lt;p&gt;I was tasked with rewriting the job processing pipeline for my company&#x27;s product, &lt;a href=&quot;https:&#x2F;&#x2F;www.schoolbench.com.au&#x2F;&quot;&gt;SchoolBench&lt;&#x2F;a&gt;, to ensure a greater level of robustness in the case of service or system failure.&lt;&#x2F;p&gt;
+&lt;p&gt;This article steps through an approach to this using async rust &amp;amp; the help of tokio ZeroMQ library: &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;tmq&quot;&gt;tmq&lt;&#x2F;a&gt; along with &lt;a href=&quot;https:&#x2F;&#x2F;crates.io&#x2F;crates&#x2F;tokio-postgres&quot;&gt;tokio-postgres&lt;&#x2F;a&gt;.&lt;&#x2F;p&gt;
+&lt;p&gt;As some excellent work has been put in bringing tmq to async, I thought it pertinent to look at reapproaching the pipeline using async code.  I have published an &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;jobq&quot;&gt;initial prototype&lt;&#x2F;a&gt; of what the end result may look like, and will be stepping through the approach here, and some of the tradeoffs I made&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;why-tmq-zeromq&quot;&gt;Why TMQ&#x2F;ZeroMQ?&lt;&#x2F;h2&gt;
+&lt;p&gt;For those not familiar with &lt;a href=&quot;https:&#x2F;&#x2F;zeromq.org&#x2F;&quot;&gt;ZeroMQ&lt;&#x2F;a&gt;, it is a messaging library with a lot of features, from standard publish&#x2F;subscribe to more elaborate arrangements.  &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;tmq&quot;&gt;tmq&lt;&#x2F;a&gt; is a &lt;a href=&quot;https:&#x2F;&#x2F;www.tokio.rs&quot;&gt;tokio&lt;&#x2F;a&gt; compatible binding that allows you to bridge ZeroMQ with the async world of rust.&lt;&#x2F;p&gt;
+&lt;p&gt;You would use ZeroMQ if you need to interact with other languages easily and don&#x27;t want it to be too opinionated on what message formats are being sent.  If you are purely using rust then this may be not be a great fit, but it does still provide you some great interprocess &amp;amp; internetwork capabilities that you won&#x27;t get from just tokio.&lt;&#x2F;p&gt;
+&lt;p&gt;We use ZeroMQ in SchoolBench as it is a polyglot application and has a lot of components written in python &amp;amp; java as well as rust.  It is lightweight enough not to cause overheads &amp;amp; complex enough for the use cases I have thrown at it so far.&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;prior-work&quot;&gt;Prior Work&lt;&#x2F;h2&gt;
+&lt;p&gt;There are some existing rust based job queues that do similar things and may be more suited to your own personal tastes:&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;kureuil&#x2F;batch-rs&quot;&gt;https:&#x2F;&#x2F;github.com&#x2F;kureuil&#x2F;batch-rs&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;badboy&#x2F;oppgave&quot;&gt;https:&#x2F;&#x2F;github.com&#x2F;badboy&#x2F;oppgave&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;rusty-celery&#x2F;rusty-celery&quot;&gt;https:&#x2F;&#x2F;github.com&#x2F;rusty-celery&#x2F;rusty-celery&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;li&gt;Probably lots more I haven&#x27;t found&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;Most of them use some sort of message broker, such as &lt;a href=&quot;https:&#x2F;&#x2F;www.rabbitmq.com&#x2F;&quot;&gt;RabbitMQ&lt;&#x2F;a&gt; or &lt;a href=&quot;https:&#x2F;&#x2F;redis.io&#x2F;&quot;&gt;Redis&lt;&#x2F;a&gt;.&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;what-is-a-job&quot;&gt;What is a Job?&lt;&#x2F;h2&gt;
+&lt;p&gt;It helps to explain what a job is.  In the context of SchoolBench a job is a piece of work that may take some time to do (think seconds), is quite intensive, and may fail. Once an asset is saved into SchoolBench, lots of processes are kicked off in the background to &lt;em&gt;fill in the blanks&lt;&#x2F;em&gt; and provide information about the asset.&lt;&#x2F;p&gt;
+&lt;p&gt;Some examples of jobs are:&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;Running &lt;a href=&quot;..&#x2F;face-detection-with-tensorflow-rust&#x2F;&quot;&gt;Facial Recognition&lt;&#x2F;a&gt; on images using tensorflow&lt;&#x2F;li&gt;
+&lt;li&gt;Generating Thumbnails and Watermarked renditions of images&lt;&#x2F;li&gt;
+&lt;li&gt;Calculating whether a &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;dhash&quot;&gt;photo is a duplicate&lt;&#x2F;a&gt; of another photo and marking the set of duplicates&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;A lot of these are quite intensive &amp;amp; can sometimes fail in weird and wonderful ways:  An image uploaded may be corrupted, so renditions may not run;  There may be an issue running the neural net;  The VM may be experience ballooning and fail to allocate memory, etc...&lt;&#x2F;p&gt;
+&lt;p&gt;So we need a way of describing a discrete piece of work which may happen some time in the future and may happen by a completely isolated process.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;resource-contention&quot;&gt;Resource Contention&lt;&#x2F;h3&gt;
+&lt;p&gt;We have very limited resources in an on premise environment. After providing a minimum recommendation it is important to tune for that worst case.  This is different in a cloud environment where you can spin up guests in a work stealing fashion if you throw more money at your infrastructure. on premise is usually more fixed in terms of server and hardware allocations, and so we need to plan for that.&lt;&#x2F;p&gt;
+&lt;p&gt;This is one area where the job queue deviates from a lot of existing systems out there: we assume we&#x27;re just running on the one set of CPUs and so there is a fixed number of active jobs at any given time.&lt;&#x2F;p&gt;
+&lt;p&gt;We also want a simple way to prioritise tasks as they are submitted, so that some jobs finish first, with higher value jobs such as thumbnail generation happening first. The job queue uses a simple 3-tier priority system to do this: High, Medium &amp;amp; Low.&lt;&#x2F;p&gt;
+&lt;p&gt;This simple system could mean if there are not enough resources to finish jobs then there is a chance that lower tier jobs may never get around to completing.  In practice the sort of work loads we have seen this is not the case, but it is a possibility. In which case more processors would be needed to keep up with the load or another style of priority to be implemented (such as fair queueing).&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;persistence&quot;&gt;Persistence&lt;&#x2F;h3&gt;
+&lt;p&gt;Jobs need to survive crashes and server restarts in a robust fashion.  Existing job queues utilise an existing persistence layer&#x2F;message broker such as &lt;a href=&quot;https:&#x2F;&#x2F;redis.io&#x2F;&quot;&gt;Redis&lt;&#x2F;a&gt; or &lt;a href=&quot;https:&#x2F;&#x2F;www.rabbitmq.com&#x2F;&quot;&gt;RabbitMQ&lt;&#x2F;a&gt;.  I have chosen PostgreSQL as the persistence layer as it is performant enough, and is already in use for metadata storage.  However, you could easily swap out another type of persistence with a bit of refactoring.&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;the-overall-process&quot;&gt;The Overall Process&lt;&#x2F;h2&gt;
+&lt;p&gt;The high level proces is as follows:&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;A User Action triggers some sort of logic which requests a job.  This could be an automatic rule somewhere or could be the a user specifically requesting a job to run&lt;&#x2F;li&gt;
+&lt;li&gt;A server listens for requests and puts them into a queue&lt;&#x2F;li&gt;
+&lt;li&gt;If there are jobs that can be processed then they are submitted to the individual worker who is responsible for finishing the job&lt;&#x2F;li&gt;
+&lt;li&gt;When a job completes or fails, then it is marked as so with a duration on how long things take&lt;&#x2F;li&gt;
+&lt;li&gt;Everytime a new event is triggered, such as a job in a queue or a job completed&#x2F;failed, the server checks to see if it can mark jobs as processing&lt;&#x2F;li&gt;
+&lt;li&gt;All job status updates &amp;amp; information is persisted to a db, so that things can pick up again if there is a failure &amp;amp; reports can be ran using standard SQL tools&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;h3 id=&quot;client-server-worker&quot;&gt;Client, Server, Worker&lt;&#x2F;h3&gt;
+&lt;p&gt;We split the roles of the job queue into 3 different types:&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Clients&lt;&#x2F;strong&gt; that submit requests to the server&lt;&#x2F;li&gt;
+&lt;li&gt;The &lt;strong&gt;Server&lt;&#x2F;strong&gt; which does the main job queue loop&lt;&#x2F;li&gt;
+&lt;li&gt;The &lt;strong&gt;Workers&lt;&#x2F;strong&gt; that receive jobs and do work, returning whether the work was completed &lt;em&gt;(not the work outcome itself, just the status; we assume that the worker will update something out of band like another db or filesystem)&lt;&#x2F;em&gt;&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;One possible thing to note is that there is only ever one server, but there can be as many workers and clients as allowed.  The workers themselves can also be clients and submit requests if they want to.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;communication&quot;&gt;Communication&lt;&#x2F;h3&gt;
+&lt;p&gt;The server, worker and clients all communicate via a ZeroMQ &lt;code&gt;DEALER&#x2F;ROUTER&lt;&#x2F;code&gt; socket.&lt;&#x2F;p&gt;
+&lt;p&gt;Clients and Workers use the &lt;code&gt;DEALER&lt;&#x2F;code&gt; style socket to retrieve &amp;amp; send messages, but also identify themselves, and the server uses &lt;code&gt;ROUTER&lt;&#x2F;code&gt;. The identity is included as the first ZeroMQ multipart frame when it is received and so can be used to route messages back to the appropriate place.&lt;&#x2F;p&gt;
+&lt;p&gt;The messages are serialised on the wire as &lt;a href=&quot;https:&#x2F;&#x2F;cbor.io&#x2F;&quot;&gt;CBOR&lt;&#x2F;a&gt; using &lt;a href=&quot;https:&#x2F;&#x2F;crates.io&#x2F;crates&#x2F;serde_cbor&quot;&gt;serde_cbor&lt;&#x2F;a&gt;.  CBOR was chosen because it allows for the message type to be flexible &amp;amp; there are plenty of implementations in other languages.  JSON could be used as well, as arguably the support for JSON is much higher, but would mean larger message sizes. &lt;&#x2F;p&gt;
+&lt;p&gt;With serde it&#x27;s pretty easy to adjust what serialisation is used, so some experimentation could be worthwhile.&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;the-job-structs&quot;&gt;The Job Structs&lt;&#x2F;h2&gt;
+&lt;p&gt;The &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;jobq&#x2F;blob&#x2F;a09ebcaff164c2153cdceba0031dbfb7caa1ea3b&#x2F;src&#x2F;lib.rs#L42-L50&quot;&gt;&lt;code&gt;Job&lt;&#x2F;code&gt; struct&lt;&#x2F;a&gt; is defined as follows (with the &lt;code&gt;Status&lt;&#x2F;code&gt; &amp;amp; &lt;code&gt;Priority&lt;&#x2F;code&gt; enums listed too):&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;pub struct &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Job {
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;pub &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;id&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;i64&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F; ID of the Job so it can be tracked
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;pub &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;username&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: String, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F; Username of who submitted the job
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;pub &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;name&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: String, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F; Name of the job&#x2F;worker, `rendition`, etc..
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;pub &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;uuid&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: Uuid, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F; Unique ID of the asset
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;pub &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;params&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: Value,&lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F; Any parameters of the job in question
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;pub &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;priority&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: Priority, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F; The priority of the job
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;pub &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;status&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: Status,&lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F; The status of the job
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;The job has a current status which starts with &lt;code&gt;Queued&lt;&#x2F;code&gt;, goes to &lt;code&gt;Processing&lt;&#x2F;code&gt; when it is active and then marked as either &lt;code&gt;Completed&lt;&#x2F;code&gt; or &lt;code&gt;Failed&lt;&#x2F;code&gt;:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;pub enum &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Status {
+    Queued,
+    Processing,
+    Completed,
+    Failed,
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;The priority is a simple 3-tier system of &lt;code&gt;High&lt;&#x2F;code&gt;, &lt;code&gt;Normal&lt;&#x2F;code&gt; &amp;amp; &lt;code&gt;Low&lt;&#x2F;code&gt;:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;pub enum &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Priority {
+    High,
+    Normal,
+    Low,
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;&lt;h3 id=&quot;message-types&quot;&gt;Message types&lt;&#x2F;h3&gt;
+&lt;p&gt;Messages are split up based upon who the destination is with a shared &lt;code&gt;Hello&lt;&#x2F;code&gt; message that can be serialised as any enum:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#c0c5ce;&quot;&gt;#[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;derive&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(Serialize, Deserialize, Debug)]
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;pub enum &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;ServerMessage {
+    Hello,
+    Request(JobRequest),
+    Completed(Job),
+    Failed(Job, String),
+}
+
+#[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;derive&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(Serialize, Deserialize, Debug)]
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;pub enum &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;ClientMessage {
+    Hello,
+    Acknowledged(Job),
+}
+
+#[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;derive&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(Serialize, Deserialize, Debug)]
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;pub enum &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;WorkerMessage {
+    Hello,
+    Order(Job),
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;The  &lt;code&gt;JobRequest&lt;&#x2F;code&gt; is very similar to a &lt;code&gt;Job&lt;&#x2F;code&gt; but does not have an allocated id or status yet:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;pub struct &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;JobRequest {
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;pub &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;name&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: String,
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;pub &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;username&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: String,
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;pub &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;uuid&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: Uuid,
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;pub &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;params&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: Value,
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;pub &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;priority&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: Priority,
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;&lt;h3 id=&quot;the-params-value&quot;&gt;The Params Value&lt;&#x2F;h3&gt;
+&lt;p&gt;One thing to note is the &lt;code&gt;params&lt;&#x2F;code&gt; is of the type &lt;code&gt;serde_json::Value&lt;&#x2F;code&gt;.  This is really to allow the greatest flexibility into what parameters are sent with each job &amp;amp; also to have it persist to PostgreSQL as a &lt;code&gt;jsonb&lt;&#x2F;code&gt; column.&lt;&#x2F;p&gt;
+&lt;p&gt;Alternatively, a tighter &lt;code&gt;enum&lt;&#x2F;code&gt; could be used for different job names if you knew ahead of time the jobs that will be requested.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;serialisation-helpers&quot;&gt;Serialisation helpers&lt;&#x2F;h3&gt;
+&lt;p&gt;To reduce some of the repetitiveness, there is a serialisation helper which simply serialises to &lt;code&gt;CBOR&lt;&#x2F;code&gt; for any struct that implements &lt;code&gt;Serialize&lt;&#x2F;code&gt;:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;pub trait &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;ToMpart {
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8fa1b3;&quot;&gt;to_mpart&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;) -&amp;gt; Result&amp;lt;Multipart, Error&amp;gt;;
+
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8fa1b3;&quot;&gt;to_msg&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;) -&amp;gt; Result&amp;lt;Message, Error&amp;gt;;
+}
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;impl&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;lt;T: serde::ser::Serialize&amp;gt; ToMpart &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;for &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;T {
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8fa1b3;&quot;&gt;to_mpart&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;) -&amp;gt; Result&amp;lt;Multipart, Error&amp;gt; {
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; bytes = serde_cbor::to_vec(&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;)?;
+
+        Ok(Multipart::from(vec![&amp;amp;bytes]))
+    }
+
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8fa1b3;&quot;&gt;to_msg&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;) -&amp;gt; Result&amp;lt;Message, Error&amp;gt; {
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; bytes = serde_cbor::to_vec(&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;)?;
+
+        Ok(Message::from(&amp;amp;bytes))
+    }
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;&lt;h2 id=&quot;client-requests&quot;&gt;Client Requests&lt;&#x2F;h2&gt;
+&lt;p&gt;Clients can send requests by constructing job requests and sending them to the server.  They just need to construct the &lt;code&gt;Request&lt;&#x2F;code&gt; enum and send it on the wire:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;let &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;mut&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; send, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;mut&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; recv) = &lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;dealer&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;amp;Context::new())
+    .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;set_identity&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;b&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;test_client&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;)
+    .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;connect&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;amp;config.job_address)?
+    .split::&amp;lt;Multipart&amp;gt;();
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; job = JobRequest {
+    name: &amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;test&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;into&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(),
+    username: &amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;test_client&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;into&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(),
+    params: Value::Null,
+    uuid: Uuid::new_v4(),
+    priority: PriorityLow,
+};
+
+send.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;send&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(ServerMessage::Request(job).&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;to_mpart&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;()?).await?;
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;&lt;h2 id=&quot;worker-processing&quot;&gt;Worker Processing&lt;&#x2F;h2&gt;
+&lt;p&gt;For workers doing the work, they should do something &amp;amp; then return whether it&#x27;s failed or completed.&lt;&#x2F;p&gt;
+&lt;p&gt;To make this easier, a &lt;code&gt;Worker&lt;&#x2F;code&gt; trait is implemented.  Since some work will be async &amp;amp; some not, we want our trait to be async-capable.  At the writing of this article you can&#x27;t have &lt;code&gt;async&lt;&#x2F;code&gt; in trait definitions, but there is the &lt;a href=&quot;https:&#x2F;&#x2F;crates.io&#x2F;crates&#x2F;async-trait&quot;&gt;async_trait&lt;&#x2F;a&gt; crate that allows you to decorate a trait definition and do what we&#x27;re after.&lt;&#x2F;p&gt;
+&lt;p&gt;For errors we&#x27;re going to use the &lt;a href=&quot;https:&#x2F;&#x2F;crates.io&#x2F;crates&#x2F;anyhow&quot;&gt;anyhow&lt;&#x2F;a&gt; crate, but a more generic error approach could be used with a bit of a refactor.&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#c0c5ce;&quot;&gt;#[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;async_trait&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;]
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;pub trait &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Worker: Sized {
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;const &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;JOB_NAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: &amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;&amp;#39;static str&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;;
+
+    async &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8fa1b3;&quot;&gt;process&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;job&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: Job) -&amp;gt; Result&amp;lt;(), Error&amp;gt;
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;The implementation of this trait means that you can do lots within the &lt;code&gt;process&lt;&#x2F;code&gt; body and simplifies it.&lt;&#x2F;p&gt;
+&lt;p&gt;An original version had the &lt;code&gt;process&lt;&#x2F;code&gt; method accept &lt;code&gt;&amp;amp;mut self&lt;&#x2F;code&gt;, but that caused some contention when trying to process jobs concurrently.  Instead you&#x27;ll need some interior mutability if you need to provide any mutable references to &lt;code&gt;&amp;amp;self&lt;&#x2F;code&gt;.&lt;&#x2F;p&gt;
+&lt;p&gt;As an &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;jobq&#x2F;blob&#x2F;2028ea12388bd077056d984016ecf46c88e6626c&#x2F;src&#x2F;worker.rs#L82-L94&quot;&gt;example&lt;&#x2F;a&gt;, the test worker will simply wait for 100 milliseconds and then fail every 12th job based upon the id:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;impl &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Worker &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;for &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;TestWorker {
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;const &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;JOB_NAME&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: &amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;&amp;#39;static str &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;= &amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;test&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;;
+
+    async &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8fa1b3;&quot;&gt;process&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;job&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: Job) -&amp;gt; Result&amp;lt;(), Error&amp;gt; {
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;delay_for&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(Duration::from_millis(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;100&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;)).await;
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;if&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; job.id % &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;12 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;== &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;0 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;{
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;return &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Err(anyhow!(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;Simulating failure&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;));
+        }
+
+        Ok(())
+    }
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;&lt;h3 id=&quot;the-work-method&quot;&gt;The Work Method&lt;&#x2F;h3&gt;
+&lt;p&gt;There is another method, &lt;code&gt;work&lt;&#x2F;code&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;jobq&#x2F;blob&#x2F;2028ea12388bd077056d984016ecf46c88e6626c&#x2F;src&#x2F;worker.rs#L16&quot;&gt;on the trait&lt;&#x2F;a&gt; which sets up &amp;amp; hides some of the complexity away of getting a worker to listen for requests coming through.   This is plumbing to make it easy to run a &lt;code&gt;Worker&lt;&#x2F;code&gt;.&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#c0c5ce;&quot;&gt;async &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8fa1b3;&quot;&gt;work&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;job_address&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: &amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;str&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;) -&amp;gt; Result&amp;lt;(), Error&amp;gt; {
+    ...
+} 
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;You can &lt;code&gt;await&lt;&#x2F;code&gt; this method for anything that implements &lt;code&gt;Worker&lt;&#x2F;code&gt; to have it process incoming requests:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;use &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;jobq::worker::{Worker, TestWorker};
+
+tokio::spawn(async &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;move &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;{
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;if let &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Err(err) = TestWorker.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;work&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;amp;worker_config.job_address).await {
+        error!(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;{}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;, err);
+    }
+});
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Under the hood it uses the job address to communicate with a Server and glues up some requests&lt;&#x2F;p&gt;
+&lt;p&gt;Firstly, &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;jobq&#x2F;blob&#x2F;2028ea12388bd077056d984016ecf46c88e6626c&#x2F;src&#x2F;worker.rs#L20-L23&quot;&gt;it creates a dealer socket&lt;&#x2F;a&gt;, setting the identity accordingly:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;let &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;mut&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; send_skt, recv) = &lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;dealer&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;amp;Context::new())
+    .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;set_identity&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(job_name.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;as_bytes&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;())
+    .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;connect&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;amp;job_address)?
+    .split::&amp;lt;Multipart&amp;gt;();
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;As ZeroMQ sockets are &lt;code&gt;Send&lt;&#x2F;code&gt; but not &lt;code&gt;Sync&lt;&#x2F;code&gt;, we spin up a background task connected by an &lt;code&gt;unbounded&lt;&#x2F;code&gt; queue which allows the sender to be cloned.  This allows both heartbeats to be sent every 10 seconds from a background task &amp;amp; also send results of processing:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;let &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(send, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;mut&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; recv_skt) = unbounded::&amp;lt;ServerMessage&amp;gt;();
+
+tokio::spawn(async &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;move &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;{
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;while let &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Some(jobq_message) = recv_skt.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;next&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;().await {
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;if let &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Ok(msg) = jobq_message.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;to_mpart&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;() {
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;if let &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Err(err) = send_skt.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;send&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(msg).await {
+                error!(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;Error sending message:{}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;, err);
+            }
+        }
+    }
+});
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;The &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;jobq&#x2F;blob&#x2F;2028ea12388bd077056d984016ecf46c88e6626c&#x2F;src&#x2F;worker.rs#L39-L46&quot;&gt;10 second heartbeat&lt;&#x2F;a&gt; is similiarly set up as a separate task:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#c0c5ce;&quot;&gt;tokio::spawn(async &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;move &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;{
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;loop &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;{
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;if let &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Err(err) = ping_sender.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;send&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(ServerMessage::Hello).await {
+            error!(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;Error:{}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;, err);
+        };
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;delay_for&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(Duration::from_millis(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;10000&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;)).await;
+    }
+});
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;There is then a &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;jobq&#x2F;blob&#x2F;2028ea12388bd077056d984016ecf46c88e6626c&#x2F;src&#x2F;worker.rs#L48-L75&quot;&gt;big combinator statement&lt;&#x2F;a&gt; which in effect listens for job requests &amp;amp; then runs them in parallel:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#c0c5ce;&quot;&gt;recv.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;filter_map&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(|&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;val&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;| {
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;match&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; val
+        .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;map_err&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(Error::from)
+        .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;and_then&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(|&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;msg&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;| serde_cbor::from_slice(&amp;amp;msg[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;]).&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;map_err&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(Error::from))
+    {
+        Ok(WorkerMessage::Order(job)) =&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;return &lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;ready&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(Some(job)),
+        Ok(WorkerMessage::Hello) =&amp;gt; {
+            debug!(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;Pong: {}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;, job_type);
+        }
+        Err(err) =&amp;gt; {
+            error!(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;Error decoding message:{}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;, err);
+        }
+    }
+
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;return &lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;ready&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(None);
+})
+.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;map&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(|&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;job&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;| (&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;process&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(job.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;clone&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;()), send.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;clone&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(), job))
+.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;for_each_concurrent&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(None, |(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;status&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;mut send&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;job&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;)| async &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;move &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;{
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; server_message = &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;match&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; status.await {
+        Ok(()) =&amp;gt; ServerMessage::Completed(job),
+        Err(err) =&amp;gt; ServerMessage::Failed(job, err.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;to_string&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;()),
+    };
+
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;if let &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Err(err) = send.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;send&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(server_message).await {
+        error!(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;Error sending server message: {}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;, err);
+    }
+})
+.await;
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;There is a bit of cloning here that could probably be avoided, but the overhead of cloning a job is not that big.&lt;&#x2F;p&gt;
+&lt;p&gt;The &lt;a href=&quot;https:&#x2F;&#x2F;docs.rs&#x2F;futures&#x2F;0.3.4&#x2F;futures&#x2F;stream&#x2F;trait.StreamExt.html#method.for_each_concurrent&quot;&gt;&lt;code&gt;for_each_concurrent&lt;&#x2F;code&gt;&lt;&#x2F;a&gt; allows the worker to run concurrently, and is one of the reasons the trait takes &lt;code&gt;&amp;amp;self&lt;&#x2F;code&gt; rather than &lt;code&gt;&amp;amp;mut self&lt;&#x2F;code&gt;.&lt;&#x2F;p&gt;
+&lt;p&gt;All of this is essentially generic on the &lt;code&gt;Worker&lt;&#x2F;code&gt; trait, meaning this plumbing is handled for you when you call &lt;code&gt;work(&amp;amp;address)&lt;&#x2F;code&gt;.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;blocking-tasks&quot;&gt;Blocking Tasks&lt;&#x2F;h3&gt;
+&lt;p&gt;Some tasks may be blocking, which is a no-no in the async world.  If one of the async worker threads is blocked then it can&#x27;t listen for more events &amp;amp; will slow things down.  Luckily tokio does provide the &lt;a href=&quot;https:&#x2F;&#x2F;docs.rs&#x2F;tokio&#x2F;0.2.18&#x2F;tokio&#x2F;task&#x2F;fn.spawn_blocking.html&quot;&gt;&lt;code&gt;spawn_blocking&lt;&#x2F;code&gt;&lt;&#x2F;a&gt; helper for executing blocking work on a dedicated threadpool:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; result =
+   tokio::task::spawn_blocking(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;move &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;|| &lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;do_blocking_work&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(job));
+
+result.await??;
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;The double &lt;code&gt;.await??&lt;&#x2F;code&gt; is because the &lt;code&gt;JoinHandle&lt;&#x2F;code&gt; returned from &lt;code&gt;spawn_blocking&lt;&#x2F;code&gt; itself could fail and the internal result from the closure could fail.&lt;&#x2F;p&gt;
+&lt;p&gt;To control how many threads are used for blocking operations, you need to manually &lt;a href=&quot;https:&#x2F;&#x2F;docs.rs&#x2F;tokio&#x2F;0.2.18&#x2F;tokio&#x2F;runtime&#x2F;struct.Builder.html&quot;&gt;build your tokio run time&lt;&#x2F;a&gt;, rather than use the &lt;code&gt;tokio::main&lt;&#x2F;code&gt; macro.&lt;&#x2F;p&gt;
+&lt;p&gt;The the number of blocking threads is &lt;code&gt;max_threads - core_threads&lt;&#x2F;code&gt;.  For instance, if you wanted only 2 dedicated blocking threads:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;let mut&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; rt = tokio::runtime::Builder::new()
+    .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;threaded_scheduler&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;()
+    .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;enable_all&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;()
+    .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;core_threads&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;4&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;)
+    .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;max_threads&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;6&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;)
+    .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;build&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;()?
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;&lt;h2 id=&quot;the-server-loop&quot;&gt;The Server Loop&lt;&#x2F;h2&gt;
+&lt;p&gt;The &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;jobq&#x2F;blob&#x2F;master&#x2F;src&#x2F;server.rs&quot;&gt;server loop&lt;&#x2F;a&gt; is the main loop responsible for coordinating tasks &amp;amp; otherwise tasks are finished in the order they are supposed to.  The server here responds to messages from the ZeroMQ socket &amp;amp; acts according to the message received.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;setup-phase&quot;&gt;Setup Phase&lt;&#x2F;h3&gt;
+&lt;p&gt;The &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;jobq&#x2F;blob&#x2F;2028ea12388bd077056d984016ecf46c88e6626c&#x2F;src&#x2F;server.rs#L26-L36&quot;&gt;setup phase&lt;&#x2F;a&gt; involves setting up a db handle, then querying the database for any outstanding processing jobs.  This is to ensure that they don&#x27;t become stuck as part of a server restart, but can mean that there may be duplicate jobs submitted.  If your jobs provide the same outcome based upon the job at hand this isn&#x27;t a big deal, so the workers should do work that is idempotent if at all possible.&lt;&#x2F;p&gt;
+&lt;p&gt;Once that is done, the server keeps an active count of jobs &amp;amp; increments&#x2F;decrements them when jobs finish&#x2F;fail or start.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;main-loop&quot;&gt;Main Loop&lt;&#x2F;h3&gt;
+&lt;p&gt;The &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;jobq&#x2F;blob&#x2F;2028ea12388bd077056d984016ecf46c88e6626c&#x2F;src&#x2F;server.rs#L38-L119&quot;&gt;main loop&lt;&#x2F;a&gt; simply waits until a message is received, and acts accordingly:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;while let &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Some(msg) = recv.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;try_next&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;().await? {
+
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F; This is the `ROUTER` socket identity
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; client_name = &amp;amp;msg[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;];
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F; This is the message
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; server_msg = serde_cbor::from_slice::&amp;lt;ServerMessage&amp;gt;(&amp;amp;msg[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;1&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;]);
+    
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;match&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; server_msg {
+        ...
+    }
+
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;&lt;h4 id=&quot;hello-message&quot;&gt;Hello Message&lt;&#x2F;h4&gt;
+&lt;p&gt;If a &lt;code&gt;Hello&lt;&#x2F;code&gt; message is received then the server will send any outstanding processing jobs it knows about:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F;Drain out existing processing jobs
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(jobs, outstanding): (Vec&amp;lt;Job&amp;gt;, Vec&amp;lt;Job&amp;gt;) =
+    processing.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;into_iter&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;().&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;partition&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(|&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;job&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;| job.name == name);
+
+processing = outstanding;
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;for&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; job in jobs {
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;send_job&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;amp;handle, job, &amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;mut&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; send).await?;
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;The &lt;code&gt;processing&lt;&#x2F;code&gt; vec is only ever populated at &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;jobq&#x2F;blob&#x2F;2028ea12388bd077056d984016ecf46c88e6626c&#x2F;src&#x2F;server.rs#L34&quot;&gt;server start&lt;&#x2F;a&gt;, and so should mostly be empty unless the server was restarted with jobs that were active.&lt;&#x2F;p&gt;
+&lt;p&gt;After checking all this it responds back with a &lt;code&gt;Hello&lt;&#x2F;code&gt;&lt;&#x2F;p&gt;
+&lt;h4 id=&quot;job-request&quot;&gt;Job Request&lt;&#x2F;h4&gt;
+&lt;p&gt;If a &lt;code&gt;Request&lt;&#x2F;code&gt; message comes in, the &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;jobq&#x2F;blob&#x2F;2028ea12388bd077056d984016ecf46c88e6626c&#x2F;src&#x2F;server.rs#L70&quot;&gt;server adds this to the db&lt;&#x2F;a&gt; &amp;amp; then sends an &lt;code&gt;Acknowledged&lt;&#x2F;code&gt; message &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;jobq&#x2F;blob&#x2F;2028ea12388bd077056d984016ecf46c88e6626c&#x2F;src&#x2F;server.rs#L84-L91&quot;&gt;back to the client&lt;&#x2F;a&gt; with the populated details.  This doesn&#x27;t yet start the job however, merely it sets the job in a &lt;code&gt;Queued&lt;&#x2F;code&gt; state.&lt;&#x2F;p&gt;
+&lt;h4 id=&quot;completed&quot;&gt;Completed&lt;&#x2F;h4&gt;
+&lt;p&gt;If a &lt;code&gt;Completed&lt;&#x2F;code&gt; message comes in then the &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;jobq&#x2F;blob&#x2F;2028ea12388bd077056d984016ecf46c88e6626c&#x2F;src&#x2F;server.rs#L93-L97&quot;&gt;server marks it as completed&lt;&#x2F;a&gt; decrementing the active job count.&lt;&#x2F;p&gt;
+&lt;h4 id=&quot;failed&quot;&gt;Failed&lt;&#x2F;h4&gt;
+&lt;p&gt;If a &lt;code&gt;Failed&lt;&#x2F;code&gt; message comes in the &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;jobq&#x2F;blob&#x2F;2028ea12388bd077056d984016ecf46c88e6626c&#x2F;src&#x2F;server.rs#L98-L102&quot;&gt;server will mark the job as failed&lt;&#x2F;a&gt; and submit the reason with it, decrementing the active job count&lt;&#x2F;p&gt;
+&lt;h4 id=&quot;error-deserialising&quot;&gt;Error Deserialising&lt;&#x2F;h4&gt;
+&lt;p&gt;There is a possibility that a connected client could send an invalid message, so we just log with a &lt;code&gt;warn&lt;&#x2F;code&gt; level in this case, skipping the message:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;match&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; server_msg {
+    ....
+    Err(err) =&amp;gt; {
+        warn!(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;Could not deserialize message:{}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;, err);
+    }
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;&lt;h3 id=&quot;submit-tasks&quot;&gt;Submit Tasks&lt;&#x2F;h3&gt;
+&lt;p&gt;After the main loop matching against the message types, the server checks to see if there are any active slots &amp;amp; if so, queries the database for any queued jobs:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F; If we have less active tasks lets check the queued stuff
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;if&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; active &amp;lt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;.num {
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; jobs = handle
+        .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;get_queued_jobs&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;.num as &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;i64 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;- active as &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;i64&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;)
+        .await?;
+
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;for&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; job in jobs {
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;send_job&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;amp;handle, job, &amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;mut&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; send).await?;
+        active = active + &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;1&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;;
+    }
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;After this processing, the server then waits again for the next message.&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;database-persistence&quot;&gt;Database Persistence&lt;&#x2F;h2&gt;
+&lt;p&gt;One of the requirements is ensuring that jobs stay around and are persisted somewhere.   The prototype uses &lt;a href=&quot;https:&#x2F;&#x2F;www.postgresql.org&#x2F;&quot;&gt;PostgreSQL&lt;&#x2F;a&gt; to do this.&lt;&#x2F;p&gt;
+&lt;p&gt;As this is async, we&#x27;ll use &lt;a href=&quot;https:&#x2F;&#x2F;crates.io&#x2F;crates&#x2F;tokio-postgres&quot;&gt;tokio-postgres&lt;&#x2F;a&gt; to perform updates.  tokio postgres has some &lt;a href=&quot;https:&#x2F;&#x2F;docs.rs&#x2F;tokio-postgres&#x2F;0.5.3&#x2F;tokio_postgres&#x2F;&quot;&gt;nice docs&lt;&#x2F;a&gt; to get us started, so we will use their example to build a &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;jobq&#x2F;blob&#x2F;a09ebcaff164c2153cdceba0031dbfb7caa1ea3b&#x2F;src&#x2F;db.rs&quot;&gt;database handler&lt;&#x2F;a&gt;:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;use &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;tokio_postgres::{NoTls, Error};
+
+#[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;tokio&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;main&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;] &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F; By default, tokio_postgres uses the tokio crate as its runtime.
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;async &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8fa1b3;&quot;&gt;main&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;() -&amp;gt; Result&amp;lt;(), Error&amp;gt; {
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F; Connect to the database.
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(client, connection) =
+        tokio_postgres::connect(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;host=localhost user=postgres&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;, NoTls).await?;
+
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F; The connection object performs the actual communication with the database,
+    &#x2F;&#x2F; so spawn it off to run on its own.
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;tokio::spawn(async &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;move &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;{
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;if let &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Err(e) = connection.await {
+            eprintln!(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;connection error: {}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;, e);
+        }
+    });
+
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F; Now we can execute a simple statement that just returns its parameter.
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; rows = client
+        .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;query&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;SELECT $1::TEXT&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;, &amp;amp;[&amp;amp;&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;hello world&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;])
+        .await?;
+
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F; And then check that we got back the same string we sent over.
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; value: &amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;str &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;= rows[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;].&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;get&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;);
+    assert_eq!(value, &amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;hello world&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;);
+
+    Ok(())
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;&lt;h3 id=&quot;enums-and-postgres-types&quot;&gt;Enums and Postgres Types&lt;&#x2F;h3&gt;
+&lt;p&gt;You can use the &lt;a href=&quot;https:&#x2F;&#x2F;crates.io&#x2F;crates&#x2F;postgres-types&quot;&gt;&lt;code&gt;postgres_types&lt;&#x2F;code&gt;&lt;&#x2F;a&gt; crate to save simple enums to a table.&lt;&#x2F;p&gt;
+&lt;p&gt;So the &lt;code&gt;Priority&lt;&#x2F;code&gt; struct can be persisted to the db like so:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;CREATE TYPE&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; &amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#8fa1b3;&quot;&gt;Priority&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;as&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; enum (&amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;High&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;#39;, &amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;Normal&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;#39;, &amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;Low&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;#39;);
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;&lt;h3 id=&quot;a-simple-migration&quot;&gt;A Simple Migration&lt;&#x2F;h3&gt;
+&lt;p&gt;Hopefully our schema never changes.. Right?&lt;&#x2F;p&gt;
+&lt;p&gt;Well, in the prototype it won&#x27;t. So we can simply embed an &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;jobq&#x2F;blob&#x2F;master&#x2F;src&#x2F;setup.sql&quot;&gt;SQL script&lt;&#x2F;a&gt; to run when the a db handler &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;jobq&#x2F;blob&#x2F;a09ebcaff164c2153cdceba0031dbfb7caa1ea3b&#x2F;src&#x2F;db.rs#L13-L27&quot;&gt;starts up&lt;&#x2F;a&gt;:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;pub struct &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;DbHandle {
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;client&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: Arc&amp;lt;Client&amp;gt;,
+}
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;impl &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;DbHandle {
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;pub&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;crate&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;) async &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8fa1b3;&quot;&gt;new&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;url&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: &amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;str&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;) -&amp;gt; Result&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;Self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;, Error&amp;gt; {
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(client, connection) = tokio_postgres::connect(&amp;amp;url, NoTls).await?;
+
+        tokio::spawn(async &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;move &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;{
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;if let &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Err(e) = connection.await {
+                error!(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;connection error: {}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;, e);
+            }
+        });
+
+        client.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;batch_execute&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(include_str!(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;setup.sql&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;)).await?;
+
+        Ok(DbHandle {
+            client: Arc::new(client),
+        })
+    }
+    ...
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;This &lt;code&gt;setup.sql&lt;&#x2F;code&gt; script should be designed to run more than once, but skip the parts that it&#x27;s already done.  There are a couple tricks to do this, but obviously doesn&#x27;t work if you are adding&#x2F;removing columns from a table etc..&lt;&#x2F;p&gt;
+&lt;p&gt;For the enum types, you can just check the &lt;code&gt;pg_type&lt;&#x2F;code&gt; to make sure that they exist &amp;amp; if not add them:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#c0c5ce;&quot;&gt;IF NOT EXISTS (&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;SELECT &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;1 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;FROM&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; pg_type &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;WHERE&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; typname = &amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;Status&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;#39;) &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;THEN
+    CREATE TYPE&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; &amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#8fa1b3;&quot;&gt;Status&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;as&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; enum (&amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;Queued&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;#39;, &amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;Processing&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;#39;, &amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;Completed&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;#39;, &amp;#39;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;Failed&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;#39;);
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;END&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; IF
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;With the table &amp;amp; indexes you can do a &lt;code&gt;CREATE &amp;lt;blah&amp;gt; IF NOT EXISTS&lt;&#x2F;code&gt;:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;CREATE INDEX &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8fa1b3;&quot;&gt;IF&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; NOT EXISTS status_idx &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;ON&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; jobq (
+    status
+);
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;This won&#x27;t error out if the index&#x2F;table already exists, meaning you&#x27;re safe to run the &lt;code&gt;setup.sql&lt;&#x2F;code&gt; multiple times!&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;getting-jobs-from-the-db&quot;&gt;Getting jobs from the DB&lt;&#x2F;h3&gt;
+&lt;p&gt;Querying for jobs is quite simple, you just select the columns you want and do a &lt;code&gt;get()&lt;&#x2F;code&gt; or &lt;code&gt;try_get()&lt;&#x2F;code&gt; on them:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;impl &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;DbHandle {
+    ....
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;pub&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;crate&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;) async &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8fa1b3;&quot;&gt;get_queued_jobs&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;num&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;i64&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;) -&amp;gt; Result&amp;lt;Vec&amp;lt;Job&amp;gt;, Error&amp;gt; {
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; query = &amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;select 
+                        id,
+                        name,
+                        username,
+                        uuid,
+                        params,
+                        priority,
+                        status
+                     from jobq
+                     where 
+                        status = &amp;#39;Queued&amp;#39;
+                     order by
+                     priority asc, time asc
+                     limit $1&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;;
+
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let mut&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; jobs = Vec::new();
+
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;for&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; row in result {
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; id = row.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;try_get&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;)?;
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; name = row.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;try_get&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;1&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;)?;
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; username = row.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;try_get&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;2&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;)?;
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; uuid = row.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;try_get&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;3&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;)?;
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; params = row.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;try_get&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;4&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;)?;
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; priority = row.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;try_get&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;5&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;)?;
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; status = row.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;try_get&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;6&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;)?;
+
+            jobs.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;push&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;({
+                Job {
+                    id,
+                    username,
+                    name,
+                    uuid,
+                    params,
+                    priority,
+                    status,
+                }
+            });
+        }
+
+        Ok(jobs)
+    }
+    ...
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;There are a number of other methods as &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;jobq&#x2F;blob&#x2F;2028ea12388bd077056d984016ecf46c88e6626c&#x2F;src&#x2F;db.rs#L29&quot;&gt;complete_job&lt;&#x2F;a&gt;, &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;jobq&#x2F;blob&#x2F;2028ea12388bd077056d984016ecf46c88e6626c&#x2F;src&#x2F;db.rs#L37&quot;&gt;fail_job&lt;&#x2F;a&gt; that handle the SQL stuff &amp;amp; make it simple for the Server to use.&lt;&#x2F;p&gt;
+&lt;p&gt;Keeping things persisted in the database means we can use standard SQL tools to introspect the job queue and see where it&#x27;s at.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;recording-the-job-duration&quot;&gt;Recording the job duration&lt;&#x2F;h3&gt;
+&lt;p&gt;The duration of the job is recorded when the &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;jobq&#x2F;blob&#x2F;2028ea12388bd077056d984016ecf46c88e6626c&#x2F;src&#x2F;db.rs#L29-L35&quot;&gt;job is finished&#x2F;failed&lt;&#x2F;a&gt;:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;pub&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;crate&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;) async &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#8fa1b3;&quot;&gt;complete_job&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;id&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;i64&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;) -&amp;gt; Result&amp;lt;(), Error&amp;gt; {
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; query = &amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;update jobq set status = &amp;#39;Completed&amp;#39;, duration = extract(epoch from now() - &lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;\&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;time&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;\&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;) where id = $1&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;;
+
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;.client.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;query&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(query, &amp;amp;[&amp;amp;id]).await?;
+
+    Ok(())
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;This could&#x27;ve been done inside rust as well using &lt;code&gt;Instant&lt;&#x2F;code&gt; but would require a bit more state to be handled in the Server.  I&#x27;ve elected here to use a PostgreSQL solution instead to lean on the db.&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;running-the-example&quot;&gt;Running the example&lt;&#x2F;h2&gt;
+&lt;p&gt;The example starts the test worker, a server and a client to submit 500 simple jobs:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;for&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; i in &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;..&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;500 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;{
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; priority = &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;if&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; i % &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;2 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;== &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;0 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;{
+        Priority::High
+    } &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;else &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;{
+        Priority::Normal
+    };
+
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; job = JobRequest {
+        name: &amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;test&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;into&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(),
+        username: &amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;test_client&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;into&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(),
+        params: Value::Null,
+        uuid: Uuid::new_v4(),
+        priority,
+    };
+
+    send.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;send&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(ServerMessage::Request(job).&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;to_mpart&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;()?).await?;
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Running with &lt;code&gt;cargo run&lt;&#x2F;code&gt; you will see the output after some time, with the simulated failures:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#c0c5ce;&quot;&gt;2020-04-14 16:04:33 DEBUG jobq         &amp;gt; Message:Acknowledged(Job { id: 2999, username: &amp;quot;test_client&amp;quot;, name: &amp;quot;test&amp;quot;, uuid: fe6e21fc-8064-4c9a-965d-b1d124f2416d, params: Null, priority: High, status: Queued })
+2020-04-14 16:04:33 DEBUG jobq::server &amp;gt; New: Job { id: 3000, username: &amp;quot;test_client&amp;quot;, name: &amp;quot;test&amp;quot;, uuid: d20b4e9b-477b-45ca-9a6a-1f6423378779, params: Null, priority: Normal, status: Queued }
+2020-04-14 16:04:33 DEBUG jobq         &amp;gt; Message:Acknowledged(Job { id: 3000, username: &amp;quot;test_client&amp;quot;, name: &amp;quot;test&amp;quot;, uuid: d20b4e9b-477b-45ca-9a6a-1f6423378779, params: Null, priority: Normal, status: Queued })
+2020-04-14 16:04:39 WARN  jobq::server &amp;gt; Job failed: 3000, Reason: Simulating failure
+2020-04-14 16:04:39 WARN  jobq::server &amp;gt; Job failed: 2988, Reason: Simulating failure
+2020-04-14 16:04:39 WARN  jobq::server &amp;gt; Job failed: 2976, Reason: Simulating failure
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;You can also run some simple stats directly against the db to see how long things have taken (hopefully ~100ms):&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;select &lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;avg&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(duration) &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;from&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; jobq;
+
+    avg     
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;------------
+ &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;10634147&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;
+(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;1&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; row)
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;&lt;h2 id=&quot;conclusions&quot;&gt;Conclusions&lt;&#x2F;h2&gt;
+&lt;p&gt;I hope for anyone new that this article will help dip their feet into the waters of rust and async to see what can be built.&lt;&#x2F;p&gt;
+&lt;p&gt;Taking a few libraries and gluing them together we can get a pretty decent, albeit rough, outline of a background job queue.  The new &lt;code&gt;async&#x2F;await&lt;&#x2F;code&gt; ecosystem while embryonic already has the tools there to build some cool stuff.&lt;&#x2F;p&gt;
+&lt;p&gt;There will be a separate article around the release of &lt;code&gt;tmq&lt;&#x2F;code&gt; version &lt;code&gt;0.2.0&lt;&#x2F;code&gt; and some of the changes that have been made, but thought it might be great to provide a good example of working code before getting aroudn to that.&lt;&#x2F;p&gt;
+</description>
+            </item>
         
             <item>
                 <title>Handling Breaking API Changes</title>
