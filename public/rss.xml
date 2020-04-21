@@ -7,7 +7,109 @@
         <generator>Zola</generator>
         <language>en</language>
         <atom:link href="https://cetra3.github.io/rss.xml" rel="self" type="application/rss+xml"/>
-        <lastBuildDate>Thu, 09 Apr 2020 00:00:00 +0000</lastBuildDate>
+        <lastBuildDate>Tue, 21 Apr 2020 00:00:00 +0000</lastBuildDate>
+        
+            <item>
+                <title>Lorikeet 0.11.0 - Upgrading to async</title>
+                <pubDate>Tue, 21 Apr 2020 00:00:00 +0000</pubDate>
+                <link>https://cetra3.github.io/blog/lorikeet-0-11-0/</link>
+                <guid>https://cetra3.github.io/blog/lorikeet-0-11-0/</guid>
+                <description>&lt;p&gt;I have just spent some time doing an initial async version of &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;lorikeet&quot;&gt;lorikeet&lt;&#x2F;a&gt; now that the async&#x2F;await syntax is stable and the ecosystem has caught up.  The major blocker was reqwest, as this is used extensively in the &lt;code&gt;http&lt;&#x2F;code&gt; test.&lt;&#x2F;p&gt;
+&lt;p&gt;This async version is available now as version &lt;code&gt;0.11.0&lt;&#x2F;code&gt;.  You can also install the cli by running &lt;code&gt;cargo install lorikeet&lt;&#x2F;code&gt;.&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;what-is-lorikeet&quot;&gt;What is Lorikeet&lt;&#x2F;h2&gt;
+&lt;p&gt;Lorikeet is a command line tool and a rust library to run tests for smoke testing and integration testing.  Lorikeet currently supports bash commands and simple http requests along with system information (ram, cpu).  There is more information on the &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;lorikeet&quot;&gt;github readme&lt;&#x2F;a&gt; about how to write test files, including how to structure dependent tests and make assertions on the output.&lt;&#x2F;p&gt;
+&lt;p&gt;As a simple example, here&#x27;s a test plan to check to see whether reddit is up, and then tries to login if it is:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#bf616a;&quot;&gt;check_reddit&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;:
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;http&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;https:&#x2F;&#x2F;www.reddit.com
+  regex&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;the front page of the internet
+
+login_to_reddit&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;:
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;http&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: 
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;url&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;https:&#x2F;&#x2F;www.reddit.com&#x2F;api&#x2F;login&#x2F;{{user}}
+    form&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;:
+      &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;user&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: {{&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;user&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;}}
+      &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;passwd&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: {{&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;pass&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;}}
+      &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;api_type&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;json
+  jmespath&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;length(json.errors)
+  matches&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;0
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;require&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;:
+    - &lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;check_reddit
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;You can run this as a simple cli command, ensuring that you have a &lt;code&gt;config.yml&lt;&#x2F;code&gt; looks something like:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#bf616a;&quot;&gt;user&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;test
+pass&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;test
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Running it you will see the results:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#bf616a;&quot;&gt;$ lorikeet -c config.yml test.yml
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;- &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;name&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;check_reddit
+  pass&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;true
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;output&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;the front page of the internet
+  duration&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;1416.591ms
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;- &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;name&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;login_to_reddit
+  pass&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;true
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;output&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;0
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;duration&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;1089.0276ms
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;&lt;h2 id=&quot;skipping-futures-0-1&quot;&gt;Skipping futures 0.1&lt;&#x2F;h2&gt;
+&lt;p&gt;In retrospect, I am glad that I skipped out on rewriting lorikeet with the classic combinator style futures.  The migration from standard blocking code to async code is much easier than writing from combinators.  Having done the former with &lt;a href=&quot;..&#x2F;mpart-async-0-3-0&#x2F;&quot;&gt;mpart-async&lt;&#x2F;a&gt;, it felt quite easy to sprinkle in a few &lt;code&gt;async&lt;&#x2F;code&gt; and &lt;code&gt;await&lt;&#x2F;code&gt; statements to get things all wired up.&lt;&#x2F;p&gt;
+&lt;p&gt;As an example, &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;lorikeet&#x2F;blob&#x2F;0.10.0&#x2F;src&#x2F;step.rs#L391-L394&quot;&gt;waiting for the request&lt;&#x2F;a&gt; used to be:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;let mut&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; response = client
+    .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;execute&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(request.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;build&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;().&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;map_err&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(|&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;err&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;| format!(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;{:?}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;, err))?)
+    .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;map_err&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(|&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;err&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;| format!(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;Error connecting to url &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;{}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;, err))?;
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Now, with async, things are not much different:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; response = client
+    .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;execute&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(request.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;build&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;().&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;map_err&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(|&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;err&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;| format!(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;{:?}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;, err))?)
+    .await
+    .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;map_err&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(|&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;err&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;| format!(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3be8c;&quot;&gt;Error connecting to url &lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;{}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;, err))?;
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;&lt;h2 id=&quot;using-tokio-sync-primitives&quot;&gt;Using tokio sync primitives&lt;&#x2F;h2&gt;
+&lt;p&gt;Tokio has a few primitives that are very close to their std counterparts.&lt;&#x2F;p&gt;
+&lt;p&gt;Lorikeet now uses a &lt;a href=&quot;https:&#x2F;&#x2F;docs.rs&#x2F;tokio&#x2F;0.2.18&#x2F;tokio&#x2F;sync&#x2F;struct.Mutex.html&quot;&gt;tokio mutex&lt;&#x2F;a&gt; to record the outcome of each of the steps:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#c0c5ce;&quot;&gt;steps.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;lock&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;().await[index] = Status::Completed(outcome);
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Also using an &lt;a href=&quot;https:&#x2F;&#x2F;docs.rs&#x2F;tokio&#x2F;0.2.18&#x2F;tokio&#x2F;sync&#x2F;mpsc&#x2F;fn.unbounded_channel.html&quot;&gt;unbounded channel&lt;&#x2F;a&gt; so each step can inform the main runner when they are finished:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;let &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(tx, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;mut&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; rx) = &lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;unbounded_channel&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;();
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#65737e;&quot;&gt;&#x2F;&#x2F; later on....
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;if let &lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;Some(finished_idx) = rx.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;recv&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;().await {
+  ...
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Interesting to note that the &lt;code&gt;UnboundedSender&lt;&#x2F;code&gt; &lt;code&gt;send()&lt;&#x2F;code&gt; method is not async and does not block either.&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;multipart-file-uploads&quot;&gt;Multipart File Uploads&lt;&#x2F;h2&gt;
+&lt;p&gt;The new version of reqwest &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;seanmonstar&#x2F;reqwest&#x2F;issues&#x2F;646&quot;&gt;does not support file uploads&lt;&#x2F;a&gt; easily.  You don&#x27;t want to buffer the entire file in memory.  Luckily I have had some experience on how to wire this up with &lt;a href=&quot;https:&#x2F;&#x2F;crates.io&#x2F;crates&#x2F;mpart-async&quot;&gt;mpart-async&lt;&#x2F;a&gt;, and can reuse some of the learnings there.&lt;&#x2F;p&gt;
+&lt;p&gt;This does require the &lt;a href=&quot;https:&#x2F;&#x2F;crates.io&#x2F;crates&#x2F;tokio-util&quot;&gt;tokio-util&lt;&#x2F;a&gt; crate, which bridges &lt;code&gt;AsyncRead&lt;&#x2F;code&gt;&#x2F;&lt;code&gt;AsyncWrite&lt;&#x2F;code&gt; with &lt;code&gt;Sink&lt;&#x2F;code&gt;&#x2F;&lt;code&gt;Stream&lt;&#x2F;code&gt;.&lt;&#x2F;p&gt;
+&lt;p&gt;The relevent glue section &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;lorikeet&#x2F;blob&#x2F;ef8ba4a0f08e82d4cb33524b9e74cc50beec9078&#x2F;src&#x2F;step&#x2F;http.rs#L157-L167&quot;&gt;is as follows&lt;&#x2F;a&gt;:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#2b303b;&quot;&gt;
+&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; file_name = path_struct
+    .file
+    .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;file_name&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;()
+    .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;map&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(|&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;val&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;| val.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;to_string_lossy&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;().&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;to_string&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;())
+    .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;unwrap_or_default&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;();
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; file = File::open(&amp;amp;path_struct.file)
+    .await
+    .&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;map_err&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(|&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bf616a;&quot;&gt;err&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;| format!(&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#d08770;&quot;&gt;{:?}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;&amp;quot;, err))?;
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#b48ead;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt; reader = Body::wrap_stream(FramedRead::new(file, BytesCodec::new()));
+
+form.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;part&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(key, Part::stream(reader).&lt;&#x2F;span&gt;&lt;span style=&quot;color:#96b5b4;&quot;&gt;file_name&lt;&#x2F;span&gt;&lt;span style=&quot;color:#c0c5ce;&quot;&gt;(file_name)
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;&lt;h2 id=&quot;detecting-blocking-code&quot;&gt;Detecting Blocking Code&lt;&#x2F;h2&gt;
+&lt;p&gt;There is no annotation or warning whenever you are using blocking code in an async context.  This is an issue especially when porting over older code which was previously blocking.  Chances are I have missed a few sections that are blocking and will need to revisit them accordingly.&lt;&#x2F;p&gt;
+&lt;p&gt;Luckily, the fail case for blocking code is usually reduced throughput, down to the number of worker threads, so it is not cataclysmic if there are some blocking sections in your async code.&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;conclusion&quot;&gt;Conclusion&lt;&#x2F;h2&gt;
+&lt;p&gt;I was happy with the ease at which it was to convert existing sections to async by sprinkling a few keywords here and there.  I am concerned that it is too easy to have blocking sections, so I hope there is some tooling&#x2F;linting around that in the future.&lt;&#x2F;p&gt;
+&lt;p&gt;Please give lorikeet a go and try out some of the newer features from &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;lorikeet&quot;&gt;the readme&lt;&#x2F;a&gt;!&lt;&#x2F;p&gt;
+</description>
+            </item>
         
             <item>
                 <title>Implementing a Job queue with Tokio, PostgreSQL &amp; ZeroMQ</title>
