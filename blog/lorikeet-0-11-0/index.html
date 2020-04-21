@@ -1,0 +1,132 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> Lorikeet 0.11.0 - Upgrading to async - Cetra&#x27;s Thoughts </title>
+    <link href="/spectre.css" rel="stylesheet">
+    <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
+</head>
+
+<body>
+    <header class="navbar">
+        <section class="navbar-section">
+        </section>
+        <section class="navbar-center">
+        </section>
+        <section class="navbar-section">
+            <a href="https://github.com/cetra3/" class="btn btn-link">GitHub</a>
+            <a href="https://twitter.com/cetra3" class="btn btn-link">Twitter</a>
+            <a href="https://mastodon.social/@cetra3" class="btn btn-link">Mastodon</a>
+        </section>
+    </header>
+    <div class="container grid-lg">
+        
+<div class="post">
+  <h1>Lorikeet 0.11.0 - Upgrading to async </h1>
+  
+  <p> <small class="label label-primary">rust</small> <small class="label label-primary">lorikeet</small> <small class="label">2020-04-21</small></p>
+  
+  <p>I have just spent some time doing an initial async version of <a href="https://github.com/cetra3/lorikeet">lorikeet</a> now that the async/await syntax is stable and the ecosystem has caught up.  The major blocker was reqwest, as this is used extensively in the <code>http</code> test.</p>
+<p>This async version is available now as version <code>0.11.0</code>.  You can also install the cli by running <code>cargo install lorikeet</code>.</p>
+<h2 id="what-is-lorikeet">What is Lorikeet</h2>
+<p>Lorikeet is a command line tool and a rust library to run tests for smoke testing and integration testing.  Lorikeet currently supports bash commands and simple http requests along with system information (ram, cpu).  There is more information on the <a href="https://github.com/cetra3/lorikeet">github readme</a> about how to write test files, including how to structure dependent tests and make assertions on the output.</p>
+<p>As a simple example, here's a test plan to check to see whether reddit is up, and then tries to login if it is:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#bf616a;">check_reddit</span><span style="color:#c0c5ce;">:
+  </span><span style="color:#bf616a;">http</span><span style="color:#c0c5ce;">: </span><span style="color:#bf616a;">https://www.reddit.com
+  regex</span><span style="color:#c0c5ce;">: </span><span style="color:#bf616a;">the front page of the internet
+
+login_to_reddit</span><span style="color:#c0c5ce;">:
+  </span><span style="color:#bf616a;">http</span><span style="color:#c0c5ce;">: 
+    </span><span style="color:#bf616a;">url</span><span style="color:#c0c5ce;">: </span><span style="color:#bf616a;">https://www.reddit.com/api/login/{{user}}
+    form</span><span style="color:#c0c5ce;">:
+      </span><span style="color:#bf616a;">user</span><span style="color:#c0c5ce;">: {{</span><span style="color:#a3be8c;">user</span><span style="color:#c0c5ce;">}}
+      </span><span style="color:#bf616a;">passwd</span><span style="color:#c0c5ce;">: {{</span><span style="color:#a3be8c;">pass</span><span style="color:#c0c5ce;">}}
+      </span><span style="color:#bf616a;">api_type</span><span style="color:#c0c5ce;">: </span><span style="color:#bf616a;">json
+  jmespath</span><span style="color:#c0c5ce;">: </span><span style="color:#bf616a;">length(json.errors)
+  matches</span><span style="color:#c0c5ce;">: </span><span style="color:#d08770;">0
+  </span><span style="color:#bf616a;">require</span><span style="color:#c0c5ce;">:
+    - </span><span style="color:#a3be8c;">check_reddit
+</span></pre>
+<p>You can run this as a simple cli command, ensuring that you have a <code>config.yml</code> looks something like:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#bf616a;">user</span><span style="color:#c0c5ce;">: </span><span style="color:#bf616a;">test
+pass</span><span style="color:#c0c5ce;">: </span><span style="color:#a3be8c;">test
+</span></pre>
+<p>Running it you will see the results:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#bf616a;">$ lorikeet -c config.yml test.yml
+</span><span style="color:#c0c5ce;">- </span><span style="color:#bf616a;">name</span><span style="color:#c0c5ce;">: </span><span style="color:#bf616a;">check_reddit
+  pass</span><span style="color:#c0c5ce;">: </span><span style="color:#d08770;">true
+  </span><span style="color:#bf616a;">output</span><span style="color:#c0c5ce;">: </span><span style="color:#bf616a;">the front page of the internet
+  duration</span><span style="color:#c0c5ce;">: </span><span style="color:#bf616a;">1416.591ms
+
+</span><span style="color:#c0c5ce;">- </span><span style="color:#bf616a;">name</span><span style="color:#c0c5ce;">: </span><span style="color:#bf616a;">login_to_reddit
+  pass</span><span style="color:#c0c5ce;">: </span><span style="color:#d08770;">true
+  </span><span style="color:#bf616a;">output</span><span style="color:#c0c5ce;">: </span><span style="color:#d08770;">0
+  </span><span style="color:#bf616a;">duration</span><span style="color:#c0c5ce;">: </span><span style="color:#a3be8c;">1089.0276ms
+</span></pre><h2 id="skipping-futures-0-1">Skipping futures 0.1</h2>
+<p>In retrospect, I am glad that I skipped out on rewriting lorikeet with the classic combinator style futures.  The migration from standard blocking code to async code is much easier than writing from combinators.  Having done the former with <a href="../mpart-async-0-3-0/">mpart-async</a>, it felt quite easy to sprinkle in a few <code>async</code> and <code>await</code> statements to get things all wired up.</p>
+<p>As an example, <a href="https://github.com/cetra3/lorikeet/blob/0.10.0/src/step.rs#L391-L394">waiting for the request</a> used to be:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">let mut</span><span style="color:#c0c5ce;"> response = client
+    .</span><span style="color:#96b5b4;">execute</span><span style="color:#c0c5ce;">(request.</span><span style="color:#96b5b4;">build</span><span style="color:#c0c5ce;">().</span><span style="color:#96b5b4;">map_err</span><span style="color:#c0c5ce;">(|</span><span style="color:#bf616a;">err</span><span style="color:#c0c5ce;">| format!(&quot;</span><span style="color:#d08770;">{:?}</span><span style="color:#c0c5ce;">&quot;, err))?)
+    .</span><span style="color:#96b5b4;">map_err</span><span style="color:#c0c5ce;">(|</span><span style="color:#bf616a;">err</span><span style="color:#c0c5ce;">| format!(&quot;</span><span style="color:#a3be8c;">Error connecting to url </span><span style="color:#d08770;">{}</span><span style="color:#c0c5ce;">&quot;, err))?;
+</span></pre>
+<p>Now, with async, things are not much different:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> response = client
+    .</span><span style="color:#96b5b4;">execute</span><span style="color:#c0c5ce;">(request.</span><span style="color:#96b5b4;">build</span><span style="color:#c0c5ce;">().</span><span style="color:#96b5b4;">map_err</span><span style="color:#c0c5ce;">(|</span><span style="color:#bf616a;">err</span><span style="color:#c0c5ce;">| format!(&quot;</span><span style="color:#d08770;">{:?}</span><span style="color:#c0c5ce;">&quot;, err))?)
+    .await
+    .</span><span style="color:#96b5b4;">map_err</span><span style="color:#c0c5ce;">(|</span><span style="color:#bf616a;">err</span><span style="color:#c0c5ce;">| format!(&quot;</span><span style="color:#a3be8c;">Error connecting to url </span><span style="color:#d08770;">{}</span><span style="color:#c0c5ce;">&quot;, err))?;
+</span></pre><h2 id="using-tokio-sync-primitives">Using tokio sync primitives</h2>
+<p>Tokio has a few primitives that are very close to their std counterparts.</p>
+<p>Lorikeet now uses a <a href="https://docs.rs/tokio/0.2.18/tokio/sync/struct.Mutex.html">tokio mutex</a> to record the outcome of each of the steps:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#c0c5ce;">steps.</span><span style="color:#96b5b4;">lock</span><span style="color:#c0c5ce;">().await[index] = Status::Completed(outcome);
+</span></pre>
+<p>Also using an <a href="https://docs.rs/tokio/0.2.18/tokio/sync/mpsc/fn.unbounded_channel.html">unbounded channel</a> so each step can inform the main runner when they are finished:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">let </span><span style="color:#c0c5ce;">(tx, </span><span style="color:#b48ead;">mut</span><span style="color:#c0c5ce;"> rx) = </span><span style="color:#96b5b4;">unbounded_channel</span><span style="color:#c0c5ce;">();
+
+</span><span style="color:#65737e;">// later on....
+
+</span><span style="color:#b48ead;">if let </span><span style="color:#c0c5ce;">Some(finished_idx) = rx.</span><span style="color:#96b5b4;">recv</span><span style="color:#c0c5ce;">().await {
+  ...
+}
+</span></pre>
+<p>Interesting to note that the <code>UnboundedSender</code> <code>send()</code> method is not async and does not block either.</p>
+<h2 id="multipart-file-uploads">Multipart File Uploads</h2>
+<p>The new version of reqwest <a href="https://github.com/seanmonstar/reqwest/issues/646">does not support file uploads</a> easily.  You don't want to buffer the entire file in memory.  Luckily I have had some experience on how to wire this up with <a href="https://crates.io/crates/mpart-async">mpart-async</a>, and can reuse some of the learnings there.</p>
+<p>This does require the <a href="https://crates.io/crates/tokio-util">tokio-util</a> crate, which bridges <code>AsyncRead</code>/<code>AsyncWrite</code> with <code>Sink</code>/<code>Stream</code>.</p>
+<p>The relevent glue section <a href="https://github.com/cetra3/lorikeet/blob/ef8ba4a0f08e82d4cb33524b9e74cc50beec9078/src/step/http.rs#L157-L167">is as follows</a>:</p>
+<pre style="background-color:#2b303b;">
+<span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> file_name = path_struct
+    .file
+    .</span><span style="color:#96b5b4;">file_name</span><span style="color:#c0c5ce;">()
+    .</span><span style="color:#96b5b4;">map</span><span style="color:#c0c5ce;">(|</span><span style="color:#bf616a;">val</span><span style="color:#c0c5ce;">| val.</span><span style="color:#96b5b4;">to_string_lossy</span><span style="color:#c0c5ce;">().</span><span style="color:#96b5b4;">to_string</span><span style="color:#c0c5ce;">())
+    .</span><span style="color:#96b5b4;">unwrap_or_default</span><span style="color:#c0c5ce;">();
+
+</span><span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> file = File::open(&amp;path_struct.file)
+    .await
+    .</span><span style="color:#96b5b4;">map_err</span><span style="color:#c0c5ce;">(|</span><span style="color:#bf616a;">err</span><span style="color:#c0c5ce;">| format!(&quot;</span><span style="color:#d08770;">{:?}</span><span style="color:#c0c5ce;">&quot;, err))?;
+
+</span><span style="color:#b48ead;">let</span><span style="color:#c0c5ce;"> reader = Body::wrap_stream(FramedRead::new(file, BytesCodec::new()));
+
+form.</span><span style="color:#96b5b4;">part</span><span style="color:#c0c5ce;">(key, Part::stream(reader).</span><span style="color:#96b5b4;">file_name</span><span style="color:#c0c5ce;">(file_name)
+</span></pre><h2 id="detecting-blocking-code">Detecting Blocking Code</h2>
+<p>There is no annotation or warning whenever you are using blocking code in an async context.  This is an issue especially when porting over older code which was previously blocking.  Chances are I have missed a few sections that are blocking and will need to revisit them accordingly.</p>
+<p>Luckily, the fail case for blocking code is usually reduced throughput, down to the number of worker threads, so it is not cataclysmic if there are some blocking sections in your async code.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>I was happy with the ease at which it was to convert existing sections to async by sprinkling a few keywords here and there.  I am concerned that it is too easy to have blocking sections, so I hope there is some tooling/linting around that in the future.</p>
+<p>Please give lorikeet a go and try out some of the newer features from <a href="https://github.com/cetra3/lorikeet">the readme</a>!</p>
+
+
+</div>
+
+    </div>
+</body>
+
+</html>
