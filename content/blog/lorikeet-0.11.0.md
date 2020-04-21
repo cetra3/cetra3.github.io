@@ -15,7 +15,7 @@ This async version is available now as version `0.11.0`.  You can also install t
 
 ## What is Lorikeet
 
-Lorikeet is a command line tool and a rust library to run tests for smoke testing and integration testing.  Lorikeet currently supports bash commands and simple http requests along with system information (ram, cpu).  There is more information on the [github readme](https://github.com/cetra3/lorikeet) about how to write test files, including how to structure dependent tests and make assertions on the output.
+**Lorikeet** is a command line tool and a rust library to run tests for smoke testing and integration testing.  *Lorikeet* currently supports bash commands and simple HTTP requests along with system information (RAM, Disk & CPU).  There is more information on the [github readme](https://github.com/cetra3/lorikeet) about how to write test files, including how to structure dependent tests and make assertions on the output.
 
 As a simple example, here's a test plan to check to see whether reddit is up, and then tries to login if it is:
 
