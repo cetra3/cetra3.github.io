@@ -6,7 +6,9 @@
 
 <article id="{{page.title}}" class="card">
   <div class="card-header">
-     <div class="card-title h3"><a href="{{page.permalink}}"  id="article_link" >{{page.title}}</a></div>
+     <div class="card-title h3">{{page.title}}</div>
+     <em>{{page.description}}</em>
+     <br />
      {% if page.taxonomies %}
      <div class="card-subtitle">
      {% for tag in page.taxonomies.tags %}<small class="label label-primary">{{tag}}</small> {% endfor %}<small class="label">{{ page.date | date(format="%Y-%m-%d") }}</small>
@@ -17,7 +19,7 @@
       {{ page.content | safe | striptags | truncate }}
   </div>
   <div class="card-footer">
-      <a class="btn btn-primary" href="{{page.permalink}}">Continue Reading</a>
+      <a href="{{page.permalink}}">Continue Reading</a>
   </div>
 </article>
 {% endfor %}

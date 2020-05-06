@@ -1,8 +1,7 @@
 // Cards
 .card {
-  background: $bg-color-light;
-  border: $border-width solid $border-color;
-  border-radius: $border-radius;
+  background: darken($dark-color, 3%);
+  border-radius:  .3rem;
   display: flex;
   flex-direction: column;
 

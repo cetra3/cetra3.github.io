@@ -5,7 +5,7 @@ $version: "0.5.7";
 $rtl: false !default;
 
 // Core colors
-$primary-color: #3d6b80 !default;
+$primary-color: #73c6ec !default;
 $primary-color-dark: darken($primary-color, 3%) !default;
 $primary-color-light: lighten($primary-color, 3%) !default;
 $secondary-color: lighten($primary-color, 37.5%) !default;
@@ -21,7 +21,7 @@ $gray-color-light: lighten($gray-color, 20%) !default;
 
 $border-color: lighten($dark-color, 65%) !default;
 $border-color-dark: darken($border-color, 10%) !default;
-$bg-color: lighten($dark-color, 75%) !default;
+$bg-color: $dark-color !default;
 $bg-color-dark: darken($bg-color, 3%) !default;
 $bg-color-light: $light-color !default;
 
@@ -31,10 +31,10 @@ $warning-color: #ffb700 !default;
 $error-color: #e85600 !default;
 
 // Other colors
-$code-color: #d73e48 !default;
+$code-color: $light-color !default;
 $highlight-color: #ffe9b3 !default;
-$body-bg: $bg-color-light !default;
-$body-font-color: lighten($dark-color, 5%) !default;
+$body-bg: $dark-color !default;
+$body-font-color: $light-color !default;
 $link-color: $primary-color !default;
 $link-color-dark: darken($link-color, 10%) !default;
 $link-color-light: lighten($link-color, 10%) !default;

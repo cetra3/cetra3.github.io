@@ -2,7 +2,6 @@
 @import "variables";
 @import "mixins";
 
-/*! Spectre.css v#{$version} | MIT License | github.com/picturepan2/spectre */
 // Reset and dependencies
 @import "normalize";
 @import "base";
@@ -30,6 +29,20 @@ pre {
 
 
 .post {
+    header {
+      //background: darken($primary-color, 35%);
+      border-radius: .3rem;
+      padding: 0.5rem;
+      margin-bottom: 0.5rem;
+      h1 {
+          margin-bottom: 0;
+      }
+    }
+    section {
+      padding: 0.5rem;
+      background-color: darken($dark-color, 3%);
+      border-radius: .3rem;
+    }
     img {
         width: 100%;
     }
