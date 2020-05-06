@@ -1,7 +1,7 @@
 +++
 
 title = "Implementing a Job queue with Tokio, PostgreSQL & ZeroMQ"
-description = "A foray into job queue"
+description = "An async background job queue written in rust"
 date = 2020-04-09
 
 [taxonomies]

@@ -1,8 +1,7 @@
-
 +++
 
 title = "Lorikeet 0.11.0 - Upgrading to async"
-description = "Upgrading to async"
+description = "Upgrading lorikeet to async rust"
 date = 2020-04-21
 
 [taxonomies]

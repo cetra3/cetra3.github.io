@@ -1,8 +1,7 @@
-
 +++
 
 title = "TMQ 0.1.0 Release: ZeroMQ bindings for Tokio"
-description = "Discussion around building TMQ"
+description = "ZeroMQ for async rust and tokio"
 date = 2019-02-07
 
 [taxonomies]

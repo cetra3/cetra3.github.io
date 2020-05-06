@@ -1,4 +1,3 @@
-
 +++
 
 title = "Handling Breaking API Changes"

@@ -1,4 +1,3 @@
-
 +++
 
 title = "Lessons learnt updating a library to std::future"
