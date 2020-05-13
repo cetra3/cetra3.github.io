@@ -43,6 +43,13 @@
         </url>
     
         <url>
+            <loc>https://cetra3.github.io/blog/implementing-a-jobq-with-tokio/</loc>
+            
+                <lastmod>2020-05-13</lastmod>
+            
+        </url>
+    
+        <url>
             <loc>https://cetra3.github.io/blog/implementing-a-jobq/</loc>
             
                 <lastmod>2020-04-09</lastmod>

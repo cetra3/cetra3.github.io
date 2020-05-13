@@ -2,9 +2,55 @@
 
 {% block content %}
 
+<h1>Cetra's Thoughts</h1>
+
+<p>Hello! This is my website where I post blogs and investigations mostly about <a href="https://www.rust-lang.org/">Rust</a>.</p>
+
+<p>I am the Technical Director and co-founder of <a href="https://www.parashift.com.au/">Parashift</a>.</p>
+
+
+<h3>My Projects</h3>
+<p>Here is a small selection of open source projects I have been working on. Check out my <a href="https://github.com/cetra3/">GitHub profile</a> for more</p>
+<article class="card">
+ <div class="card-header">
+   <div class="card-title h3">Lorikeet</div>
+   <em>A Parallel Test Runner for DevOps</em>
+ </div>
+ <div class="card-body">
+   Lorikeet is a command line tool and a rust library to run tests for smoke testing and integration testing. Lorikeet currently supports bash commands and simple http requests along with system information (ram, cpu)
+ </div>
+ <div class="card-footer">
+      <a href="https://github.com/cetra3/lorikeet">https://github.com/cetra3/lorikeet</a>
+ </div>
+</article>
+<article class="card">
+ <div class="card-header">
+   <div class="card-title h3">TMQ</div>
+   <em>Rust ZeroMQ bindings for Tokio</em>
+ </div>
+ <div class="card-body">
+   This crate bridges Tokio and ZeroMQ to allow for ZeroMQ in the async world.
+ </div>
+ <div class="card-footer">
+      <a href="https://github.com/cetra3/tmq">https://github.com/cetra3/tmq</a>
+ </div>
+</article>
+<article class="card">
+ <div class="card-header">
+   <div class="card-title h3">Mpad</div>
+   <em>A Decentralised Local Multiplayer Text Pad</em>
+ </div>
+ <div class="card-body">
+    Mpad is a desktop app which allows you to share a simple text pad with other users on a local network
+ </div>
+ <div class="card-footer">
+      <a href="https://github.com/cetra3/mpad">https://github.com/cetra3/mpad</a>
+ </div>
+</article>
+
 {% set blog = get_section(path="blog/_index.md") -%}
 <h3>Recent Blogs</h3>
-{% for page in blog.pages | slice(end=5) %}
+{% for page in blog.pages | slice(end=3) %}
 
 <article id="{{page.title}}" class="card">
   <div class="card-header">

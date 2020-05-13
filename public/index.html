@@ -28,7 +28,73 @@
     <div class="container grid-lg">
         
 
+<h1>Cetra's Thoughts</h1>
+
+<p>Hello! This is my website where I post blogs and investigations mostly about <a href="https://www.rust-lang.org/">Rust</a>.</p>
+
+<p>I am the Technical Director and co-founder of <a href="https://www.parashift.com.au/">Parashift</a>.</p>
+
+
+<h3>My Projects</h3>
+<p>Here is a small selection of open source projects I have been working on. Check out my <a href="https://github.com/cetra3/">GitHub profile</a> for more</p>
+<article class="card">
+ <div class="card-header">
+   <div class="card-title h3">Lorikeet</div>
+   <em>A Parallel Test Runner for DevOps</em>
+ </div>
+ <div class="card-body">
+   Lorikeet is a command line tool and a rust library to run tests for smoke testing and integration testing. Lorikeet currently supports bash commands and simple http requests along with system information (ram, cpu)
+ </div>
+ <div class="card-footer">
+      <a href="https://github.com/cetra3/lorikeet">https://github.com/cetra3/lorikeet</a>
+ </div>
+</article>
+<article class="card">
+ <div class="card-header">
+   <div class="card-title h3">TMQ</div>
+   <em>Rust ZeroMQ bindings for Tokio</em>
+ </div>
+ <div class="card-body">
+   This crate bridges Tokio and ZeroMQ to allow for ZeroMQ in the async world.
+ </div>
+ <div class="card-footer">
+      <a href="https://github.com/cetra3/tmq">https://github.com/cetra3/tmq</a>
+ </div>
+</article>
+<article class="card">
+ <div class="card-header">
+   <div class="card-title h3">Mpad</div>
+   <em>A Decentralised Local Multiplayer Text Pad</em>
+ </div>
+ <div class="card-body">
+    Mpad is a desktop app which allows you to share a simple text pad with other users on a local network
+ </div>
+ <div class="card-footer">
+      <a href="https://github.com/cetra3/mpad">https://github.com/cetra3/mpad</a>
+ </div>
+</article>
+
 <h3>Recent Blogs</h3>
+
+
+<article id="Implementing a Job queue with Tokio-Serde" class="card">
+  <div class="card-header">
+     <div class="card-title h3">Implementing a Job queue with Tokio-Serde</div>
+     <em>An async background job queue written with tokio-serde</em>
+     <br />
+     
+     <div class="card-subtitle">
+     <small class="label label-primary">rust</small> <small class="label label-primary">async</small> <small class="label">2020-05-13</small>
+     </div>
+     
+  </div>
+  <div class="card-body">
+      In the last blog of this series, I implemented job queue with tmq.  I noted back then that tmq is great if you need to interact with other languages, but may be a little overkill if you are just using rust.  I wondered what it&#x27;d take to build the job queu…
+  </div>
+  <div class="card-footer">
+      <a href="https:&#x2F;&#x2F;cetra3.github.io&#x2F;blog&#x2F;implementing-a-jobq-with-tokio&#x2F;">Continue Reading</a>
+  </div>
+</article>
 
 
 <article id="Lorikeet 0.11.0 - Upgrading to async" class="card">
@@ -69,67 +135,6 @@ I w…
   </div>
   <div class="card-footer">
       <a href="https:&#x2F;&#x2F;cetra3.github.io&#x2F;blog&#x2F;implementing-a-jobq&#x2F;">Continue Reading</a>
-  </div>
-</article>
-
-
-<article id="Handling Breaking API Changes" class="card">
-  <div class="card-header">
-     <div class="card-title h3">Handling Breaking API Changes</div>
-     <em>Dealing with Breaking API</em>
-     <br />
-     
-     <div class="card-subtitle">
-     <small class="label label-primary">rust</small> <small class="label label-primary">semver</small> <small class="label">2020-02-03</small>
-     </div>
-     
-  </div>
-  <div class="card-body">
-      While upgrading dependencies (basically deleting Cargo.lock) in a big rust project I hit an issue.  A new commit in serde_json caused has upstream failure in another library, jmespath, and possibly more crates. Because these structs and enums visibility h…
-  </div>
-  <div class="card-footer">
-      <a href="https:&#x2F;&#x2F;cetra3.github.io&#x2F;blog&#x2F;breaking-api-changes&#x2F;">Continue Reading</a>
-  </div>
-</article>
-
-
-<article id="Lessons learnt updating a library to std::future" class="card">
-  <div class="card-header">
-     <div class="card-title h3">Lessons learnt updating a library to std::future</div>
-     <em>Updating a multipart-async library to use futures</em>
-     <br />
-     
-     <div class="card-subtitle">
-     <small class="label label-primary">rust</small> <small class="label label-primary">mpart-async</small> <small class="label">2020-01-22</small>
-     </div>
-     
-  </div>
-  <div class="card-body">
-      With the new std::future way of doing things and tokio slowly reaching maturation, it&#x27;s time to look at updating the libraries out there that are using the old ways.  For one of my libraries, tmq, a Tokio ZeroMQ library, there is some awesome work already…
-  </div>
-  <div class="card-footer">
-      <a href="https:&#x2F;&#x2F;cetra3.github.io&#x2F;blog&#x2F;mpart-async-0-3-0&#x2F;">Continue Reading</a>
-  </div>
-</article>
-
-
-<article id="My Wishes for Rust 2020" class="card">
-  <div class="card-header">
-     <div class="card-title h3">My Wishes for Rust 2020</div>
-     <em>Discussion around Rust 2020</em>
-     <br />
-     
-     <div class="card-subtitle">
-     <small class="label label-primary">rust</small> <small class="label">2019-10-30</small>
-     </div>
-     
-  </div>
-  <div class="card-body">
-      2019 was another huge year for rust, but instead of implementing the shiny new thing, it&#x27;s been a focus on refining existing ideas.
-Having being using rust professionally for over 3 years, I feel I will very soon be regailing new rust developers of the ti…
-  </div>
-  <div class="card-footer">
-      <a href="https:&#x2F;&#x2F;cetra3.github.io&#x2F;blog&#x2F;rust-2020&#x2F;">Continue Reading</a>
   </div>
 </article>
 
