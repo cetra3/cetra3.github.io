@@ -15,7 +15,7 @@ build_search_index = true
 generate_rss = true
 
 title = "Cetra's Thoughts"
-description = "Notes and Discussion pieces"
+description = "Blogs and Investigations mostly about Rust"
 
 [extra]
 # Put all your custom variables here

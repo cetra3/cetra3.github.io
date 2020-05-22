@@ -1,0 +1,514 @@
+<!DOCTYPE HTML>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drawing SVG Graphs with Rust</title>
+    <meta name="description" content="Using tera to draw SVG graphs with rust" />
+    <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
+    <style>html{font-family:sans-serif;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%}body{margin:0}article,aside,footer,header,nav,section{display:block}h1{font-size:2em;margin:0.67em 0}figcaption,figure,main{display:block}hr{box-sizing:content-box;height:0;overflow:visible}a{background-color:transparent;-webkit-text-decoration-skip:objects}a:active,a:hover{outline-width:0}address{font-style:normal}b,strong{font-weight:inherit}b,strong{font-weight:bolder}code,kbd,pre,samp{font-family:"SF Mono","Segoe UI Mono","Roboto Mono",Menlo,Courier,monospace;font-size:1em}dfn{font-style:italic}small{font-size:80%;font-weight:400}sub,sup{font-size:75%;line-height:0;position:relative;vertical-align:baseline}sub{bottom:-0.25em}sup{top:-0.5em}audio,video{display:inline-block}audio:not([controls]){display:none;height:0}img{border-style:none}svg:not(:root){overflow:hidden}button,input,optgroup,select,textarea{font-family:inherit;font-size:inherit;line-height:inherit;margin:0}button,input{overflow:visible}button,select{text-transform:none}button,html [type="button"],[type="reset"],[type="submit"]{-webkit-appearance:button}button::-moz-focus-inner,[type="button"]::-moz-focus-inner,[type="reset"]::-moz-focus-inner,[type="submit"]::-moz-focus-inner{border-style:none;padding:0}fieldset{border:0;margin:0;padding:0}legend{box-sizing:border-box;color:inherit;display:table;max-width:100%;padding:0;white-space:normal}progress{display:inline-block;vertical-align:baseline}textarea{overflow:auto}[type="checkbox"],[type="radio"]{box-sizing:border-box;padding:0}[type="number"]::-webkit-inner-spin-button,[type="number"]::-webkit-outer-spin-button{height:auto}[type="search"]{-webkit-appearance:textfield;outline-offset:-2px}[type="search"]::-webkit-search-cancel-button,[type="search"]::-webkit-search-decoration{-webkit-appearance:none}::-webkit-file-upload-button{-webkit-appearance:button;font:inherit}details,menu{display:block}summary{display:list-item;outline:none}canvas{display:inline-block}template{display:none}[hidden]{display:none}*,*::before,*::after{box-sizing:inherit}html{box-sizing:border-box;font-size:20px;line-height:1.5;-webkit-tap-highlight-color:transparent}body{background:#303742;color:#fff;font-family:-apple-system,system-ui,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;font-size:.8rem;overflow-x:hidden;text-rendering:optimizeLegibility}a{color:#73c6ec;outline:none;text-decoration:none}a:focus{box-shadow:0 0 0 0.1rem rgba(115,198,236,0.2)}a:focus,a:hover,a:active,a.active{color:#46b4e6;text-decoration:underline}a:visited{color:#a0d8f2}h1,h2,h3,h4,h5,h6{color:inherit;font-weight:700;line-height:1.2;margin-bottom:.5rem;margin-top:0}.h1,.h2,.h3,.h4,.h5,.h6{font-weight:700}h1,.h1{font-size:2rem}h2,.h2{font-size:1.6rem}h3,.h3{font-size:1.4rem}h4,.h4{font-size:1.2rem}h5,.h5{font-size:1rem}h6,.h6{font-size:.8rem}p{margin:0 0 1.2rem}a,ins,u{text-decoration-skip:ink edges}abbr[title]{border-bottom:.05rem dotted;cursor:help;text-decoration:none}kbd{border-radius:.1rem;line-height:1.2;padding:.1rem .2rem;background:#303742;color:#fff;font-size:.7rem}mark{background:#ffe9b3;color:#fff;border-bottom:.05rem solid #ffd367;border-radius:.1rem;padding:.05rem .1rem 0}blockquote{border-left:.1rem solid #dadee4;margin-left:0;padding:.4rem .8rem}blockquote p:last-child{margin-bottom:0}ul,ol{margin:.8rem 0 .8rem .8rem;padding:0}ul ul,ul ol,ol ul,ol ol{margin:.8rem 0 .8rem .8rem}ul li,ol li{margin-top:.4rem}ul{list-style:disc inside}ul ul{list-style-type:circle}ol{list-style:decimal inside}ol ol{list-style-type:lower-alpha}dl dt{font-weight:bold}dl dd{margin:.4rem 0 .8rem 0}.btn{appearance:none;background:#fff;border:.05rem solid #73c6ec;border-radius:.1rem;color:#73c6ec;cursor:pointer;display:inline-block;font-size:.8rem;height:1.8rem;line-height:1.2rem;outline:none;padding:.25rem .4rem;text-align:center;text-decoration:none;transition:background .2s, border .2s, box-shadow .2s, color .2s;user-select:none;vertical-align:middle;white-space:nowrap}.btn:focus{box-shadow:0 0 0 0.1rem rgba(115,198,236,0.2)}.btn:focus,.btn:hover{background:#fff;border-color:#66c1ea;text-decoration:none}.btn:active,.btn.active{background:#66c1ea;border-color:#4fb7e7;color:#fff;text-decoration:none}.btn:active.loading::after,.btn.active.loading::after{border-bottom-color:#fff;border-left-color:#fff}.btn[disabled],.btn:disabled,.btn.disabled{cursor:default;opacity:.5;pointer-events:none}.btn.btn-primary{background:#73c6ec;border-color:#66c1ea;color:#fff}.btn.btn-primary:focus,.btn.btn-primary:hover{background:#5dbde9;border-color:#4fb7e7;color:#fff}.btn.btn-primary:active,.btn.btn-primary.active{background:#54b9e8;border-color:#46b4e6;color:#fff}.btn.btn-primary.loading::after{border-bottom-color:#fff;border-left-color:#fff}.btn.btn-success{background:#32b643;border-color:#2faa3f;color:#fff}.btn.btn-success:focus{box-shadow:0 0 0 0.1rem rgba(50,182,67,0.2)}.btn.btn-success:focus,.btn.btn-success:hover{background:#30ae40;border-color:#2da23c;color:#fff}.btn.btn-success:active,.btn.btn-success.active{background:#2a9a39;border-color:#278e34;color:#fff}.btn.btn-success.loading::after{border-bottom-color:#fff;border-left-color:#fff}.btn.btn-error{background:#e85600;border-color:#d95000;color:#fff}.btn.btn-error:focus{box-shadow:0 0 0 0.1rem rgba(232,86,0,0.2)}.btn.btn-error:focus,.btn.btn-error:hover{background:#de5200;border-color:#cf4d00;color:#fff}.btn.btn-error:active,.btn.btn-error.active{background:#c44900;border-color:#b54300;color:#fff}.btn.btn-error.loading::after{border-bottom-color:#fff;border-left-color:#fff}.btn.btn-link{background:transparent;border-color:transparent;color:#73c6ec}.btn.btn-link:focus,.btn.btn-link:hover,.btn.btn-link:active,.btn.btn-link.active{color:#46b4e6}.btn.btn-sm{font-size:.7rem;height:1.4rem;padding:.05rem .3rem}.btn.btn-lg{font-size:.9rem;height:2rem;padding:.35rem .6rem}.btn.btn-block{display:block;width:100%}.btn.btn-action{width:1.8rem;padding-left:0;padding-right:0}.btn.btn-action.btn-sm{width:1.4rem}.btn.btn-action.btn-lg{width:2rem}.btn.btn-clear{background:transparent;border:0;color:currentColor;height:1rem;line-height:.8rem;margin-left:.2rem;margin-right:-2px;opacity:1;padding:.1rem;text-decoration:none;width:1rem}.btn.btn-clear:focus,.btn.btn-clear:hover{background:rgba(48,55,66,0.5);opacity:.95}.btn.btn-clear::before{content:"\2715"}.btn-group{display:inline-flex;flex-wrap:wrap}.btn-group .btn{flex:1 0 auto}.btn-group .btn:first-child:not(:last-child){border-bottom-right-radius:0;border-top-right-radius:0}.btn-group .btn:not(:first-child):not(:last-child){border-radius:0;margin-left:-.05rem}.btn-group .btn:last-child:not(:first-child){border-bottom-left-radius:0;border-top-left-radius:0;margin-left:-.05rem}.btn-group .btn:focus,.btn-group .btn:hover,.btn-group .btn:active,.btn-group .btn.active{z-index:1}.btn-group.btn-group-block{display:flex}.btn-group.btn-group-block .btn{flex:1 0 0}.label{border-radius:.1rem;line-height:1.2;padding:.1rem .2rem;background:#39414e;color:#e6e6e6;display:inline-block}.label.label-rounded{border-radius:5rem;padding-left:.4rem;padding-right:.4rem}.label.label-primary{background:#0b3e55;color:#fff}.label.label-secondary{background:#fff;color:#73c6ec}.label.label-success{background:#32b643;color:#fff}.label.label-warning{background:#ffb700;color:#fff}.label.label-error{background:#e85600;color:#fff}code{border-radius:.1rem;line-height:1.2;padding:.1rem .2rem;background:#0f4e6b;color:#fff;font-size:85%}.code{border-radius:.1rem;color:#fff;position:relative}.code::before{color:#bcc3ce;content:attr(data-lang);font-size:.7rem;position:absolute;right:.4rem;top:.1rem}.code code{background:#303742;color:inherit;display:block;line-height:1.5;overflow-x:auto;padding:1rem;width:100%}.container{margin-left:auto;margin-right:auto;padding-left:.4rem;padding-right:.4rem;width:100%}.container.grid-xl{max-width:1296px}.container.grid-lg{max-width:976px}.container.grid-md{max-width:856px}.container.grid-sm{max-width:616px}.container.grid-xs{max-width:496px}.show-xs,.show-sm,.show-md,.show-lg,.show-xl{display:none !important}.columns{display:flex;flex-wrap:wrap;margin-left:-.4rem;margin-right:-.4rem}.columns.col-gapless{margin-left:0;margin-right:0}.columns.col-gapless>.column{padding-left:0;padding-right:0}.columns.col-oneline{flex-wrap:nowrap;overflow-x:auto}.column{flex:1;max-width:100%;padding-left:.4rem;padding-right:.4rem}.column.col-12,.column.col-11,.column.col-10,.column.col-9,.column.col-8,.column.col-7,.column.col-6,.column.col-5,.column.col-4,.column.col-3,.column.col-2,.column.col-1{flex:none}.col-12{width:100%}.col-11{width:91.66666667%}.col-10{width:83.33333333%}.col-9{width:75%}.col-8{width:66.66666667%}.col-7{width:58.33333333%}.col-6{width:50%}.col-5{width:41.66666667%}.col-4{width:33.33333333%}.col-3{width:25%}.col-2{width:16.66666667%}.col-1{width:8.33333333%}.col-auto{flex:0 0 auto;max-width:none;width:auto}.col-mx-auto{margin-left:auto;margin-right:auto}.col-ml-auto{margin-left:auto}.col-mr-auto{margin-right:auto}@media (max-width: 1280px){.col-xl-12,.col-xl-11,.col-xl-10,.col-xl-9,.col-xl-8,.col-xl-7,.col-xl-6,.col-xl-5,.col-xl-4,.col-xl-3,.col-xl-2,.col-xl-1{flex:none}.col-xl-12{width:100%}.col-xl-11{width:91.66666667%}.col-xl-10{width:83.33333333%}.col-xl-9{width:75%}.col-xl-8{width:66.66666667%}.col-xl-7{width:58.33333333%}.col-xl-6{width:50%}.col-xl-5{width:41.66666667%}.col-xl-4{width:33.33333333%}.col-xl-3{width:25%}.col-xl-2{width:16.66666667%}.col-xl-1{width:8.33333333%}.hide-xl{display:none !important}.show-xl{display:block !important}}@media (max-width: 960px){.col-lg-12,.col-lg-11,.col-lg-10,.col-lg-9,.col-lg-8,.col-lg-7,.col-lg-6,.col-lg-5,.col-lg-4,.col-lg-3,.col-lg-2,.col-lg-1{flex:none}.col-lg-12{width:100%}.col-lg-11{width:91.66666667%}.col-lg-10{width:83.33333333%}.col-lg-9{width:75%}.col-lg-8{width:66.66666667%}.col-lg-7{width:58.33333333%}.col-lg-6{width:50%}.col-lg-5{width:41.66666667%}.col-lg-4{width:33.33333333%}.col-lg-3{width:25%}.col-lg-2{width:16.66666667%}.col-lg-1{width:8.33333333%}.hide-lg{display:none !important}.show-lg{display:block !important}}@media (max-width: 840px){.col-md-12,.col-md-11,.col-md-10,.col-md-9,.col-md-8,.col-md-7,.col-md-6,.col-md-5,.col-md-4,.col-md-3,.col-md-2,.col-md-1{flex:none}.col-md-12{width:100%}.col-md-11{width:91.66666667%}.col-md-10{width:83.33333333%}.col-md-9{width:75%}.col-md-8{width:66.66666667%}.col-md-7{width:58.33333333%}.col-md-6{width:50%}.col-md-5{width:41.66666667%}.col-md-4{width:33.33333333%}.col-md-3{width:25%}.col-md-2{width:16.66666667%}.col-md-1{width:8.33333333%}.hide-md{display:none !important}.show-md{display:block !important}}@media (max-width: 600px){.col-sm-12,.col-sm-11,.col-sm-10,.col-sm-9,.col-sm-8,.col-sm-7,.col-sm-6,.col-sm-5,.col-sm-4,.col-sm-3,.col-sm-2,.col-sm-1{flex:none}.col-sm-12{width:100%}.col-sm-11{width:91.66666667%}.col-sm-10{width:83.33333333%}.col-sm-9{width:75%}.col-sm-8{width:66.66666667%}.col-sm-7{width:58.33333333%}.col-sm-6{width:50%}.col-sm-5{width:41.66666667%}.col-sm-4{width:33.33333333%}.col-sm-3{width:25%}.col-sm-2{width:16.66666667%}.col-sm-1{width:8.33333333%}.hide-sm{display:none !important}.show-sm{display:block !important}}@media (max-width: 480px){.col-xs-12,.col-xs-11,.col-xs-10,.col-xs-9,.col-xs-8,.col-xs-7,.col-xs-6,.col-xs-5,.col-xs-4,.col-xs-3,.col-xs-2,.col-xs-1{flex:none}.col-xs-12{width:100%}.col-xs-11{width:91.66666667%}.col-xs-10{width:83.33333333%}.col-xs-9{width:75%}.col-xs-8{width:66.66666667%}.col-xs-7{width:58.33333333%}.col-xs-6{width:50%}.col-xs-5{width:41.66666667%}.col-xs-4{width:33.33333333%}.col-xs-3{width:25%}.col-xs-2{width:16.66666667%}.col-xs-1{width:8.33333333%}.hide-xs{display:none !important}.show-xs{display:block !important}}.navbar{align-items:stretch;display:flex;flex-wrap:wrap;justify-content:space-between}.navbar .navbar-section{align-items:center;display:flex;flex:1 0 0}.navbar .navbar-section:not(:first-child):last-child{justify-content:flex-end}.navbar .navbar-center{align-items:center;display:flex;flex:0 0 auto}.navbar .navbar-brand{font-size:.9rem;text-decoration:none}pre{padding:0.5rem 0.5rem;border-radius:.3rem;overflow-y:auto}.post header{border-radius:.3rem;padding:0.5rem;margin-bottom:0.5rem}.post header h1{margin-bottom:0}.post section{padding:0.5rem;background-color:#2a3039;border-radius:.3rem}.post img{width:100%}.card{margin-bottom:0.5rem}.card{background:#2a3039;border-radius:.3rem;display:flex;flex-direction:column}.card .card-header,.card .card-body,.card .card-footer{padding:.8rem;padding-bottom:0}.card .card-header:last-child,.card .card-body:last-child,.card .card-footer:last-child{padding-bottom:.8rem}.card .card-body{flex:1 1 auto}.card .card-image{padding-top:.8rem}.card .card-image:first-child{padding-top:0}.card .card-image:first-child img{border-top-left-radius:.1rem;border-top-right-radius:.1rem}.card .card-image:last-child img{border-bottom-left-radius:.1rem;border-bottom-right-radius:.1rem}
+</style>
+</head>
+
+<body>
+    <header class="navbar">
+        <section class="navbar-section">
+            <a href="/" class="btn btn-link">Home</a>
+            <a href="/blog/" class="btn btn-link">Blogs</a>
+            <a href="/rss.xml" class="btn btn-link">RSS</a>
+        </section>
+        <section class="navbar-center">
+        </section>
+        <section class="navbar-section">
+            <a href="https://github.com/cetra3/" class="btn btn-link">GitHub</a>
+            <a href="https://twitter.com/cetra3" class="btn btn-link">Twitter</a>
+            <a href="https://mastodon.social/@cetra3" class="btn btn-link">Mastodon</a>
+        </section>
+    </header>
+    <div class="container grid-lg">
+        
+<article class="post">
+  <header>
+  <h1>Drawing SVG Graphs with Rust </h1>
+  <em>Using tera to draw SVG graphs with rust</em>
+  <br />
+  
+  <small class="label label-primary">rust</small> <small class="label label-primary">lorikeet</small> <small class="label">2020-05-22</small>
+  
+  </header>
+  <section>
+    <p>I have just released the first version of <a href="https://github.com/cetra3/lorikeet-dash">lorikeet-dash</a> and part of that exercise was to find out a way to draw SVG graphs using rust.</p>
+<p>I thought my findings &amp; approach may be useful for others looking to do the same thing and so I have documented the design evolution in this blog.</p>
+<p>Here's what the end result looks like in the <a href="https://github.com/cetra3/lorikeet-dash"><code>lorikeet-dash</code></a> project:</p>
+<p><img src="https://raw.githubusercontent.com/cetra3/lorikeet-dash/master/dash.png" alt="" /></p>
+<h2 id="defining-the-graph">Defining the Graph</h2>
+<p>First we want to define what a graph is.  A minimal example of what a graph would have is:</p>
+<ul>
+<li>A List of Points</li>
+<li>A Name/Description</li>
+<li>A Colour for the line</li>
+</ul>
+<p>So, in a rust struct, this would look like the following:</p>
+<pre style="background-color:#212733;">
+<span style="color:#ccc9c2cc;">#</span><span style="color:#ccc9c2;">[</span><span style="color:#ffd580;">derive</span><span style="color:#ccc9c2;">(Clone</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> Debug)]
+</span><span style="color:#ffa759;">pub struct </span><span style="color:#73d0ff;">Graph </span><span style="color:#ccc9c2;">{
+    </span><span style="color:#ffa759;">pub </span><span style="color:#ccc9c2;">name</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> String,
+    </span><span style="color:#ffa759;">pub </span><span style="color:#ccc9c2;">points</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ccc9c2;">Vec&lt;Point&gt;,
+    </span><span style="color:#ffa759;">pub </span><span style="color:#ccc9c2;">colour</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> String
+}
+
+</span><span style="color:#ccc9c2cc;">#</span><span style="color:#ccc9c2;">[</span><span style="color:#ffd580;">derive</span><span style="color:#ccc9c2;">(Clone</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> Debug</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> Copy)]
+</span><span style="color:#ffa759;">pub struct </span><span style="color:#73d0ff;">Point </span><span style="color:#ccc9c2;">{
+    </span><span style="color:#ffa759;">pub </span><span style="color:#ccc9c2;">x</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">f64</span><span style="color:#ccc9c2;">,
+    </span><span style="color:#ffa759;">pub </span><span style="color:#ccc9c2;">y</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">f64</span><span style="color:#ccc9c2;">,
+}
+</span></pre>
+<p>Let's add some initial helper methods, one to create a new graph, and another to add points to it:</p>
+<pre style="background-color:#212733;">
+<span style="color:#ffa759;">impl </span><span style="color:#73d0ff;">Graph </span><span style="color:#ccc9c2;">{
+    </span><span style="color:#ffa759;">pub fn </span><span style="color:#ffd580;">new</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">name</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> String, </span><span style="color:#ffcc66;">colour</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> String) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="color:#ffa759;">Self </span><span style="color:#ccc9c2;">{
+        Graph {
+            name</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;">
+            points</span><span style="color:#ccc9c2cc;">: </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new()</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;">
+            colour</span><span style="color:#ccc9c2cc;">,
+        </span><span style="color:#ccc9c2;">}
+    }
+    </span><span style="color:#ffa759;">pub fn </span><span style="color:#ffd580;">add_point</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut </span><span style="color:#ffcc66;">self</span><span style="color:#ccc9c2;">, </span><span style="color:#ffcc66;">x</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">f64</span><span style="color:#ccc9c2;">, </span><span style="color:#ffcc66;">y</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">f64</span><span style="color:#ccc9c2;">) {
+        </span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">points</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">push</span><span style="color:#ccc9c2;">(Point { x</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> y })</span><span style="color:#ccc9c2cc;">;
+    </span><span style="color:#ccc9c2;">}
+}
+</span></pre><h2 id="svg-template">SVG Template</h2>
+<p>An SVG image is an XML file, which means that we can use standard templating engines to generate SVG with some parameters.  I am going to use <a href="https://crates.io/crates/tera"><code>tera</code></a> in this example, as <a href="https://github.com/cetra3/lorikeet"><code>lorikeet</code></a> already uses it.  You could, however, use any template engine.</p>
+<p>Let's start with a simple SVG template, of which just simply draws the graph name:</p>
+<pre style="background-color:#212733;">
+<span style="color:#5ccfe690;">&lt;?</span><span style="color:#73d0ff;">xml </span><span style="color:#ffd580;">version</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;1.0&quot; </span><span style="color:#ffd580;">standalone</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;no&quot;</span><span style="color:#5ccfe690;">?&gt;
+&lt;</span><span style="color:#73d0ff;">svg
+  </span><span style="color:#ffd580;">width</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;100%&quot;
+  </span><span style="color:#ffd580;">height</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;100%&quot;
+  </span><span style="color:#ffd580;">viewBox</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;0 0 {{height + padding * 2}} {{width + padding * 2}}&quot;
+  </span><span style="color:#ffd580;">preserveAspectRatio</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;xMidYMid meet&quot;
+  </span><span style="color:#ffd580;">xmlns</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;http://www.w3.org/2000/svg&quot;
+  </span><span style="color:#5ccfe690;">&gt;
+  &lt;</span><span style="color:#73d0ff;">text 
+    </span><span style="color:#ffd580;">x</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;{{width/2 + padding}}&quot;
+    </span><span style="color:#ffd580;">y</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;{{padding / 2}}&quot;
+    </span><span style="color:#ffd580;">font-family</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot;
+    </span><span style="color:#ffd580;">dominant-baseline</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;middle&quot;
+    </span><span style="color:#ffd580;">text-anchor</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;middle&quot;
+    </span><span style="color:#ffd580;">font-size</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;18&quot;
+    </span><span style="color:#ffd580;">fill</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;#74838f&quot;
+    </span><span style="color:#ffd580;">font-weight</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;700&quot;
+    </span><span style="color:#5ccfe690;">&gt;</span><span style="color:#ccc9c2;">
+    {{name}}
+  </span><span style="color:#5ccfe690;">&lt;/</span><span style="color:#73d0ff;">text</span><span style="color:#5ccfe690;">&gt;
+&lt;/</span><span style="color:#73d0ff;">svg</span><span style="color:#5ccfe690;">&gt;
+</span></pre>
+<p>Let's visit some decisions I have made here:</p>
+<ul>
+<li>We are including a <code>width</code> &amp; <code>height</code> for the viewbox.  Having the SVG display at its natural resolution increases the clarity of the line, so we'll allow them to be adjusted when generating an SVG.</li>
+<li>There is a <code>padding</code> value to include around the graph so that axis labels and the name of the graph will fit on the SVG.  To make things simple this can be hardset to a value such as <code>50</code>.  We'll subtract that x 2 from the provided width/height.</li>
+<li>We're using a big <code>font-family</code> list which should display roughly similar fonts depending on your OS.</li>
+</ul>
+<p>With our tera template svg ready, we can use the <code>include_str</code> macro to have this compiled in:</p>
+<pre style="background-color:#212733;">
+<span style="color:#ccc9c2;">Tera</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">one_off(</span><span style="color:#f28779;">include_str!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;graph.svg&quot;</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">context</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">true</span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">expect</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;Could not draw graph&quot;</span><span style="color:#ccc9c2;">)
+</span></pre><h3 id="drawing-the-name">Drawing the Name</h3>
+<p>We'll add a <code>draw_svg(&amp;self, width: usize, height: usize)</code> method to the <code>Graph</code> struct which should start by drawing the name as per the above template.  The arguments are simply the width &amp; height to draw.  To ensure that the viewbox of the svg comes out the right size, we'll subtract the padding from both x 2.</p>
+<p>To put it another way, the <code>width</code> and <code>height</code> become the width and height of the graph itself rather than the SVG.</p>
+<pre style="background-color:#212733;">
+<span style="color:#ffa759;">pub fn </span><span style="color:#ffd580;">draw_svg</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffcc66;">self</span><span style="color:#ccc9c2;">, </span><span style="color:#ffcc66;">width</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">usize</span><span style="color:#ccc9c2;">, </span><span style="color:#ffcc66;">height</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">usize</span><span style="color:#ccc9c2;">) </span><span style="color:#ccc9c2cc;">-&gt;</span><span style="color:#ccc9c2;"> String {
+
+    </span><span style="color:#ffa759;">let mut</span><span style="color:#ccc9c2;"> context </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">Context</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new()</span><span style="color:#ccc9c2cc;">;
+
+    </span><span style="font-style:italic;color:#5c6773;">//hardset the padding around the graph
+    </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> padding </span><span style="color:#f29e74;">= </span><span style="color:#ffcc66;">50</span><span style="color:#ccc9c2cc;">;
+
+    </span><span style="font-style:italic;color:#5c6773;">//ensure the viewbox is as per input
+    </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> width </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> width </span><span style="color:#f29e74;">-</span><span style="color:#ccc9c2;"> padding </span><span style="color:#f29e74;">* </span><span style="color:#ffcc66;">2</span><span style="color:#ccc9c2cc;">;
+    </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> height </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> height </span><span style="color:#f29e74;">-</span><span style="color:#ccc9c2;"> padding </span><span style="color:#f29e74;">* </span><span style="color:#ffcc66;">2</span><span style="color:#ccc9c2cc;">;</span><span style="color:#ccc9c2;">
+
+    context</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">insert</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;name&quot;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">name)</span><span style="color:#ccc9c2cc;">;</span><span style="color:#ccc9c2;">
+    context</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">insert</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;width&quot;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">width)</span><span style="color:#ccc9c2cc;">;</span><span style="color:#ccc9c2;">
+    context</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">insert</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;height&quot;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">height)</span><span style="color:#ccc9c2cc;">;</span><span style="color:#ccc9c2;">
+    context</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">insert</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;padding&quot;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">padding)</span><span style="color:#ccc9c2cc;">;
+
+    </span><span style="color:#ccc9c2;">Tera</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">one_off(</span><span style="color:#f28779;">include_str!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;graph.svg&quot;</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">context</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">true</span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">expect</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;Could not draw graph&quot;</span><span style="color:#ccc9c2;">)
+
+}
+</span></pre>
+<p>The <code>Context</code> here is what tera uses to provide variables to a template.  Anything that implements <code>serde::Serialize</code> can be put into the context.  At this moment we're providing a few strings and width/height parameters.</p>
+<p>This can be run to spit out an SVG:</p>
+<pre style="background-color:#212733;">
+<span style="color:#ffa759;">fn </span><span style="color:#ffd580;">main</span><span style="color:#ccc9c2;">() {
+    </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> graph </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">Graph</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new(</span><span style="color:#bae67e;">&quot;Example&quot;</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">into</span><span style="color:#ccc9c2;">()</span><span style="color:#ccc9c2cc;">, </span><span style="color:#bae67e;">&quot;#8ff0a4&quot;</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">into</span><span style="color:#ccc9c2;">())</span><span style="color:#ccc9c2cc;">;
+
+    </span><span style="color:#f28779;">println!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;</span><span style="color:#ffcc66;">{}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> graph</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">draw_svg</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">800</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">400</span><span style="color:#ccc9c2;">))</span><span style="color:#ccc9c2cc;">;
+</span><span style="color:#ccc9c2;">}
+</span></pre>
+<p>Running this, should output the following SVG:</p>
+<?xml version="1.0" standalone="no"?>
+<p><svg
+  width="100%"
+  height="100%"
+  viewBox="0 0 800 50"
+  preserveAspectRatio="xMidYMid meet"
+  xmlns="http://www.w3.org/2000/svg"
+  >
+<text 
+    x="400"
+    y="25"
+    font-family="-apple-system, system-ui, BlinkMacSystemFont, Roboto"
+    dominant-baseline="middle"
+    text-anchor="middle"
+    font-size="18"
+    fill="#74838f"
+    font-weight="700"
+    >
+Example
+</text>
+</svg></p>
+<h2 id="drawing-the-points">Drawing the Points</h2>
+<p>Let's fill up the graph with some dummy points so we have something to draw (note: we are assuming you'll add the points in order here):</p>
+<pre style="background-color:#212733;">
+<span style="color:#ccc9c2;">graph</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">add_point</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">1.0</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">1.0</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;</span><span style="color:#ccc9c2;">
+graph</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">add_point</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">2.0</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">3.0</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;</span><span style="color:#ccc9c2;">
+graph</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">add_point</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">3.0</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">2.5</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;</span><span style="color:#ccc9c2;">
+graph</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">add_point</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">4.0</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">6.0</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;</span><span style="color:#ccc9c2;">
+graph</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">add_point</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">5.0</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">3.0</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;
+</span></pre><h3 id="scaling-the-axis">Scaling the Axis</h3>
+<p>To keep things simple, we'll start from the origin &amp; scale both the x and y axis by the max value of either.  We'll pull out both of those values and use these to scale the points within the svg:</p>
+<pre style="background-color:#212733;">
+<span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> max_x </span><span style="color:#f29e74;">= </span><span style="font-style:italic;color:#5ccfe6;">self
+  </span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">points
+  </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">iter</span><span style="color:#ccc9c2;">()
+  </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">point</span><span style="color:#ccc9c2;">| point</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">x)
+  </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">fold</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">0. </span><span style="color:#f29e74;">/ </span><span style="color:#ffcc66;">0.</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffa759;">f64</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">max)</span><span style="color:#ccc9c2cc;">;
+
+</span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> max_y </span><span style="color:#f29e74;">= </span><span style="font-style:italic;color:#5ccfe6;">self
+  </span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">points
+  </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">iter</span><span style="color:#ccc9c2;">()
+  </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">point</span><span style="color:#ccc9c2;">| point</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">y)
+  </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">fold</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">0. </span><span style="color:#f29e74;">/ </span><span style="color:#ffcc66;">0.</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffa759;">f64</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">max)</span><span style="color:#ccc9c2cc;">;
+</span></pre><h3 id="drawing-a-line">Drawing a Line</h3>
+<p>To draw a line between points in an SVG, <a href="https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths">you can use the <code>path</code> element with draw commands</a>.  A simple line would look like:</p>
+<pre style="background-color:#212733;">
+<span style="color:#5ccfe690;">&lt;</span><span style="color:#73d0ff;">path </span><span style="color:#ffd580;">d</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;M10 10 L15 15&quot;</span><span style="color:#5ccfe690;">/&gt;
+</span></pre>
+<p>That is: move to point 10,10 and then draw a line to point 15,15.  These points are in the SVG space, so we will need to translate our graph points onto this space, keeping in mind padding, width and height and scaling.</p>
+<h3 id="translating-the-points">Translating the points</h3>
+<p>We want to draw a line between each of the points in the SVG but scaled to fit within the viewport.</p>
+<p>To add another complication, the chart origin is in the bottom left, whereas the SVG origin is the top left.</p>
+<p>For both the x and y axis, we want to scale down based upon the max value (<code>width</code> and <code>height</code> here are the chart width):</p>
+<pre style="background-color:#212733;">
+<span style="color:#ccc9c2;">x = x / max_x * width
+y = y / max_y * height
+</span></pre>
+<p>For the x axis, we need to shift them along the right based upon padding, otherwise they will sit on the left side of the svg:</p>
+<pre style="background-color:#212733;">
+<span style="color:#ccc9c2;">x = x / max_x * width + padding
+</span></pre>
+<p>For the y axis, we want to flip this based upon the height, to translate the origin, then add <code>height + padding</code>:</p>
+<pre style="background-color:#212733;">
+<span style="color:#ccc9c2;">y = y / max_y * (height * -1.0) + height + padding
+</span></pre><h3 id="iterating-through">Iterating through</h3>
+<p>We have our points commands, now let's iterate through and convert them to a bunch of draw commands.  First we will use <code>M</code> to move to start drawing, then we will use <code>L</code> to draw a line between each.</p>
+<p>We can use <code>enumerate()</code> on the iterator to get whether this is the first or subsequent value, and then join it together as a big string:</p>
+<pre style="background-color:#212733;">
+<span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> path </span><span style="color:#f29e74;">= </span><span style="font-style:italic;color:#5ccfe6;">self
+    </span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">points
+    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">iter</span><span style="color:#ccc9c2;">()
+    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">val</span><span style="color:#ccc9c2;">| Point {
+        x</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ccc9c2;">(val</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">x </span><span style="color:#f29e74;">/</span><span style="color:#ccc9c2;"> max_x </span><span style="color:#f29e74;">*</span><span style="color:#ccc9c2;"> width </span><span style="color:#f29e74;">as </span><span style="color:#ffa759;">f64</span><span style="color:#ccc9c2;">) </span><span style="color:#f29e74;">+</span><span style="color:#ccc9c2;"> padding </span><span style="color:#f29e74;">as </span><span style="color:#ffa759;">f64</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;">
+        y</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ccc9c2;">(val</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">y </span><span style="color:#f29e74;">/</span><span style="color:#ccc9c2;"> max_y </span><span style="color:#f29e74;">* </span><span style="color:#ccc9c2;">(height </span><span style="color:#f29e74;">as </span><span style="color:#ffa759;">f64 </span><span style="color:#f29e74;">* -</span><span style="color:#ffcc66;">1.0</span><span style="color:#ccc9c2;">)) </span><span style="color:#f29e74;">+ </span><span style="color:#ccc9c2;">(padding </span><span style="color:#f29e74;">+</span><span style="color:#ccc9c2;"> height) </span><span style="color:#f29e74;">as </span><span style="color:#ffa759;">f64</span><span style="color:#ccc9c2cc;">,
+    </span><span style="color:#ccc9c2;">})
+    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">enumerate</span><span style="color:#ccc9c2;">()
+    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map</span><span style="color:#ccc9c2;">(|(</span><span style="color:#ffcc66;">i</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">point</span><span style="color:#ccc9c2;">)| {
+        </span><span style="color:#ffa759;">if</span><span style="color:#ccc9c2;"> i </span><span style="color:#f29e74;">== </span><span style="color:#ffcc66;">0 </span><span style="color:#ccc9c2;">{
+            </span><span style="color:#f28779;">format!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;M </span><span style="color:#ffcc66;">{} {}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> point</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">x</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> point</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">y)
+        } </span><span style="color:#ffa759;">else </span><span style="color:#ccc9c2;">{
+            </span><span style="color:#f28779;">format!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;L </span><span style="color:#ffcc66;">{} {}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> point</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">x</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> point</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">y)
+        }
+    })
+    </span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">collect</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">&lt;Vec&lt;String&gt;&gt;()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">join</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot; &quot;</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;
+</span></pre>
+<p>This will output a path string like so:</p>
+<pre style="background-color:#212733;">
+<span style="color:#ccc9c2;">M 190 383.33333333333337 L 330 250 L 470 283.3333333333333 L 610 50 L 750 250
+</span></pre><h3 id="adding-to-the-svg">Adding to the SVG</h3>
+<p>We can add the path &amp; colour to the Context:</p>
+<pre style="background-color:#212733;">
+<span style="color:#ccc9c2;">context</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">insert</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;path&quot;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">path)</span><span style="color:#ccc9c2cc;">;</span><span style="color:#ccc9c2;">
+context</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">insert</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;colour&quot;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">colour)</span><span style="color:#ccc9c2cc;">;
+</span></pre>
+<p>Then add the following to have it drawn in the SVG:</p>
+<pre style="background-color:#212733;">
+<span style="color:#5ccfe690;">&lt;</span><span style="color:#73d0ff;">path </span><span style="color:#ffd580;">stroke</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;{{colour}}&quot; </span><span style="color:#ffd580;">stroke-linejoin</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;round&quot; </span><span style="color:#ffd580;">d</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;{{path}}&quot; </span><span style="color:#ffd580;">stroke-width</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;2.0&quot; </span><span style="color:#ffd580;">fill</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;none&quot; </span><span style="color:#5ccfe690;">/&gt;
+</span></pre>
+<p>If all goes well, the graph should start looking more like a graph:</p>
+<?xml version="1.0" standalone="no"?>
+<p><svg
+  width="100%"
+  height="100%"
+  viewBox="0 0 800 500"
+  preserveAspectRatio="xMidYMid meet"
+  xmlns="http://www.w3.org/2000/svg"
+  >
+<text 
+    x="400"
+    y="25"
+    font-family="-apple-system, system-ui, BlinkMacSystemFont, Roboto"
+    dominant-baseline="middle"
+    text-anchor="middle"
+    font-size="18"
+    fill="#74838f"
+    font-weight="700"
+    >
+Example
+</text>
+<path stroke="#8ff0a4" stroke-linejoin="round" d="M 190 383.33333333333337 L 330 250 L 470 283.3333333333333 L 610 50 L 750 250" stroke-width="2.0" fill="none" />
+</svg></p>
+<h2 id="adding-in-the-axis">Adding in the Axis</h2>
+<p>We need to add in some axis scale so we know what the graph values represent.  I'm gonna cheat here &amp; break up both the x and y axis the same amount of times each.  We'll break up the axis 5 times each, but have this set in the context to be changes later:</p>
+<pre style="background-color:#212733;">
+<span style="color:#ccc9c2;">context</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">insert</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;lines&quot;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="color:#ffcc66;">5</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;
+</span></pre>
+<p>Tera allows us to do a loop within the template, so we'll use that to add some lines and nudges.</p>
+<pre style="background-color:#212733;">
+<span style="color:#ccc9c2;">{% for i in range(end=(lines + 1)) %}
+... draw some lines here
+{% endfor %}
+</span></pre>
+<p>Let's set some variables within the template, based upon the current line we're drawing.  These are the offsets for both the axis:</p>
+<pre style="background-color:#212733;">
+<span style="color:#ccc9c2;">{% set offset_x = padding + loop.index0/lines * width%}
+{% set offset_y = padding + loop.index0/lines * height%}
+</span></pre><h3 id="horizontal-lines">Horizontal Lines</h3>
+<p>We will draw 5 horizontal dashed lines, to give scale to the y value.  This will start on the left side of the graph and continue to the end of the graph.  We'll draw a solid horizontal line when <code>y = 0</code> (keep in mind the axis is flipped in SVG), which means we skip drawing this for the last line:</p>
+<pre style="background-color:#212733;">
+<span style="color:#ccc9c2;">{% if loop.last == false %}
+</span><span style="color:#5ccfe690;">&lt;</span><span style="color:#73d0ff;">path </span><span style="color:#ffd580;">stroke</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;#74838f&quot; </span><span style="color:#ffd580;">stroke-dasharray</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;10 6&quot; </span><span style="color:#ffd580;">stroke-width</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;0.5&quot;  </span><span style="color:#ffd580;">d</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;M {{padding}} {{offset_y}} L {{width + padding}} {{offset_y}}&quot; </span><span style="color:#5ccfe690;">/&gt;</span><span style="color:#ccc9c2;">
+{% else %}
+</span><span style="color:#5ccfe690;">&lt;</span><span style="color:#73d0ff;">path </span><span style="color:#ffd580;">stroke</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;#74838f&quot; </span><span style="color:#ffd580;">stroke-width</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;2&quot; </span><span style="color:#ffd580;">fill</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;none&quot;  </span><span style="color:#ffd580;">d</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;M {{padding}} {{offset_y}} L {{width + padding}} {{offset_y}}&quot; </span><span style="color:#5ccfe690;">/&gt;</span><span style="color:#ccc9c2;">
+{% endif %}
+</span></pre>
+<p>Now our graph will be a bit easier to read:</p>
+<?xml version="1.0" standalone="no"?>
+<p><svg
+  width="100%"
+  height="100%"
+  viewBox="0 0 800 500"
+  preserveAspectRatio="xMidYMid meet"
+  xmlns="http://www.w3.org/2000/svg"
+  >
+<text 
+    x="400"
+    y="25"
+    font-family="-apple-system, system-ui, BlinkMacSystemFont, Roboto"
+    dominant-baseline="middle"
+    text-anchor="middle"
+    font-size="18"
+    fill="#74838f"
+    font-weight="700"
+    >
+Example
+</text>
+<path stroke="#74838f" stroke-dasharray="10 6" stroke-width="0.5"  d="M 50 50 L 750 50" />
+<path stroke="#74838f" stroke-dasharray="10 6" stroke-width="0.5"  d="M 50 130 L 750 130" />
+<path stroke="#74838f" stroke-dasharray="10 6" stroke-width="0.5"  d="M 50 210 L 750 210" />
+<path stroke="#74838f" stroke-dasharray="10 6" stroke-width="0.5"  d="M 50 290 L 750 290" />
+<path stroke="#74838f" stroke-dasharray="10 6" stroke-width="0.5"  d="M 50 370 L 750 370" />
+<path stroke="#74838f" stroke-width="2" fill="none"  d="M 50 450 L 750 450" />
+<path stroke="#8ff0a4" stroke-linejoin="round" d="M 190 383.33333333333337 L 330 250 L 470 283.3333333333333 L 610 50 L 750 250" stroke-width="2.0" fill="none" />
+</svg></p>
+<h3 id="vertical-lines">Vertical Lines</h3>
+<p>We will just put little 10px nudges in the axis rather than dotted vertical lines.</p>
+<p>In the existing for loop, we can add the following:</p>
+<pre style="background-color:#212733;">
+<span style="color:#5ccfe690;">&lt;</span><span style="color:#73d0ff;">path </span><span style="color:#ffd580;">stroke</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;#74838f&quot; </span><span style="color:#ffd580;">stroke-width</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;2.0&quot; </span><span style="color:#ffd580;">d</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;M {{offset_x}} {{height + padding}} L {{offset_x}} {{height + padding + 10}}&quot; </span><span style="color:#5ccfe690;">/&gt;
+</span></pre>
+<p>This will create nudges where we'll put our axis labels:</p>
+<?xml version="1.0" standalone="no"?>
+<p><svg
+  width="100%"
+  height="100%"
+  viewBox="0 0 800 500"
+  preserveAspectRatio="xMidYMid meet"
+  xmlns="http://www.w3.org/2000/svg"
+  >
+<text 
+    x="400"
+    y="25"
+    font-family="-apple-system, system-ui, BlinkMacSystemFont, Roboto"
+    dominant-baseline="middle"
+    text-anchor="middle"
+    font-size="18"
+    fill="#74838f"
+    font-weight="700"
+    >
+Example
+</text>
+<path stroke="#74838f" stroke-dasharray="10 6" stroke-width="0.5"  d="M 50 50 L 750 50" />
+<path stroke="#74838f"  stroke-width="2.0"  d="M 50 450 L 50 460" />
+<path stroke="#74838f" stroke-dasharray="10 6" stroke-width="0.5"  d="M 50 130 L 750 130" />
+<path stroke="#74838f"  stroke-width="2.0"  d="M 190 450 L 190 460" />
+<path stroke="#74838f" stroke-dasharray="10 6" stroke-width="0.5"  d="M 50 210 L 750 210" />
+<path stroke="#74838f"  stroke-width="2.0"  d="M 330 450 L 330 460" />
+<path stroke="#74838f" stroke-dasharray="10 6" stroke-width="0.5"  d="M 50 290 L 750 290" />
+<path stroke="#74838f"  stroke-width="2.0"  d="M 470 450 L 470 460" />
+<path stroke="#74838f" stroke-dasharray="10 6" stroke-width="0.5"  d="M 50 370 L 750 370" />
+<path stroke="#74838f"  stroke-width="2.0"  d="M 610 450 L 610 460" />
+<path stroke="#74838f" stroke-width="2" fill="none"  d="M 50 450 L 750 450" />
+<path stroke="#74838f"  stroke-width="2.0"  d="M 750 450 L 750 460" />
+<path stroke="#8ff0a4" stroke-linejoin="round" d="M 190 383.33333333333337 L 330 250 L 470 283.3333333333333 L 610 50 L 750 250" stroke-width="2.0" fill="none" />
+</svg></p>
+<h3 id="axis-labels">Axis Labels</h3>
+<p>We can add in axis labels in the same for loop.</p>
+<p>For the y-axis, the loop starts at the top of the graph and goes down, so we will use the following formula to present the 1/5th value:</p>
+<pre style="background-color:#212733;">
+<span style="color:#ccc9c2;">(lines - loop.index0)/lines * max_y
+</span></pre>
+<p>We can use the tera <code>round</code> helper to round the value up, so there is not a lot of decimal places:</p>
+<pre style="background-color:#212733;">
+<span style="color:#ccc9c2;">{{((lines - loop.index0)/lines * max_y) | round}}
+</span></pre>
+<p>Putting this together:</p>
+<pre style="background-color:#212733;">
+<span style="color:#5ccfe690;">&lt;</span><span style="color:#73d0ff;">text
+  </span><span style="color:#ffd580;">x</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;{{padding - 5}}&quot;
+  </span><span style="color:#ffd580;">font-family</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot;
+  </span><span style="color:#ffd580;">y</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;{{offset_y}}&quot;
+  </span><span style="color:#ffd580;">dominant-baseline</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;middle&quot;
+  </span><span style="color:#ffd580;">text-anchor</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;end&quot;
+  </span><span style="color:#ffd580;">font-size</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;12&quot;
+  </span><span style="color:#ffd580;">fill</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;#74838f&quot;
+  </span><span style="color:#ffd580;">font-weight</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;bold&quot;
+ </span><span style="color:#5ccfe690;">&gt;</span><span style="color:#ccc9c2;">
+ {{((lines - loop.index0)/lines * max_y) | round}}
+</span><span style="color:#5ccfe690;">&lt;/</span><span style="color:#73d0ff;">text</span><span style="color:#5ccfe690;">&gt;
+</span></pre>
+<p>And quite similarly, the x-axis can be generated the same way (width <code>y</code> being fixed to where the nudge starts &amp; <code>x</code> being the offset):</p>
+<pre style="background-color:#212733;">
+<span style="color:#5ccfe690;">&lt;</span><span style="color:#73d0ff;">text
+  </span><span style="color:#ffd580;">x</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;{{offset_x}}&quot;
+  </span><span style="color:#ffd580;">font-family</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot;
+  </span><span style="color:#ffd580;">y</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;{{height + padding + 10}}&quot;
+  </span><span style="color:#ffd580;">dominant-baseline</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;hanging&quot;
+  </span><span style="color:#ffd580;">text-anchor</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;middle&quot;
+  </span><span style="color:#ffd580;">font-size</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;12&quot;
+  </span><span style="color:#ffd580;">fill</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;#74838f&quot;
+  </span><span style="color:#ffd580;">font-weight</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;bold&quot;
+ </span><span style="color:#5ccfe690;">&gt;</span><span style="color:#ccc9c2;">
+ {{loop.index0/lines * max_x | round}}
+</span><span style="color:#5ccfe690;">&lt;/</span><span style="color:#73d0ff;">text</span><span style="color:#5ccfe690;">&gt;
+</span></pre>
+<p>Putting this all together, we should have our labels in the right place:</p>
+<?xml version="1.0" standalone="no"?>
+<p><svg
+  width="100%"
+  height="100%"
+  viewBox="0 0 800 500"
+  preserveAspectRatio="xMidYMid meet"
+  xmlns="http://www.w3.org/2000/svg"
+  >
+<text 
+    x="400"
+    y="25"
+    font-family="-apple-system, system-ui, BlinkMacSystemFont, Roboto"
+    dominant-baseline="middle"
+    text-anchor="middle"
+    font-size="18"
+    fill="#74838f"
+    font-weight="700"
+    >
+Example
+</text>
+<text x="45" font-family="-apple-system, system-ui, BlinkMacSystemFont, Roboto" y="50" dominant-baseline="middle" text-anchor="end" font-size="12" fill="#74838f" font-weight="bold" >6</text>
+<text x="50" font-family="-apple-system, system-ui, BlinkMacSystemFont, Roboto" y="460" dominant-baseline="hanging" text-anchor="middle" font-size="12" fill="#74838f" font-weight="bold">0</text>
+<path stroke="#74838f" stroke-dasharray="10 6" stroke-width="0.5"  d="M 50 50 L 750 50" />
+<path stroke="#74838f" stroke-width="2.0"  d="M 50 450 L 50 460" />
+<text x="45" font-family="-apple-system, system-ui, BlinkMacSystemFont, Roboto" y="130" dominant-baseline="middle" text-anchor="end" font-size="12" fill="#74838f" font-weight="bold" >5</text>
+<text x="190" font-family="-apple-system, system-ui, BlinkMacSystemFont, Roboto" y="460" dominant-baseline="hanging" text-anchor="middle" font-size="12" fill="#74838f" font-weight="bold">1</text>
+<path stroke="#74838f" stroke-dasharray="10 6" stroke-width="0.5"  d="M 50 130 L 750 130" />
+<path stroke="#74838f" stroke-width="2.0"  d="M 190 450 L 190 460" />
+<text x="45" font-family="-apple-system, system-ui, BlinkMacSystemFont, Roboto" y="210" dominant-baseline="middle" text-anchor="end" font-size="12" fill="#74838f" font-weight="bold" >4</text>
+<text x="330" font-family="-apple-system, system-ui, BlinkMacSystemFont, Roboto" y="460" dominant-baseline="hanging" text-anchor="middle" font-size="12" fill="#74838f" font-weight="bold">2</text>
+<path stroke="#74838f" stroke-dasharray="10 6" stroke-width="0.5"  d="M 50 210 L 750 210" />
+<path stroke="#74838f" stroke-width="2.0"  d="M 330 450 L 330 460" />
+<text x="45" font-family="-apple-system, system-ui, BlinkMacSystemFont, Roboto" y="290" dominant-baseline="middle" text-anchor="end" font-size="12" fill="#74838f" font-weight="bold" >2</text>
+<text x="470" font-family="-apple-system, system-ui, BlinkMacSystemFont, Roboto" y="460" dominant-baseline="hanging" text-anchor="middle" font-size="12" fill="#74838f" font-weight="bold">3</text>
+<path stroke="#74838f" stroke-dasharray="10 6" stroke-width="0.5"  d="M 50 290 L 750 290" />
+<path stroke="#74838f" stroke-width="2.0"  d="M 470 450 L 470 460" />
+<text x="45" font-family="-apple-system, system-ui, BlinkMacSystemFont, Roboto" y="370" dominant-baseline="middle" text-anchor="end" font-size="12" fill="#74838f" font-weight="bold" >1</text>
+<text x="610" font-family="-apple-system, system-ui, BlinkMacSystemFont, Roboto" y="460" dominant-baseline="hanging" text-anchor="middle" font-size="12" fill="#74838f" font-weight="bold">4</text>
+<path stroke="#74838f" stroke-dasharray="10 6" stroke-width="0.5"  d="M 50 370 L 750 370" />
+<path stroke="#74838f" stroke-width="2.0"  d="M 610 450 L 610 460" />
+<text x="45" font-family="-apple-system, system-ui, BlinkMacSystemFont, Roboto" y="450" dominant-baseline="middle" text-anchor="end" font-size="12" fill="#74838f" font-weight="bold" >0</text>
+<text x="750" font-family="-apple-system, system-ui, BlinkMacSystemFont, Roboto" y="460" dominant-baseline="hanging" text-anchor="middle" font-size="12" fill="#74838f" font-weight="bold">5</text>
+<path stroke="#74838f" stroke-width="2" fill="none"  d="M 50 450 L 750 450" />
+<path stroke="#74838f" stroke-width="2.0"  d="M 750 450 L 750 460" />
+<path stroke="#8ff0a4" stroke-linejoin="round" d="M 190 383.33333333333337 L 330 250 L 470 283.3333333333333 L 610 50 L 750 250" stroke-width="2.0" fill="none" />
+</svg></p>
+<h3 id="bonus-smooth-lines">Bonus: Smooth Lines</h3>
+<p>One trick <a href="http://schepers.cc/getting-to-the-point">I have found</a> is that you can make simple smoth lines by treating the points as a <a href="https://en.wikipedia.org/wiki/Centripetal_Catmull%E2%80%93Rom_spline">Catmull-Rom spline</a>, and then <a href="https://github.com/cetra3/lorikeet-dash/blob/a90107e73bc1e18136ce7a4e28e4c3c11a802f22/src/chart.rs#L155-L189">converting to Cubic Beziers</a>, which SVG will draw happily.</p>
+<p>Using this method, you can make your charts nice and smooth:</p>
+<?xml version="1.0" standalone="no"?>
+<p><svg
+  width="100%"
+  height="100%"
+  viewBox="0 0 800 500"
+  preserveAspectRatio="xMidYMid meet"
+  xmlns="http://www.w3.org/2000/svg"
+  >
+<text 
+    x="400"
+    y="25"
+    font-family="-apple-system, system-ui, BlinkMacSystemFont, Roboto"
+    dominant-baseline="middle"
+    text-anchor="middle"
+    font-size="18"
+    fill="#74838f"
+    font-weight="700"
+    >
+Example
+</text>
+<text x="45" font-family="-apple-system, system-ui, BlinkMacSystemFont, Roboto" y="50" dominant-baseline="middle" text-anchor="end" font-size="12" fill="#74838f" font-weight="bold" >6</text>
+<text x="50" font-family="-apple-system, system-ui, BlinkMacSystemFont, Roboto" y="460" dominant-baseline="hanging" text-anchor="middle" font-size="12" fill="#74838f" font-weight="bold">0</text>
+<path stroke="#74838f" stroke-dasharray="10 6" stroke-width="0.5"  d="M 50 50 L 750 50" />
+<path stroke="#74838f" stroke-width="2.0"  d="M 50 450 L 50 460" />
+<text x="45" font-family="-apple-system, system-ui, BlinkMacSystemFont, Roboto" y="130" dominant-baseline="middle" text-anchor="end" font-size="12" fill="#74838f" font-weight="bold" >5</text>
+<text x="190" font-family="-apple-system, system-ui, BlinkMacSystemFont, Roboto" y="460" dominant-baseline="hanging" text-anchor="middle" font-size="12" fill="#74838f" font-weight="bold">1</text>
+<path stroke="#74838f" stroke-dasharray="10 6" stroke-width="0.5"  d="M 50 130 L 750 130" />
+<path stroke="#74838f" stroke-width="2.0"  d="M 190 450 L 190 460" />
+<text x="45" font-family="-apple-system, system-ui, BlinkMacSystemFont, Roboto" y="210" dominant-baseline="middle" text-anchor="end" font-size="12" fill="#74838f" font-weight="bold" >4</text>
+<text x="330" font-family="-apple-system, system-ui, BlinkMacSystemFont, Roboto" y="460" dominant-baseline="hanging" text-anchor="middle" font-size="12" fill="#74838f" font-weight="bold">2</text>
+<path stroke="#74838f" stroke-dasharray="10 6" stroke-width="0.5"  d="M 50 210 L 750 210" />
+<path stroke="#74838f" stroke-width="2.0"  d="M 330 450 L 330 460" />
+<text x="45" font-family="-apple-system, system-ui, BlinkMacSystemFont, Roboto" y="290" dominant-baseline="middle" text-anchor="end" font-size="12" fill="#74838f" font-weight="bold" >2</text>
+<text x="470" font-family="-apple-system, system-ui, BlinkMacSystemFont, Roboto" y="460" dominant-baseline="hanging" text-anchor="middle" font-size="12" fill="#74838f" font-weight="bold">3</text>
+<path stroke="#74838f" stroke-dasharray="10 6" stroke-width="0.5"  d="M 50 290 L 750 290" />
+<path stroke="#74838f" stroke-width="2.0"  d="M 470 450 L 470 460" />
+<text x="45" font-family="-apple-system, system-ui, BlinkMacSystemFont, Roboto" y="370" dominant-baseline="middle" text-anchor="end" font-size="12" fill="#74838f" font-weight="bold" >1</text>
+<text x="610" font-family="-apple-system, system-ui, BlinkMacSystemFont, Roboto" y="460" dominant-baseline="hanging" text-anchor="middle" font-size="12" fill="#74838f" font-weight="bold">4</text>
+<path stroke="#74838f" stroke-dasharray="10 6" stroke-width="0.5"  d="M 50 370 L 750 370" />
+<path stroke="#74838f" stroke-width="2.0"  d="M 610 450 L 610 460" />
+<text x="45" font-family="-apple-system, system-ui, BlinkMacSystemFont, Roboto" y="450" dominant-baseline="middle" text-anchor="end" font-size="12" fill="#74838f" font-weight="bold" >0</text>
+<text x="750" font-family="-apple-system, system-ui, BlinkMacSystemFont, Roboto" y="460" dominant-baseline="hanging" text-anchor="middle" font-size="12" fill="#74838f" font-weight="bold">5</text>
+<path stroke="#74838f" stroke-width="2" fill="none"  d="M 50 450 L 750 450" />
+<path stroke="#74838f" stroke-width="2.0"  d="M 750 450 L 750 460" />
+<path stroke="#8ff0a4" stroke-linejoin="round" d="M 190 383.33333333333337 C 213.3333 361.1111, 283.3333 266.6667, 330.0000 250.0000 C 376.6667 233.3333, 423.3333 316.6667, 470.0000 283.3333 C 516.6667 250.0000, 563.3333 55.5556, 610.0000 50.0000 C 656.6667 44.4444, 726.6667 216.6667, 750.0000 250.0000" stroke-width="2.0" fill="none" />
+</svg></p>
+<h3 id="second-bonus-scuba-dive-graph">Second Bonus: Scuba Dive Graph</h3>
+<p>I have also used a similar method to plot a dive, displaying the <strong>Depth</strong> and <strong>Air</strong> on a split axis, with my <em>maximum depth</em> displayed:</p>
+<p><img src="/photos/dive.svg" alt="" /></p>
+<h2 id="conclusion">Conclusion</h2>
+<p>We used tera, as a template engine, to generate an SVG chart with rust.  Some basic geometry was needed, but the results show for themselves. I hope you have found this educational and gives you some ideas.</p>
+<p>Also: try out <a href="https://github.com/cetra3/lorikeet-dash">lorikeet-dash</a> and let me know what you think!</p>
+
+  </section>
+</div>
+
+    </div>
+</body>
+
+</html>
