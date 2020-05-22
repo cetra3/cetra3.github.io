@@ -3,11 +3,485 @@
     <channel>
         <title>Cetra&#x27;s Thoughts</title>
         <link>https://cetra3.github.io</link>
-        <description>Notes and Discussion pieces</description>
+        <description>Blogs and Investigations mostly about Rust</description>
         <generator>Zola</generator>
         <language>en</language>
         <atom:link href="https://cetra3.github.io/rss.xml" rel="self" type="application/rss+xml"/>
-        <lastBuildDate>Wed, 13 May 2020 00:00:00 +0000</lastBuildDate>
+        <lastBuildDate>Fri, 22 May 2020 00:00:00 +0000</lastBuildDate>
+        
+            <item>
+                <title>Drawing SVG Graphs with Rust</title>
+                <pubDate>Fri, 22 May 2020 00:00:00 +0000</pubDate>
+                <link>https://cetra3.github.io/blog/drawing-svg-graphs-rust/</link>
+                <guid>https://cetra3.github.io/blog/drawing-svg-graphs-rust/</guid>
+                <description>&lt;p&gt;I have just released the first version of &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;lorikeet-dash&quot;&gt;lorikeet-dash&lt;&#x2F;a&gt; and part of that exercise was to find out a way to draw SVG graphs using rust.&lt;&#x2F;p&gt;
+&lt;p&gt;I thought my findings &amp;amp; approach may be useful for others looking to do the same thing and so I have documented the design evolution in this blog.&lt;&#x2F;p&gt;
+&lt;p&gt;Here&#x27;s what the end result looks like in the &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;lorikeet-dash&quot;&gt;&lt;code&gt;lorikeet-dash&lt;&#x2F;code&gt;&lt;&#x2F;a&gt; project:&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;raw.githubusercontent.com&#x2F;cetra3&#x2F;lorikeet-dash&#x2F;master&#x2F;dash.png&quot; alt=&quot;&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;defining-the-graph&quot;&gt;Defining the Graph&lt;&#x2F;h2&gt;
+&lt;p&gt;First we want to define what a graph is.  A minimal example of what a graph would have is:&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;A List of Points&lt;&#x2F;li&gt;
+&lt;li&gt;A Name&#x2F;Description&lt;&#x2F;li&gt;
+&lt;li&gt;A Colour for the line&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;So, in a rust struct, this would look like the following:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#212733;&quot;&gt;
+&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;#&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;derive&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(Clone&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt; Debug)]
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;pub struct &lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;Graph &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;{
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;pub &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;name&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;:&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt; String,
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;pub &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;points&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;Vec&amp;lt;Point&amp;gt;,
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;pub &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;colour&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;:&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt; String
+}
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;#&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;derive&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(Clone&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt; Debug&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt; Copy)]
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;pub struct &lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;Point &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;{
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;pub &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;x&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;f64&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;,
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;pub &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;y&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;f64&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;,
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Let&#x27;s add some initial helper methods, one to create a new graph, and another to add points to it:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#212733;&quot;&gt;
+&lt;span style=&quot;color:#ffa759;&quot;&gt;impl &lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;Graph &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;{
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;pub fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;new&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;name&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;:&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt; String, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;colour&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;:&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt; String) &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;-&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;Self &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;{
+        Graph {
+            name&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;
+            points&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5ccfe6;&quot;&gt;Vec&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;new()&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;
+            colour&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;}
+    }
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;pub fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;add_point&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;mut &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;x&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;f64&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;y&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;f64&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;) {
+        &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5ccfe6;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;points&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;push&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(Point { x&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt; y })&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;}
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;&lt;h2 id=&quot;svg-template&quot;&gt;SVG Template&lt;&#x2F;h2&gt;
+&lt;p&gt;An SVG image is an XML file, which means that we can use standard templating engines to generate SVG with some parameters.  I am going to use &lt;a href=&quot;https:&#x2F;&#x2F;crates.io&#x2F;crates&#x2F;tera&quot;&gt;&lt;code&gt;tera&lt;&#x2F;code&gt;&lt;&#x2F;a&gt; in this example, as &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;lorikeet&quot;&gt;&lt;code&gt;lorikeet&lt;&#x2F;code&gt;&lt;&#x2F;a&gt; already uses it.  You could, however, use any template engine.&lt;&#x2F;p&gt;
+&lt;p&gt;Let&#x27;s start with a simple SVG template, of which just simply draws the graph name:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#212733;&quot;&gt;
+&lt;span style=&quot;color:#5ccfe690;&quot;&gt;&amp;lt;?&lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;xml &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;version&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;1.0&amp;quot; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;standalone&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;no&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5ccfe690;&quot;&gt;?&amp;gt;
+&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;svg
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;width&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;100%&amp;quot;
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;height&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;100%&amp;quot;
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;viewBox&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;0 0 {{height + padding * 2}} {{width + padding * 2}}&amp;quot;
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;preserveAspectRatio&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;xMidYMid meet&amp;quot;
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;xmlns&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;http:&#x2F;&#x2F;www.w3.org&#x2F;2000&#x2F;svg&amp;quot;
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5ccfe690;&quot;&gt;&amp;gt;
+  &amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;text 
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;x&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;{{width&#x2F;2 + padding}}&amp;quot;
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;y&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;{{padding &#x2F; 2}}&amp;quot;
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;font-family&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&amp;quot;
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;dominant-baseline&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;middle&amp;quot;
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;text-anchor&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;middle&amp;quot;
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;font-size&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;18&amp;quot;
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;fill&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;#74838f&amp;quot;
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;font-weight&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;700&amp;quot;
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5ccfe690;&quot;&gt;&amp;gt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;
+    {{name}}
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5ccfe690;&quot;&gt;&amp;lt;&#x2F;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;text&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5ccfe690;&quot;&gt;&amp;gt;
+&amp;lt;&#x2F;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;svg&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5ccfe690;&quot;&gt;&amp;gt;
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Let&#x27;s visit some decisions I have made here:&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;We are including a &lt;code&gt;width&lt;&#x2F;code&gt; &amp;amp; &lt;code&gt;height&lt;&#x2F;code&gt; for the viewbox.  Having the SVG display at its natural resolution increases the clarity of the line, so we&#x27;ll allow them to be adjusted when generating an SVG.&lt;&#x2F;li&gt;
+&lt;li&gt;There is a &lt;code&gt;padding&lt;&#x2F;code&gt; value to include around the graph so that axis labels and the name of the graph will fit on the SVG.  To make things simple this can be hardset to a value such as &lt;code&gt;50&lt;&#x2F;code&gt;.  We&#x27;ll subtract that x 2 from the provided width&#x2F;height.&lt;&#x2F;li&gt;
+&lt;li&gt;We&#x27;re using a big &lt;code&gt;font-family&lt;&#x2F;code&gt; list which should display roughly similar fonts depending on your OS.&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;With our tera template svg ready, we can use the &lt;code&gt;include_str&lt;&#x2F;code&gt; macro to have this compiled in:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#212733;&quot;&gt;
+&lt;span style=&quot;color:#ccc9c2;&quot;&gt;Tera&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;one_off(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;include_str!&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;graph.svg&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;context&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;true&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;expect&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;Could not draw graph&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;)
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;&lt;h3 id=&quot;drawing-the-name&quot;&gt;Drawing the Name&lt;&#x2F;h3&gt;
+&lt;p&gt;We&#x27;ll add a &lt;code&gt;draw_svg(&amp;amp;self, width: usize, height: usize)&lt;&#x2F;code&gt; method to the &lt;code&gt;Graph&lt;&#x2F;code&gt; struct which should start by drawing the name as per the above template.  The arguments are simply the width &amp;amp; height to draw.  To ensure that the viewbox of the svg comes out the right size, we&#x27;ll subtract the padding from both x 2.&lt;&#x2F;p&gt;
+&lt;p&gt;To put it another way, the &lt;code&gt;width&lt;&#x2F;code&gt; and &lt;code&gt;height&lt;&#x2F;code&gt; become the width and height of the graph itself rather than the SVG.&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#212733;&quot;&gt;
+&lt;span style=&quot;color:#ffa759;&quot;&gt;pub fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;draw_svg&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;width&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;usize&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;height&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;usize&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;) &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;-&amp;gt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt; String {
+
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;let mut&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt; context &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;Context&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;new()&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+
+    &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5c6773;&quot;&gt;&#x2F;&#x2F;hardset the padding around the graph
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt; padding &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;50&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+
+    &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5c6773;&quot;&gt;&#x2F;&#x2F;ensure the viewbox is as per input
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt; width &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt; width &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;-&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt; padding &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;* &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;2&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt; height &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt; height &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;-&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt; padding &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;* &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;2&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;
+
+    context&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;insert&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;name&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5ccfe6;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;name)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;
+    context&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;insert&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;width&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;width)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;
+    context&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;insert&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;height&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;height)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;
+    context&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;insert&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;padding&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;padding)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;Tera&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;one_off(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;include_str!&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;graph.svg&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;context&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;true&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;expect&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;Could not draw graph&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;)
+
+}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;The &lt;code&gt;Context&lt;&#x2F;code&gt; here is what tera uses to provide variables to a template.  Anything that implements &lt;code&gt;serde::Serialize&lt;&#x2F;code&gt; can be put into the context.  At this moment we&#x27;re providing a few strings and width&#x2F;height parameters.&lt;&#x2F;p&gt;
+&lt;p&gt;This can be run to spit out an SVG:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#212733;&quot;&gt;
+&lt;span style=&quot;color:#ffa759;&quot;&gt;fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;main&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;() {
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt; graph &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;Graph&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;new(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;Example&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;into&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;()&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;#8ff0a4&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;into&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;())&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;println!&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;{}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt; graph&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;draw_svg&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;800&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;400&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;))&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Running this, should output the following SVG:&lt;&#x2F;p&gt;
+&lt;?xml version=&quot;1.0&quot; standalone=&quot;no&quot;?&gt;
+&lt;p&gt;&lt;svg
+  width=&quot;100%&quot;
+  height=&quot;100%&quot;
+  viewBox=&quot;0 0 800 50&quot;
+  preserveAspectRatio=&quot;xMidYMid meet&quot;
+  xmlns=&quot;http:&#x2F;&#x2F;www.w3.org&#x2F;2000&#x2F;svg&quot;
+  &gt;
+&lt;text 
+    x=&quot;400&quot;
+    y=&quot;25&quot;
+    font-family=&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot;
+    dominant-baseline=&quot;middle&quot;
+    text-anchor=&quot;middle&quot;
+    font-size=&quot;18&quot;
+    fill=&quot;#74838f&quot;
+    font-weight=&quot;700&quot;
+    &gt;
+Example
+&lt;&#x2F;text&gt;
+&lt;&#x2F;svg&gt;&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;drawing-the-points&quot;&gt;Drawing the Points&lt;&#x2F;h2&gt;
+&lt;p&gt;Let&#x27;s fill up the graph with some dummy points so we have something to draw (note: we are assuming you&#x27;ll add the points in order here):&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#212733;&quot;&gt;
+&lt;span style=&quot;color:#ccc9c2;&quot;&gt;graph&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;add_point&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;1.0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;1.0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;
+graph&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;add_point&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;2.0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;3.0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;
+graph&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;add_point&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;3.0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;2.5&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;
+graph&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;add_point&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;4.0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;6.0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;
+graph&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;add_point&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;5.0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;3.0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;&lt;h3 id=&quot;scaling-the-axis&quot;&gt;Scaling the Axis&lt;&#x2F;h3&gt;
+&lt;p&gt;To keep things simple, we&#x27;ll start from the origin &amp;amp; scale both the x and y axis by the max value of either.  We&#x27;ll pull out both of those values and use these to scale the points within the svg:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#212733;&quot;&gt;
+&lt;span style=&quot;color:#ffa759;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt; max_x &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5ccfe6;&quot;&gt;self
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;points
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;iter&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;()
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;map&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(|&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;point&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;| point&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;x)
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;fold&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;0. &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;&#x2F; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;0.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;f64&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;max)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt; max_y &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5ccfe6;&quot;&gt;self
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;points
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;iter&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;()
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;map&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(|&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;point&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;| point&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;y)
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;fold&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;0. &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;&#x2F; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;0.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;f64&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;max)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;&lt;h3 id=&quot;drawing-a-line&quot;&gt;Drawing a Line&lt;&#x2F;h3&gt;
+&lt;p&gt;To draw a line between points in an SVG, &lt;a href=&quot;https:&#x2F;&#x2F;developer.mozilla.org&#x2F;en-US&#x2F;docs&#x2F;Web&#x2F;SVG&#x2F;Tutorial&#x2F;Paths&quot;&gt;you can use the &lt;code&gt;path&lt;&#x2F;code&gt; element with draw commands&lt;&#x2F;a&gt;.  A simple line would look like:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#212733;&quot;&gt;
+&lt;span style=&quot;color:#5ccfe690;&quot;&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;path &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;d&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;M10 10 L15 15&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5ccfe690;&quot;&gt;&#x2F;&amp;gt;
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;That is: move to point 10,10 and then draw a line to point 15,15.  These points are in the SVG space, so we will need to translate our graph points onto this space, keeping in mind padding, width and height and scaling.&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;translating-the-points&quot;&gt;Translating the points&lt;&#x2F;h3&gt;
+&lt;p&gt;We want to draw a line between each of the points in the SVG but scaled to fit within the viewport.&lt;&#x2F;p&gt;
+&lt;p&gt;To add another complication, the chart origin is in the bottom left, whereas the SVG origin is the top left.&lt;&#x2F;p&gt;
+&lt;p&gt;For both the x and y axis, we want to scale down based upon the max value (&lt;code&gt;width&lt;&#x2F;code&gt; and &lt;code&gt;height&lt;&#x2F;code&gt; here are the chart width):&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#212733;&quot;&gt;
+&lt;span style=&quot;color:#ccc9c2;&quot;&gt;x = x &#x2F; max_x * width
+y = y &#x2F; max_y * height
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;For the x axis, we need to shift them along the right based upon padding, otherwise they will sit on the left side of the svg:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#212733;&quot;&gt;
+&lt;span style=&quot;color:#ccc9c2;&quot;&gt;x = x &#x2F; max_x * width + padding
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;For the y axis, we want to flip this based upon the height, to translate the origin, then add &lt;code&gt;height + padding&lt;&#x2F;code&gt;:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#212733;&quot;&gt;
+&lt;span style=&quot;color:#ccc9c2;&quot;&gt;y = y &#x2F; max_y * (height * -1.0) + height + padding
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;&lt;h3 id=&quot;iterating-through&quot;&gt;Iterating through&lt;&#x2F;h3&gt;
+&lt;p&gt;We have our points commands, now let&#x27;s iterate through and convert them to a bunch of draw commands.  First we will use &lt;code&gt;M&lt;&#x2F;code&gt; to move to start drawing, then we will use &lt;code&gt;L&lt;&#x2F;code&gt; to draw a line between each.&lt;&#x2F;p&gt;
+&lt;p&gt;We can use &lt;code&gt;enumerate()&lt;&#x2F;code&gt; on the iterator to get whether this is the first or subsequent value, and then join it together as a big string:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#212733;&quot;&gt;
+&lt;span style=&quot;color:#ffa759;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt; path &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5ccfe6;&quot;&gt;self
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;points
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;iter&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;()
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;map&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(|&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;val&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;| Point {
+        x&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(val&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;x &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;&#x2F;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt; max_x &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt; width &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;as &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;f64&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;) &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt; padding &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;as &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;f64&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;
+        y&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(val&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;y &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;&#x2F;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt; max_y &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;* &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(height &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;as &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;f64 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;* -&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;1.0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;)) &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;+ &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(padding &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt; height) &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;as &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;f64&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;})
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;enumerate&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;()
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;map&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(|(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;i&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;point&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;)| {
+        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;if&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt; i &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;== &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;0 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;{
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;format!&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;M &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;{} {}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt; point&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;x&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt; point&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;y)
+        } &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;else &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;{
+            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;format!&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;L &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;{} {}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt; point&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;x&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt; point&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;y)
+        }
+    })
+    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;collect&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;&amp;lt;Vec&amp;lt;String&amp;gt;&amp;gt;()&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;join&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot; &amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;This will output a path string like so:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#212733;&quot;&gt;
+&lt;span style=&quot;color:#ccc9c2;&quot;&gt;M 190 383.33333333333337 L 330 250 L 470 283.3333333333333 L 610 50 L 750 250
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;&lt;h3 id=&quot;adding-to-the-svg&quot;&gt;Adding to the SVG&lt;&#x2F;h3&gt;
+&lt;p&gt;We can add the path &amp;amp; colour to the Context:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#212733;&quot;&gt;
+&lt;span style=&quot;color:#ccc9c2;&quot;&gt;context&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;insert&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;path&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;path)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;
+context&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;insert&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;colour&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5ccfe6;&quot;&gt;self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;colour)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Then add the following to have it drawn in the SVG:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#212733;&quot;&gt;
+&lt;span style=&quot;color:#5ccfe690;&quot;&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;path &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;stroke&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;{{colour}}&amp;quot; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;stroke-linejoin&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;round&amp;quot; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;d&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;{{path}}&amp;quot; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;stroke-width&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;2.0&amp;quot; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;fill&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;none&amp;quot; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5ccfe690;&quot;&gt;&#x2F;&amp;gt;
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;If all goes well, the graph should start looking more like a graph:&lt;&#x2F;p&gt;
+&lt;?xml version=&quot;1.0&quot; standalone=&quot;no&quot;?&gt;
+&lt;p&gt;&lt;svg
+  width=&quot;100%&quot;
+  height=&quot;100%&quot;
+  viewBox=&quot;0 0 800 500&quot;
+  preserveAspectRatio=&quot;xMidYMid meet&quot;
+  xmlns=&quot;http:&#x2F;&#x2F;www.w3.org&#x2F;2000&#x2F;svg&quot;
+  &gt;
+&lt;text 
+    x=&quot;400&quot;
+    y=&quot;25&quot;
+    font-family=&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot;
+    dominant-baseline=&quot;middle&quot;
+    text-anchor=&quot;middle&quot;
+    font-size=&quot;18&quot;
+    fill=&quot;#74838f&quot;
+    font-weight=&quot;700&quot;
+    &gt;
+Example
+&lt;&#x2F;text&gt;
+&lt;path stroke=&quot;#8ff0a4&quot; stroke-linejoin=&quot;round&quot; d=&quot;M 190 383.33333333333337 L 330 250 L 470 283.3333333333333 L 610 50 L 750 250&quot; stroke-width=&quot;2.0&quot; fill=&quot;none&quot; &#x2F;&gt;
+&lt;&#x2F;svg&gt;&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;adding-in-the-axis&quot;&gt;Adding in the Axis&lt;&#x2F;h2&gt;
+&lt;p&gt;We need to add in some axis scale so we know what the graph values represent.  I&#x27;m gonna cheat here &amp;amp; break up both the x and y axis the same amount of times each.  We&#x27;ll break up the axis 5 times each, but have this set in the context to be changes later:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#212733;&quot;&gt;
+&lt;span style=&quot;color:#ccc9c2;&quot;&gt;context&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;insert&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;lines&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;&amp;amp;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;5&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Tera allows us to do a loop within the template, so we&#x27;ll use that to add some lines and nudges.&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#212733;&quot;&gt;
+&lt;span style=&quot;color:#ccc9c2;&quot;&gt;{% for i in range(end=(lines + 1)) %}
+... draw some lines here
+{% endfor %}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Let&#x27;s set some variables within the template, based upon the current line we&#x27;re drawing.  These are the offsets for both the axis:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#212733;&quot;&gt;
+&lt;span style=&quot;color:#ccc9c2;&quot;&gt;{% set offset_x = padding + loop.index0&#x2F;lines * width%}
+{% set offset_y = padding + loop.index0&#x2F;lines * height%}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;&lt;h3 id=&quot;horizontal-lines&quot;&gt;Horizontal Lines&lt;&#x2F;h3&gt;
+&lt;p&gt;We will draw 5 horizontal dashed lines, to give scale to the y value.  This will start on the left side of the graph and continue to the end of the graph.  We&#x27;ll draw a solid horizontal line when &lt;code&gt;y = 0&lt;&#x2F;code&gt; (keep in mind the axis is flipped in SVG), which means we skip drawing this for the last line:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#212733;&quot;&gt;
+&lt;span style=&quot;color:#ccc9c2;&quot;&gt;{% if loop.last == false %}
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5ccfe690;&quot;&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;path &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;stroke&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;#74838f&amp;quot; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;stroke-dasharray&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;10 6&amp;quot; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;stroke-width&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;0.5&amp;quot;  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;d&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;M {{padding}} {{offset_y}} L {{width + padding}} {{offset_y}}&amp;quot; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5ccfe690;&quot;&gt;&#x2F;&amp;gt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;
+{% else %}
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5ccfe690;&quot;&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;path &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;stroke&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;#74838f&amp;quot; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;stroke-width&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;2&amp;quot; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;fill&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;none&amp;quot;  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;d&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;M {{padding}} {{offset_y}} L {{width + padding}} {{offset_y}}&amp;quot; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5ccfe690;&quot;&gt;&#x2F;&amp;gt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;
+{% endif %}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Now our graph will be a bit easier to read:&lt;&#x2F;p&gt;
+&lt;?xml version=&quot;1.0&quot; standalone=&quot;no&quot;?&gt;
+&lt;p&gt;&lt;svg
+  width=&quot;100%&quot;
+  height=&quot;100%&quot;
+  viewBox=&quot;0 0 800 500&quot;
+  preserveAspectRatio=&quot;xMidYMid meet&quot;
+  xmlns=&quot;http:&#x2F;&#x2F;www.w3.org&#x2F;2000&#x2F;svg&quot;
+  &gt;
+&lt;text 
+    x=&quot;400&quot;
+    y=&quot;25&quot;
+    font-family=&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot;
+    dominant-baseline=&quot;middle&quot;
+    text-anchor=&quot;middle&quot;
+    font-size=&quot;18&quot;
+    fill=&quot;#74838f&quot;
+    font-weight=&quot;700&quot;
+    &gt;
+Example
+&lt;&#x2F;text&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-dasharray=&quot;10 6&quot; stroke-width=&quot;0.5&quot;  d=&quot;M 50 50 L 750 50&quot; &#x2F;&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-dasharray=&quot;10 6&quot; stroke-width=&quot;0.5&quot;  d=&quot;M 50 130 L 750 130&quot; &#x2F;&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-dasharray=&quot;10 6&quot; stroke-width=&quot;0.5&quot;  d=&quot;M 50 210 L 750 210&quot; &#x2F;&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-dasharray=&quot;10 6&quot; stroke-width=&quot;0.5&quot;  d=&quot;M 50 290 L 750 290&quot; &#x2F;&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-dasharray=&quot;10 6&quot; stroke-width=&quot;0.5&quot;  d=&quot;M 50 370 L 750 370&quot; &#x2F;&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-width=&quot;2&quot; fill=&quot;none&quot;  d=&quot;M 50 450 L 750 450&quot; &#x2F;&gt;
+&lt;path stroke=&quot;#8ff0a4&quot; stroke-linejoin=&quot;round&quot; d=&quot;M 190 383.33333333333337 L 330 250 L 470 283.3333333333333 L 610 50 L 750 250&quot; stroke-width=&quot;2.0&quot; fill=&quot;none&quot; &#x2F;&gt;
+&lt;&#x2F;svg&gt;&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;vertical-lines&quot;&gt;Vertical Lines&lt;&#x2F;h3&gt;
+&lt;p&gt;We will just put little 10px nudges in the axis rather than dotted vertical lines.&lt;&#x2F;p&gt;
+&lt;p&gt;In the existing for loop, we can add the following:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#212733;&quot;&gt;
+&lt;span style=&quot;color:#5ccfe690;&quot;&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;path &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;stroke&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;#74838f&amp;quot; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;stroke-width&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;2.0&amp;quot; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;d&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;M {{offset_x}} {{height + padding}} L {{offset_x}} {{height + padding + 10}}&amp;quot; &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5ccfe690;&quot;&gt;&#x2F;&amp;gt;
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;This will create nudges where we&#x27;ll put our axis labels:&lt;&#x2F;p&gt;
+&lt;?xml version=&quot;1.0&quot; standalone=&quot;no&quot;?&gt;
+&lt;p&gt;&lt;svg
+  width=&quot;100%&quot;
+  height=&quot;100%&quot;
+  viewBox=&quot;0 0 800 500&quot;
+  preserveAspectRatio=&quot;xMidYMid meet&quot;
+  xmlns=&quot;http:&#x2F;&#x2F;www.w3.org&#x2F;2000&#x2F;svg&quot;
+  &gt;
+&lt;text 
+    x=&quot;400&quot;
+    y=&quot;25&quot;
+    font-family=&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot;
+    dominant-baseline=&quot;middle&quot;
+    text-anchor=&quot;middle&quot;
+    font-size=&quot;18&quot;
+    fill=&quot;#74838f&quot;
+    font-weight=&quot;700&quot;
+    &gt;
+Example
+&lt;&#x2F;text&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-dasharray=&quot;10 6&quot; stroke-width=&quot;0.5&quot;  d=&quot;M 50 50 L 750 50&quot; &#x2F;&gt;
+&lt;path stroke=&quot;#74838f&quot;  stroke-width=&quot;2.0&quot;  d=&quot;M 50 450 L 50 460&quot; &#x2F;&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-dasharray=&quot;10 6&quot; stroke-width=&quot;0.5&quot;  d=&quot;M 50 130 L 750 130&quot; &#x2F;&gt;
+&lt;path stroke=&quot;#74838f&quot;  stroke-width=&quot;2.0&quot;  d=&quot;M 190 450 L 190 460&quot; &#x2F;&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-dasharray=&quot;10 6&quot; stroke-width=&quot;0.5&quot;  d=&quot;M 50 210 L 750 210&quot; &#x2F;&gt;
+&lt;path stroke=&quot;#74838f&quot;  stroke-width=&quot;2.0&quot;  d=&quot;M 330 450 L 330 460&quot; &#x2F;&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-dasharray=&quot;10 6&quot; stroke-width=&quot;0.5&quot;  d=&quot;M 50 290 L 750 290&quot; &#x2F;&gt;
+&lt;path stroke=&quot;#74838f&quot;  stroke-width=&quot;2.0&quot;  d=&quot;M 470 450 L 470 460&quot; &#x2F;&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-dasharray=&quot;10 6&quot; stroke-width=&quot;0.5&quot;  d=&quot;M 50 370 L 750 370&quot; &#x2F;&gt;
+&lt;path stroke=&quot;#74838f&quot;  stroke-width=&quot;2.0&quot;  d=&quot;M 610 450 L 610 460&quot; &#x2F;&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-width=&quot;2&quot; fill=&quot;none&quot;  d=&quot;M 50 450 L 750 450&quot; &#x2F;&gt;
+&lt;path stroke=&quot;#74838f&quot;  stroke-width=&quot;2.0&quot;  d=&quot;M 750 450 L 750 460&quot; &#x2F;&gt;
+&lt;path stroke=&quot;#8ff0a4&quot; stroke-linejoin=&quot;round&quot; d=&quot;M 190 383.33333333333337 L 330 250 L 470 283.3333333333333 L 610 50 L 750 250&quot; stroke-width=&quot;2.0&quot; fill=&quot;none&quot; &#x2F;&gt;
+&lt;&#x2F;svg&gt;&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;axis-labels&quot;&gt;Axis Labels&lt;&#x2F;h3&gt;
+&lt;p&gt;We can add in axis labels in the same for loop.&lt;&#x2F;p&gt;
+&lt;p&gt;For the y-axis, the loop starts at the top of the graph and goes down, so we will use the following formula to present the 1&#x2F;5th value:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#212733;&quot;&gt;
+&lt;span style=&quot;color:#ccc9c2;&quot;&gt;(lines - loop.index0)&#x2F;lines * max_y
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;We can use the tera &lt;code&gt;round&lt;&#x2F;code&gt; helper to round the value up, so there is not a lot of decimal places:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#212733;&quot;&gt;
+&lt;span style=&quot;color:#ccc9c2;&quot;&gt;{{((lines - loop.index0)&#x2F;lines * max_y) | round}}
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Putting this together:&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#212733;&quot;&gt;
+&lt;span style=&quot;color:#5ccfe690;&quot;&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;text
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;x&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;{{padding - 5}}&amp;quot;
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;font-family&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&amp;quot;
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;y&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;{{offset_y}}&amp;quot;
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;dominant-baseline&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;middle&amp;quot;
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;text-anchor&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;end&amp;quot;
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;font-size&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;12&amp;quot;
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;fill&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;#74838f&amp;quot;
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;font-weight&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;bold&amp;quot;
+ &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5ccfe690;&quot;&gt;&amp;gt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;
+ {{((lines - loop.index0)&#x2F;lines * max_y) | round}}
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5ccfe690;&quot;&gt;&amp;lt;&#x2F;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;text&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5ccfe690;&quot;&gt;&amp;gt;
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;And quite similarly, the x-axis can be generated the same way (width &lt;code&gt;y&lt;&#x2F;code&gt; being fixed to where the nudge starts &amp;amp; &lt;code&gt;x&lt;&#x2F;code&gt; being the offset):&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#212733;&quot;&gt;
+&lt;span style=&quot;color:#5ccfe690;&quot;&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;text
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;x&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;{{offset_x}}&amp;quot;
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;font-family&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&amp;quot;
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;y&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;{{height + padding + 10}}&amp;quot;
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;dominant-baseline&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;hanging&amp;quot;
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;text-anchor&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;middle&amp;quot;
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;font-size&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;12&amp;quot;
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;fill&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;#74838f&amp;quot;
+  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;font-weight&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;bold&amp;quot;
+ &lt;&#x2F;span&gt;&lt;span style=&quot;color:#5ccfe690;&quot;&gt;&amp;gt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2;&quot;&gt;
+ {{loop.index0&#x2F;lines * max_x | round}}
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5ccfe690;&quot;&gt;&amp;lt;&#x2F;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;text&lt;&#x2F;span&gt;&lt;span style=&quot;color:#5ccfe690;&quot;&gt;&amp;gt;
+&lt;&#x2F;span&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Putting this all together, we should have our labels in the right place:&lt;&#x2F;p&gt;
+&lt;?xml version=&quot;1.0&quot; standalone=&quot;no&quot;?&gt;
+&lt;p&gt;&lt;svg
+  width=&quot;100%&quot;
+  height=&quot;100%&quot;
+  viewBox=&quot;0 0 800 500&quot;
+  preserveAspectRatio=&quot;xMidYMid meet&quot;
+  xmlns=&quot;http:&#x2F;&#x2F;www.w3.org&#x2F;2000&#x2F;svg&quot;
+  &gt;
+&lt;text 
+    x=&quot;400&quot;
+    y=&quot;25&quot;
+    font-family=&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot;
+    dominant-baseline=&quot;middle&quot;
+    text-anchor=&quot;middle&quot;
+    font-size=&quot;18&quot;
+    fill=&quot;#74838f&quot;
+    font-weight=&quot;700&quot;
+    &gt;
+Example
+&lt;&#x2F;text&gt;
+&lt;text x=&quot;45&quot; font-family=&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot; y=&quot;50&quot; dominant-baseline=&quot;middle&quot; text-anchor=&quot;end&quot; font-size=&quot;12&quot; fill=&quot;#74838f&quot; font-weight=&quot;bold&quot; &gt;6&lt;&#x2F;text&gt;
+&lt;text x=&quot;50&quot; font-family=&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot; y=&quot;460&quot; dominant-baseline=&quot;hanging&quot; text-anchor=&quot;middle&quot; font-size=&quot;12&quot; fill=&quot;#74838f&quot; font-weight=&quot;bold&quot;&gt;0&lt;&#x2F;text&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-dasharray=&quot;10 6&quot; stroke-width=&quot;0.5&quot;  d=&quot;M 50 50 L 750 50&quot; &#x2F;&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-width=&quot;2.0&quot;  d=&quot;M 50 450 L 50 460&quot; &#x2F;&gt;
+&lt;text x=&quot;45&quot; font-family=&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot; y=&quot;130&quot; dominant-baseline=&quot;middle&quot; text-anchor=&quot;end&quot; font-size=&quot;12&quot; fill=&quot;#74838f&quot; font-weight=&quot;bold&quot; &gt;5&lt;&#x2F;text&gt;
+&lt;text x=&quot;190&quot; font-family=&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot; y=&quot;460&quot; dominant-baseline=&quot;hanging&quot; text-anchor=&quot;middle&quot; font-size=&quot;12&quot; fill=&quot;#74838f&quot; font-weight=&quot;bold&quot;&gt;1&lt;&#x2F;text&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-dasharray=&quot;10 6&quot; stroke-width=&quot;0.5&quot;  d=&quot;M 50 130 L 750 130&quot; &#x2F;&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-width=&quot;2.0&quot;  d=&quot;M 190 450 L 190 460&quot; &#x2F;&gt;
+&lt;text x=&quot;45&quot; font-family=&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot; y=&quot;210&quot; dominant-baseline=&quot;middle&quot; text-anchor=&quot;end&quot; font-size=&quot;12&quot; fill=&quot;#74838f&quot; font-weight=&quot;bold&quot; &gt;4&lt;&#x2F;text&gt;
+&lt;text x=&quot;330&quot; font-family=&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot; y=&quot;460&quot; dominant-baseline=&quot;hanging&quot; text-anchor=&quot;middle&quot; font-size=&quot;12&quot; fill=&quot;#74838f&quot; font-weight=&quot;bold&quot;&gt;2&lt;&#x2F;text&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-dasharray=&quot;10 6&quot; stroke-width=&quot;0.5&quot;  d=&quot;M 50 210 L 750 210&quot; &#x2F;&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-width=&quot;2.0&quot;  d=&quot;M 330 450 L 330 460&quot; &#x2F;&gt;
+&lt;text x=&quot;45&quot; font-family=&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot; y=&quot;290&quot; dominant-baseline=&quot;middle&quot; text-anchor=&quot;end&quot; font-size=&quot;12&quot; fill=&quot;#74838f&quot; font-weight=&quot;bold&quot; &gt;2&lt;&#x2F;text&gt;
+&lt;text x=&quot;470&quot; font-family=&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot; y=&quot;460&quot; dominant-baseline=&quot;hanging&quot; text-anchor=&quot;middle&quot; font-size=&quot;12&quot; fill=&quot;#74838f&quot; font-weight=&quot;bold&quot;&gt;3&lt;&#x2F;text&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-dasharray=&quot;10 6&quot; stroke-width=&quot;0.5&quot;  d=&quot;M 50 290 L 750 290&quot; &#x2F;&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-width=&quot;2.0&quot;  d=&quot;M 470 450 L 470 460&quot; &#x2F;&gt;
+&lt;text x=&quot;45&quot; font-family=&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot; y=&quot;370&quot; dominant-baseline=&quot;middle&quot; text-anchor=&quot;end&quot; font-size=&quot;12&quot; fill=&quot;#74838f&quot; font-weight=&quot;bold&quot; &gt;1&lt;&#x2F;text&gt;
+&lt;text x=&quot;610&quot; font-family=&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot; y=&quot;460&quot; dominant-baseline=&quot;hanging&quot; text-anchor=&quot;middle&quot; font-size=&quot;12&quot; fill=&quot;#74838f&quot; font-weight=&quot;bold&quot;&gt;4&lt;&#x2F;text&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-dasharray=&quot;10 6&quot; stroke-width=&quot;0.5&quot;  d=&quot;M 50 370 L 750 370&quot; &#x2F;&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-width=&quot;2.0&quot;  d=&quot;M 610 450 L 610 460&quot; &#x2F;&gt;
+&lt;text x=&quot;45&quot; font-family=&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot; y=&quot;450&quot; dominant-baseline=&quot;middle&quot; text-anchor=&quot;end&quot; font-size=&quot;12&quot; fill=&quot;#74838f&quot; font-weight=&quot;bold&quot; &gt;0&lt;&#x2F;text&gt;
+&lt;text x=&quot;750&quot; font-family=&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot; y=&quot;460&quot; dominant-baseline=&quot;hanging&quot; text-anchor=&quot;middle&quot; font-size=&quot;12&quot; fill=&quot;#74838f&quot; font-weight=&quot;bold&quot;&gt;5&lt;&#x2F;text&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-width=&quot;2&quot; fill=&quot;none&quot;  d=&quot;M 50 450 L 750 450&quot; &#x2F;&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-width=&quot;2.0&quot;  d=&quot;M 750 450 L 750 460&quot; &#x2F;&gt;
+&lt;path stroke=&quot;#8ff0a4&quot; stroke-linejoin=&quot;round&quot; d=&quot;M 190 383.33333333333337 L 330 250 L 470 283.3333333333333 L 610 50 L 750 250&quot; stroke-width=&quot;2.0&quot; fill=&quot;none&quot; &#x2F;&gt;
+&lt;&#x2F;svg&gt;&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;bonus-smooth-lines&quot;&gt;Bonus: Smooth Lines&lt;&#x2F;h3&gt;
+&lt;p&gt;One trick &lt;a href=&quot;http:&#x2F;&#x2F;schepers.cc&#x2F;getting-to-the-point&quot;&gt;I have found&lt;&#x2F;a&gt; is that you can make simple smoth lines by treating the points as a &lt;a href=&quot;https:&#x2F;&#x2F;en.wikipedia.org&#x2F;wiki&#x2F;Centripetal_Catmull%E2%80%93Rom_spline&quot;&gt;Catmull-Rom spline&lt;&#x2F;a&gt;, and then &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;lorikeet-dash&#x2F;blob&#x2F;a90107e73bc1e18136ce7a4e28e4c3c11a802f22&#x2F;src&#x2F;chart.rs#L155-L189&quot;&gt;converting to Cubic Beziers&lt;&#x2F;a&gt;, which SVG will draw happily.&lt;&#x2F;p&gt;
+&lt;p&gt;Using this method, you can make your charts nice and smooth:&lt;&#x2F;p&gt;
+&lt;?xml version=&quot;1.0&quot; standalone=&quot;no&quot;?&gt;
+&lt;p&gt;&lt;svg
+  width=&quot;100%&quot;
+  height=&quot;100%&quot;
+  viewBox=&quot;0 0 800 500&quot;
+  preserveAspectRatio=&quot;xMidYMid meet&quot;
+  xmlns=&quot;http:&#x2F;&#x2F;www.w3.org&#x2F;2000&#x2F;svg&quot;
+  &gt;
+&lt;text 
+    x=&quot;400&quot;
+    y=&quot;25&quot;
+    font-family=&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot;
+    dominant-baseline=&quot;middle&quot;
+    text-anchor=&quot;middle&quot;
+    font-size=&quot;18&quot;
+    fill=&quot;#74838f&quot;
+    font-weight=&quot;700&quot;
+    &gt;
+Example
+&lt;&#x2F;text&gt;
+&lt;text x=&quot;45&quot; font-family=&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot; y=&quot;50&quot; dominant-baseline=&quot;middle&quot; text-anchor=&quot;end&quot; font-size=&quot;12&quot; fill=&quot;#74838f&quot; font-weight=&quot;bold&quot; &gt;6&lt;&#x2F;text&gt;
+&lt;text x=&quot;50&quot; font-family=&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot; y=&quot;460&quot; dominant-baseline=&quot;hanging&quot; text-anchor=&quot;middle&quot; font-size=&quot;12&quot; fill=&quot;#74838f&quot; font-weight=&quot;bold&quot;&gt;0&lt;&#x2F;text&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-dasharray=&quot;10 6&quot; stroke-width=&quot;0.5&quot;  d=&quot;M 50 50 L 750 50&quot; &#x2F;&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-width=&quot;2.0&quot;  d=&quot;M 50 450 L 50 460&quot; &#x2F;&gt;
+&lt;text x=&quot;45&quot; font-family=&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot; y=&quot;130&quot; dominant-baseline=&quot;middle&quot; text-anchor=&quot;end&quot; font-size=&quot;12&quot; fill=&quot;#74838f&quot; font-weight=&quot;bold&quot; &gt;5&lt;&#x2F;text&gt;
+&lt;text x=&quot;190&quot; font-family=&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot; y=&quot;460&quot; dominant-baseline=&quot;hanging&quot; text-anchor=&quot;middle&quot; font-size=&quot;12&quot; fill=&quot;#74838f&quot; font-weight=&quot;bold&quot;&gt;1&lt;&#x2F;text&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-dasharray=&quot;10 6&quot; stroke-width=&quot;0.5&quot;  d=&quot;M 50 130 L 750 130&quot; &#x2F;&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-width=&quot;2.0&quot;  d=&quot;M 190 450 L 190 460&quot; &#x2F;&gt;
+&lt;text x=&quot;45&quot; font-family=&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot; y=&quot;210&quot; dominant-baseline=&quot;middle&quot; text-anchor=&quot;end&quot; font-size=&quot;12&quot; fill=&quot;#74838f&quot; font-weight=&quot;bold&quot; &gt;4&lt;&#x2F;text&gt;
+&lt;text x=&quot;330&quot; font-family=&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot; y=&quot;460&quot; dominant-baseline=&quot;hanging&quot; text-anchor=&quot;middle&quot; font-size=&quot;12&quot; fill=&quot;#74838f&quot; font-weight=&quot;bold&quot;&gt;2&lt;&#x2F;text&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-dasharray=&quot;10 6&quot; stroke-width=&quot;0.5&quot;  d=&quot;M 50 210 L 750 210&quot; &#x2F;&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-width=&quot;2.0&quot;  d=&quot;M 330 450 L 330 460&quot; &#x2F;&gt;
+&lt;text x=&quot;45&quot; font-family=&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot; y=&quot;290&quot; dominant-baseline=&quot;middle&quot; text-anchor=&quot;end&quot; font-size=&quot;12&quot; fill=&quot;#74838f&quot; font-weight=&quot;bold&quot; &gt;2&lt;&#x2F;text&gt;
+&lt;text x=&quot;470&quot; font-family=&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot; y=&quot;460&quot; dominant-baseline=&quot;hanging&quot; text-anchor=&quot;middle&quot; font-size=&quot;12&quot; fill=&quot;#74838f&quot; font-weight=&quot;bold&quot;&gt;3&lt;&#x2F;text&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-dasharray=&quot;10 6&quot; stroke-width=&quot;0.5&quot;  d=&quot;M 50 290 L 750 290&quot; &#x2F;&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-width=&quot;2.0&quot;  d=&quot;M 470 450 L 470 460&quot; &#x2F;&gt;
+&lt;text x=&quot;45&quot; font-family=&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot; y=&quot;370&quot; dominant-baseline=&quot;middle&quot; text-anchor=&quot;end&quot; font-size=&quot;12&quot; fill=&quot;#74838f&quot; font-weight=&quot;bold&quot; &gt;1&lt;&#x2F;text&gt;
+&lt;text x=&quot;610&quot; font-family=&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot; y=&quot;460&quot; dominant-baseline=&quot;hanging&quot; text-anchor=&quot;middle&quot; font-size=&quot;12&quot; fill=&quot;#74838f&quot; font-weight=&quot;bold&quot;&gt;4&lt;&#x2F;text&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-dasharray=&quot;10 6&quot; stroke-width=&quot;0.5&quot;  d=&quot;M 50 370 L 750 370&quot; &#x2F;&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-width=&quot;2.0&quot;  d=&quot;M 610 450 L 610 460&quot; &#x2F;&gt;
+&lt;text x=&quot;45&quot; font-family=&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot; y=&quot;450&quot; dominant-baseline=&quot;middle&quot; text-anchor=&quot;end&quot; font-size=&quot;12&quot; fill=&quot;#74838f&quot; font-weight=&quot;bold&quot; &gt;0&lt;&#x2F;text&gt;
+&lt;text x=&quot;750&quot; font-family=&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot; y=&quot;460&quot; dominant-baseline=&quot;hanging&quot; text-anchor=&quot;middle&quot; font-size=&quot;12&quot; fill=&quot;#74838f&quot; font-weight=&quot;bold&quot;&gt;5&lt;&#x2F;text&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-width=&quot;2&quot; fill=&quot;none&quot;  d=&quot;M 50 450 L 750 450&quot; &#x2F;&gt;
+&lt;path stroke=&quot;#74838f&quot; stroke-width=&quot;2.0&quot;  d=&quot;M 750 450 L 750 460&quot; &#x2F;&gt;
+&lt;path stroke=&quot;#8ff0a4&quot; stroke-linejoin=&quot;round&quot; d=&quot;M 190 383.33333333333337 C 213.3333 361.1111, 283.3333 266.6667, 330.0000 250.0000 C 376.6667 233.3333, 423.3333 316.6667, 470.0000 283.3333 C 516.6667 250.0000, 563.3333 55.5556, 610.0000 50.0000 C 656.6667 44.4444, 726.6667 216.6667, 750.0000 250.0000&quot; stroke-width=&quot;2.0&quot; fill=&quot;none&quot; &#x2F;&gt;
+&lt;&#x2F;svg&gt;&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;second-bonus-scuba-dive-graph&quot;&gt;Second Bonus: Scuba Dive Graph&lt;&#x2F;h3&gt;
+&lt;p&gt;I have also used a similar method to plot a dive, displaying the &lt;strong&gt;Depth&lt;&#x2F;strong&gt; and &lt;strong&gt;Air&lt;&#x2F;strong&gt; on a split axis, with my &lt;em&gt;maximum depth&lt;&#x2F;em&gt; displayed:&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;img src=&quot;&#x2F;photos&#x2F;dive.svg&quot; alt=&quot;&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;conclusion&quot;&gt;Conclusion&lt;&#x2F;h2&gt;
+&lt;p&gt;We used tera, as a template engine, to generate an SVG chart with rust.  Some basic geometry was needed, but the results show for themselves. I hope you have found this educational and gives you some ideas.&lt;&#x2F;p&gt;
+&lt;p&gt;Also: try out &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;lorikeet-dash&quot;&gt;lorikeet-dash&lt;&#x2F;a&gt; and let me know what you think!&lt;&#x2F;p&gt;
+</description>
+            </item>
         
             <item>
                 <title>Implementing a Job queue with Tokio-Serde</title>
