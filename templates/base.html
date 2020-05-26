@@ -7,13 +7,16 @@
     <title>{% if page.title %}{{page.title}}{% endif %}</title>
     {% if page.description %}<meta name="description" content="{{page.description}}" />{% endif %}
     <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     {%- set css = load_data(path="public/spectre.css") %}
     <style>{{ css | safe }}</style>
 </head>
 
 <body>
-    <header class="navbar">
+    <header class="main-header">
+        <div class="navbar">
         <section class="navbar-section">
+            <img src="/favicon.svg" width="30" height="30"/>
             <a href="/" class="btn btn-link">Home</a>
             <a href="/blog/" class="btn btn-link">Blogs</a>
             <a href="/rss.xml" class="btn btn-link">RSS</a>
@@ -25,6 +28,7 @@
             <a href="https://twitter.com/cetra3" class="btn btn-link">Twitter</a>
             <a href="https://mastodon.social/@cetra3" class="btn btn-link">Mastodon</a>
         </section>
+        </div>
     </header>
     <div class="container grid-lg">
         {% block content %}

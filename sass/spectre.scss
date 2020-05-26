@@ -52,6 +52,13 @@ pre {
     margin-bottom: 0.5rem;
 }
 
+.main-header {
+    margin-bottom: 0.5rem;
+    background-color: darken($dark-color, 4%);
+    box-shadow: 0 20rem 20rem 20rem rgba($primary-color, 0.2);
+}
+
+
 // Components
 //@import "accordions";
 //@import "avatars";
