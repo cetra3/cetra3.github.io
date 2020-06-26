@@ -46,6 +46,9 @@ pre {
     img {
         width: 100%;
     }
+    .utterances {
+        max-width: none !important;
+    }
 }
 
 .card {
