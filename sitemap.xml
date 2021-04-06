@@ -1,113 +1,66 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-    
-        <url>
-            <loc>https://cetra3.github.io/</loc>
-            
-        </url>
-    
-        <url>
-            <loc>https://cetra3.github.io/blog/</loc>
-            
-        </url>
-    
-        <url>
-            <loc>https://cetra3.github.io/blog/archive/1/</loc>
-            
-        </url>
-    
-        <url>
-            <loc>https://cetra3.github.io/blog/archive/2/</loc>
-            
-        </url>
-    
-        <url>
-            <loc>https://cetra3.github.io/blog/archive/3/</loc>
-            
-        </url>
-    
-        <url>
-            <loc>https://cetra3.github.io/blog/breaking-api-changes/</loc>
-            
-                <lastmod>2020-02-03</lastmod>
-            
-        </url>
-    
-        <url>
-            <loc>https://cetra3.github.io/blog/drawing-svg-graphs-rust/</loc>
-            
-                <lastmod>2020-05-22</lastmod>
-            
-        </url>
-    
-        <url>
-            <loc>https://cetra3.github.io/blog/face-detection-with-actix-web/</loc>
-            
-                <lastmod>2019-04-11</lastmod>
-            
-        </url>
-    
-        <url>
-            <loc>https://cetra3.github.io/blog/face-detection-with-tensorflow-rust/</loc>
-            
-                <lastmod>2019-03-28</lastmod>
-            
-        </url>
-    
-        <url>
-            <loc>https://cetra3.github.io/blog/implementing-a-jobq-sqlx/</loc>
-            
-                <lastmod>2020-06-26</lastmod>
-            
-        </url>
-    
-        <url>
-            <loc>https://cetra3.github.io/blog/implementing-a-jobq-with-tokio/</loc>
-            
-                <lastmod>2020-05-13</lastmod>
-            
-        </url>
-    
-        <url>
-            <loc>https://cetra3.github.io/blog/implementing-a-jobq/</loc>
-            
-                <lastmod>2020-04-09</lastmod>
-            
-        </url>
-    
-        <url>
-            <loc>https://cetra3.github.io/blog/lorikeet-0-11-0/</loc>
-            
-                <lastmod>2020-04-21</lastmod>
-            
-        </url>
-    
-        <url>
-            <loc>https://cetra3.github.io/blog/mpart-async-0-3-0/</loc>
-            
-                <lastmod>2020-01-22</lastmod>
-            
-        </url>
-    
-        <url>
-            <loc>https://cetra3.github.io/blog/rust-2019/</loc>
-            
-                <lastmod>2018-12-14</lastmod>
-            
-        </url>
-    
-        <url>
-            <loc>https://cetra3.github.io/blog/rust-2020/</loc>
-            
-                <lastmod>2019-10-30</lastmod>
-            
-        </url>
-    
-        <url>
-            <loc>https://cetra3.github.io/blog/tmq-0-1-0/</loc>
-            
-                <lastmod>2019-02-07</lastmod>
-            
-        </url>
-    
+    <url>
+        <loc>https://cetra3.github.io/</loc>
+    </url>
+    <url>
+        <loc>https://cetra3.github.io/blog/</loc>
+    </url>
+    <url>
+        <loc>https://cetra3.github.io/blog/archive/1/</loc>
+    </url>
+    <url>
+        <loc>https://cetra3.github.io/blog/archive/2/</loc>
+    </url>
+    <url>
+        <loc>https://cetra3.github.io/blog/archive/3/</loc>
+    </url>
+    <url>
+        <loc>https://cetra3.github.io/blog/breaking-api-changes/</loc>
+        <lastmod>2020-02-03</lastmod>
+    </url>
+    <url>
+        <loc>https://cetra3.github.io/blog/drawing-svg-graphs-rust/</loc>
+        <lastmod>2020-05-22</lastmod>
+    </url>
+    <url>
+        <loc>https://cetra3.github.io/blog/face-detection-with-actix-web/</loc>
+        <lastmod>2019-04-11</lastmod>
+    </url>
+    <url>
+        <loc>https://cetra3.github.io/blog/face-detection-with-tensorflow-rust/</loc>
+        <lastmod>2019-03-28</lastmod>
+    </url>
+    <url>
+        <loc>https://cetra3.github.io/blog/implementing-a-jobq-sqlx/</loc>
+        <lastmod>2020-06-26</lastmod>
+    </url>
+    <url>
+        <loc>https://cetra3.github.io/blog/implementing-a-jobq-with-tokio/</loc>
+        <lastmod>2020-05-13</lastmod>
+    </url>
+    <url>
+        <loc>https://cetra3.github.io/blog/implementing-a-jobq/</loc>
+        <lastmod>2020-04-09</lastmod>
+    </url>
+    <url>
+        <loc>https://cetra3.github.io/blog/lorikeet-0-11-0/</loc>
+        <lastmod>2020-04-21</lastmod>
+    </url>
+    <url>
+        <loc>https://cetra3.github.io/blog/mpart-async-0-3-0/</loc>
+        <lastmod>2020-01-22</lastmod>
+    </url>
+    <url>
+        <loc>https://cetra3.github.io/blog/rust-2019/</loc>
+        <lastmod>2018-12-14</lastmod>
+    </url>
+    <url>
+        <loc>https://cetra3.github.io/blog/rust-2020/</loc>
+        <lastmod>2019-10-30</lastmod>
+    </url>
+    <url>
+        <loc>https://cetra3.github.io/blog/tmq-0-1-0/</loc>
+        <lastmod>2019-02-07</lastmod>
+    </url>
 </urlset>
