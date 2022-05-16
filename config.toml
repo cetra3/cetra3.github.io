@@ -4,18 +4,19 @@ base_url = "https://cetra3.github.io"
 # Whether to automatically compile all Sass files in the sass directory
 compile_sass = true
 
-# Whether to do syntax highlighting
-# Theme can be customised by setting the `highlight_theme` variable to a theme supported by Zola
-highlight_code = true
-highlight_theme = "ayu-mirage"
-
 # Whether to build a search index to be used later on by a JavaScript library
 build_search_index = true
 
-generate_rss = true
+generate_feed = true
+feed_filename = "rss.xml"
 
 title = "Cetra's Thoughts"
 description = "Blogs and Investigations mostly about Rust"
+
+[markdown]
+highlight_code = true
+highlight_theme = "ayu-mirage"
+
 
 [extra]
 # Put all your custom variables here

@@ -1,8 +1,10 @@
 // Codes
-code {
+p {
+  code {
   @include label-base();
   @include label-variant($code-color, darken($primary-color, 45%));
   font-size: 85%;
+}
 }
 
 .code {
