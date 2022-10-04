@@ -50,86 +50,84 @@
 <p>All these changes to support <code>async fn</code> and is it actually easier to consume/use async libraries?</p>
 <p>Given the <a href="https://crates.io/crates/hyper">hyper</a> example, I would say yes.</p>
 <p>Compare the <a href="https://github.com/cetra3/mpart-async/blob/981ba0437e19fa47f94a913cf9aaa4717fbe12bc/examples/hyper.rs">new example</a>:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ccc9c2cc;">#</span><span style="color:#ccc9c2;">[</span><span style="color:#ffd580;">tokio</span><span style="color:#ccc9c2;">::</span><span style="color:#ffd580;">main</span><span style="color:#ccc9c2;">]
-async </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">main</span><span style="color:#ccc9c2;">() </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span style="color:#ccc9c2;">&lt;(), Error&gt; {
-    </span><span style="font-style:italic;color:#5c6773;">//Setup a mock server to accept connections.
-    //....
-
-    </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> client </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">Client</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new()</span><span style="color:#ccc9c2cc;">;
-
-    </span><span style="color:#ffa759;">let mut</span><span style="color:#ccc9c2;"> mpart </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">MultipartRequest</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">default()</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ccc9c2;">    mpart</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">add_field</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;foo&quot;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#bae67e;">&quot;bar&quot;</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">    mpart</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">add_file</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;test&quot;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#bae67e;">&quot;Cargo.toml&quot;</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;
-
-    </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> request </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">Request</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">post(</span><span style="color:#bae67e;">&quot;http://localhost:3000&quot;</span><span style="color:#ccc9c2;">)
-        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">header</span><span style="color:#ccc9c2;">(
-            </span><span style="color:#ffcc66;">CONTENT_TYPE</span><span style="color:#ccc9c2cc;">,
-            </span><span style="color:#f28779;">format!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;multipart/form-data; boundary=</span><span style="color:#ffcc66;">{}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> mpart</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">get_boundary</span><span style="color:#ccc9c2;">())</span><span style="color:#ccc9c2cc;">,
-        </span><span style="color:#ccc9c2;">)
-        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">body</span><span style="color:#ccc9c2;">(Body</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">wrap_stream(mpart))</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ccc9c2;">    client</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">request</span><span style="color:#ccc9c2;">(request)</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-
-    </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span style="color:#ccc9c2;">(())
-}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ccc9c2cc;">#</span><span>[</span><span style="color:#ffd580;">tokio</span><span>::</span><span style="color:#ffd580;">main</span><span>]
+</span><span>async </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">main</span><span>() </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span>&lt;(), Error&gt; {
+</span><span>    </span><span style="font-style:italic;color:#5c6773;">//Setup a mock server to accept connections.
+</span><span>    </span><span style="font-style:italic;color:#5c6773;">//....
+</span><span>
+</span><span>    </span><span style="color:#ffa759;">let</span><span> client </span><span style="color:#f29e74;">= </span><span>Client</span><span style="color:#f29e74;">::</span><span>new()</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    </span><span style="color:#ffa759;">let mut</span><span> mpart </span><span style="color:#f29e74;">= </span><span>MultipartRequest</span><span style="color:#f29e74;">::</span><span>default()</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    mpart</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">add_field</span><span>(</span><span style="color:#bae67e;">&quot;foo&quot;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#bae67e;">&quot;bar&quot;</span><span>)</span><span style="color:#ccc9c2cc;">;
+</span><span>    mpart</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">add_file</span><span>(</span><span style="color:#bae67e;">&quot;test&quot;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#bae67e;">&quot;Cargo.toml&quot;</span><span>)</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    </span><span style="color:#ffa759;">let</span><span> request </span><span style="color:#f29e74;">= </span><span>Request</span><span style="color:#f29e74;">::</span><span>post(</span><span style="color:#bae67e;">&quot;http://localhost:3000&quot;</span><span>)
+</span><span>        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">header</span><span>(
+</span><span>            </span><span style="color:#ffcc66;">CONTENT_TYPE</span><span style="color:#ccc9c2cc;">,
+</span><span>            </span><span style="color:#f28779;">format!</span><span>(</span><span style="color:#bae67e;">&quot;multipart/form-data; boundary=</span><span style="color:#ffcc66;">{}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span> mpart</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">get_boundary</span><span>())</span><span style="color:#ccc9c2cc;">,
+</span><span>        )
+</span><span>        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">body</span><span>(Body</span><span style="color:#f29e74;">::</span><span>wrap_stream(mpart))</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    client</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">request</span><span>(request)</span><span style="color:#f29e74;">.</span><span>await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span>(())
+</span><span>}
 </span></code></pre>
 <p>With the <a href="https://github.com/cetra3/mpart-async/blob/c928f015fa31cd57533d4ba43551a9a96b61b0a2/examples/hyper.rs">older one</a>:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">main</span><span style="color:#ccc9c2;">() {
-    </span><span style="font-style:italic;color:#5c6773;">// current_thread::Runtime can&#39;t be used because of the blocking file operations
-    </span><span style="color:#ffa759;">let mut</span><span style="color:#ccc9c2;"> rt </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">Runtime</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">expect</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;new rt&quot;</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;
-
-    </span><span style="font-style:italic;color:#5c6773;">//Setup a mock server to accept connections.
-    //....
-
-    // Open `Cargo.toml` file and create a request
-    </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> request </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">File</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">open(</span><span style="color:#bae67e;">&quot;Cargo.toml&quot;</span><span style="color:#ccc9c2;">)
-        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map_err</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">e</span><span style="color:#ccc9c2;">| </span><span style="color:#f28779;">format!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;</span><span style="color:#ffcc66;">{}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> e))
-        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">and_then</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">file</span><span style="color:#ccc9c2;">| {
-            </span><span style="font-style:italic;color:#5c6773;">// A Stream of BytesMut decoded from an AsyncRead
-            </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> framed </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">FramedRead</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new(file</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ccc9c2;">BytesCodec</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new())</span><span style="color:#ccc9c2cc;">;
-
-            </span><span style="color:#ffa759;">let mut</span><span style="color:#ccc9c2;"> mpart </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">MultipartRequest</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">default()</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">            mpart</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">add_field</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;foo&quot;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#bae67e;">&quot;bar&quot;</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">            mpart</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">add_stream</span><span style="color:#ccc9c2;">(
-                </span><span style="color:#bae67e;">&quot;foofile&quot;</span><span style="color:#ccc9c2cc;">,
-                </span><span style="color:#bae67e;">&quot;Cargo.toml&quot;</span><span style="color:#ccc9c2cc;">,
-                </span><span style="color:#bae67e;">&quot;application/toml&quot;</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">                framed</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">b</span><span style="color:#ccc9c2;">| b</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">freeze</span><span style="color:#ccc9c2;">())</span><span style="color:#ccc9c2cc;">,
-            </span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;
-            </span><span style="color:#ccc9c2;">Request</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">post(</span><span style="color:#bae67e;">&quot;http://localhost:3000&quot;</span><span style="color:#ccc9c2;">)
-                </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">header</span><span style="color:#ccc9c2;">(
-                    </span><span style="color:#ffcc66;">CONTENT_TYPE</span><span style="color:#ccc9c2cc;">,
-                    </span><span style="color:#f28779;">format!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;multipart/form-data; boundary=</span><span style="color:#ffcc66;">{}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> mpart</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">get_boundary</span><span style="color:#ccc9c2;">())</span><span style="color:#ccc9c2cc;">,
-                </span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">body</span><span style="color:#ccc9c2;">(Body</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">wrap_stream(mpart))
-                </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">into_future</span><span style="color:#ccc9c2;">()
-                </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map_err</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">e</span><span style="color:#ccc9c2;">| </span><span style="color:#f28779;">format!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;</span><span style="color:#ffcc66;">{}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> e))
-        })</span><span style="color:#ccc9c2cc;">;
-
-    </span><span style="font-style:italic;color:#5c6773;">// Send request
-    </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> task </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> request</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">and_then</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">request</span><span style="color:#ccc9c2;">| {
-        </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> client </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">hyper</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Client</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new()</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">        client
-            </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">request</span><span style="color:#ccc9c2;">(request)
-            </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map_err</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">e</span><span style="color:#ccc9c2;">| </span><span style="color:#f28779;">format!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;</span><span style="color:#ffcc66;">{}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> e))
-            </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">and_then</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">response</span><span style="color:#ccc9c2;">| {
-                response
-                    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">into_body</span><span style="color:#ccc9c2;">()
-                    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">concat2</span><span style="color:#ccc9c2;">()
-                    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map_err</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">e</span><span style="color:#ccc9c2;">| </span><span style="color:#f28779;">format!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;</span><span style="color:#ffcc66;">{}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> e))
-                    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">and_then</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">body</span><span style="color:#ccc9c2;">| {
-                        </span><span style="color:#ffa759;">if let </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span style="color:#ccc9c2;">(data) </span><span style="color:#f29e74;">= </span><span style="color:#ffa759;">str</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">from_utf8(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">body) {
-                            </span><span style="color:#f28779;">println!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;Response: </span><span style="color:#ffcc66;">{}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> data)</span><span style="color:#ccc9c2cc;">;
-                        </span><span style="color:#ccc9c2;">}
-                        </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span style="color:#ccc9c2;">(())
-                    })
-            })
-    })</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ccc9c2;">    rt</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">block_on</span><span style="color:#ccc9c2;">(task)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">expect</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;request failed&quot;</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">main</span><span>() {
+</span><span>    </span><span style="font-style:italic;color:#5c6773;">// current_thread::Runtime can&#39;t be used because of the blocking file operations
+</span><span>    </span><span style="color:#ffa759;">let mut</span><span> rt </span><span style="color:#f29e74;">= </span><span>Runtime</span><span style="color:#f29e74;">::</span><span>new()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">expect</span><span>(</span><span style="color:#bae67e;">&quot;new rt&quot;</span><span>)</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    </span><span style="font-style:italic;color:#5c6773;">//Setup a mock server to accept connections.
+</span><span>    </span><span style="font-style:italic;color:#5c6773;">//....
+</span><span>
+</span><span>    </span><span style="font-style:italic;color:#5c6773;">// Open `Cargo.toml` file and create a request
+</span><span>    </span><span style="color:#ffa759;">let</span><span> request </span><span style="color:#f29e74;">= </span><span>File</span><span style="color:#f29e74;">::</span><span>open(</span><span style="color:#bae67e;">&quot;Cargo.toml&quot;</span><span>)
+</span><span>        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map_err</span><span>(|</span><span style="color:#ffcc66;">e</span><span>| </span><span style="color:#f28779;">format!</span><span>(</span><span style="color:#bae67e;">&quot;</span><span style="color:#ffcc66;">{}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span> e))
+</span><span>        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">and_then</span><span>(|</span><span style="color:#ffcc66;">file</span><span>| {
+</span><span>            </span><span style="font-style:italic;color:#5c6773;">// A Stream of BytesMut decoded from an AsyncRead
+</span><span>            </span><span style="color:#ffa759;">let</span><span> framed </span><span style="color:#f29e74;">= </span><span>FramedRead</span><span style="color:#f29e74;">::</span><span>new(file</span><span style="color:#ccc9c2cc;">, </span><span>BytesCodec</span><span style="color:#f29e74;">::</span><span>new())</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>            </span><span style="color:#ffa759;">let mut</span><span> mpart </span><span style="color:#f29e74;">= </span><span>MultipartRequest</span><span style="color:#f29e74;">::</span><span>default()</span><span style="color:#ccc9c2cc;">;
+</span><span>            mpart</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">add_field</span><span>(</span><span style="color:#bae67e;">&quot;foo&quot;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#bae67e;">&quot;bar&quot;</span><span>)</span><span style="color:#ccc9c2cc;">;
+</span><span>            mpart</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">add_stream</span><span>(
+</span><span>                </span><span style="color:#bae67e;">&quot;foofile&quot;</span><span style="color:#ccc9c2cc;">,
+</span><span>                </span><span style="color:#bae67e;">&quot;Cargo.toml&quot;</span><span style="color:#ccc9c2cc;">,
+</span><span>                </span><span style="color:#bae67e;">&quot;application/toml&quot;</span><span style="color:#ccc9c2cc;">,
+</span><span>                framed</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map</span><span>(|</span><span style="color:#ffcc66;">b</span><span>| b</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">freeze</span><span>())</span><span style="color:#ccc9c2cc;">,
+</span><span>            )</span><span style="color:#ccc9c2cc;">;
+</span><span>            Request</span><span style="color:#f29e74;">::</span><span>post(</span><span style="color:#bae67e;">&quot;http://localhost:3000&quot;</span><span>)
+</span><span>                </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">header</span><span>(
+</span><span>                    </span><span style="color:#ffcc66;">CONTENT_TYPE</span><span style="color:#ccc9c2cc;">,
+</span><span>                    </span><span style="color:#f28779;">format!</span><span>(</span><span style="color:#bae67e;">&quot;multipart/form-data; boundary=</span><span style="color:#ffcc66;">{}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span> mpart</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">get_boundary</span><span>())</span><span style="color:#ccc9c2cc;">,
+</span><span>                )</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">body</span><span>(Body</span><span style="color:#f29e74;">::</span><span>wrap_stream(mpart))
+</span><span>                </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">into_future</span><span>()
+</span><span>                </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map_err</span><span>(|</span><span style="color:#ffcc66;">e</span><span>| </span><span style="color:#f28779;">format!</span><span>(</span><span style="color:#bae67e;">&quot;</span><span style="color:#ffcc66;">{}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span> e))
+</span><span>        })</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    </span><span style="font-style:italic;color:#5c6773;">// Send request
+</span><span>    </span><span style="color:#ffa759;">let</span><span> task </span><span style="color:#f29e74;">=</span><span> request</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">and_then</span><span>(|</span><span style="color:#ffcc66;">request</span><span>| {
+</span><span>        </span><span style="color:#ffa759;">let</span><span> client </span><span style="color:#f29e74;">= </span><span>hyper</span><span style="color:#f29e74;">::</span><span>Client</span><span style="color:#f29e74;">::</span><span>new()</span><span style="color:#ccc9c2cc;">;
+</span><span>        client
+</span><span>            </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">request</span><span>(request)
+</span><span>            </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map_err</span><span>(|</span><span style="color:#ffcc66;">e</span><span>| </span><span style="color:#f28779;">format!</span><span>(</span><span style="color:#bae67e;">&quot;</span><span style="color:#ffcc66;">{}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span> e))
+</span><span>            </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">and_then</span><span>(|</span><span style="color:#ffcc66;">response</span><span>| {
+</span><span>                response
+</span><span>                    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">into_body</span><span>()
+</span><span>                    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">concat2</span><span>()
+</span><span>                    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map_err</span><span>(|</span><span style="color:#ffcc66;">e</span><span>| </span><span style="color:#f28779;">format!</span><span>(</span><span style="color:#bae67e;">&quot;</span><span style="color:#ffcc66;">{}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span> e))
+</span><span>                    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">and_then</span><span>(|</span><span style="color:#ffcc66;">body</span><span>| {
+</span><span>                        </span><span style="color:#ffa759;">if let </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span>(data) </span><span style="color:#f29e74;">= </span><span style="color:#ffa759;">str</span><span style="color:#f29e74;">::</span><span>from_utf8(</span><span style="color:#f29e74;">&amp;</span><span>body) {
+</span><span>                            </span><span style="color:#f28779;">println!</span><span>(</span><span style="color:#bae67e;">&quot;Response: </span><span style="color:#ffcc66;">{}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span> data)</span><span style="color:#ccc9c2cc;">;
+</span><span>                        }
+</span><span>                        </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span>(())
+</span><span>                    })
+</span><span>            })
+</span><span>    })</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    rt</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">block_on</span><span>(task)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">expect</span><span>(</span><span style="color:#bae67e;">&quot;request failed&quot;</span><span>)</span><span style="color:#ccc9c2cc;">;
+</span><span>}
 </span></code></pre>
 <p>While there are still a few warts (such as having to manually add the boundary header), I find the code a lot more readable and easy to follow, rather than your standard combinator paths.</p>
 <h2 id="no-more-error-associated-type">No more <code>Error</code> Associated Type</h2>
@@ -137,13 +135,12 @@ async </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;"
 <p>For the <code>Stream</code> trait, the method you implement has changed to <code>poll_next</code> and uses the <code>std::task::Poll</code> enum as a return type.</p>
 <p>The <code>Poll</code> enum did feel a little inside out when I started using it, but makes sense in terms of there being no <code>Error</code> type.  You don't return a <code>Result&lt;Async&lt;Option&gt;, _&gt;...</code> you instead return a <code>Poll&lt;Option&lt;Result&lt;_,_&gt;&gt;&gt;</code>.</p>
 <p>Generally, this means if you wrote this:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">return </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span style="color:#ccc9c2;">(Async</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Ready(</span><span style="font-style:italic;color:#5ccfe6;">Some</span><span style="color:#ccc9c2;">(bytes)))
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">return </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span>(Async</span><span style="color:#f29e74;">::</span><span>Ready(</span><span style="font-style:italic;color:#5ccfe6;">Some</span><span>(bytes)))
 </span></code></pre>
 <p>You instead will return:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">return </span><span style="color:#ccc9c2;">Poll</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Ready(</span><span style="font-style:italic;color:#5ccfe6;">Some</span><span style="color:#ccc9c2;">(</span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span style="color:#ccc9c2;">(bytes)))
-</span></code></pre><h2 id="streamext-traits-and-friends"><code>StreamExt</code> traits and friends</h2>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">return </span><span>Poll</span><span style="color:#f29e74;">::</span><span>Ready(</span><span style="font-style:italic;color:#5ccfe6;">Some</span><span>(</span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span>(bytes)))
+</span></code></pre>
+<h2 id="streamext-traits-and-friends"><code>StreamExt</code> traits and friends</h2>
 <p>As a consequence of no <code>Error</code> associated type, and an example of different ergonomics, if you are dealing with <code>Result</code> items, you may want to use the <a href="https://docs.rs/futures/0.3.1/futures/stream/trait.TryStreamExt.html">TryStreamExt</a> trait instead of <a href="https://docs.rs/futures/0.3.1/futures/stream/trait.StreamExt.html">StreamExt</a>.  They are basically the same trait but one deals with <code>Result</code> a bit more nicely.  I'm not sure whether a simpler solution will be possible with higher kinded types in the future, but for now it is a tiny bit more complex than futures 0.1.</p>
 <p>Interestingly, the <a href="https://docs.rs/futures/0.3.1/futures/stream/index.html">index page</a> for stream docs doesn't currently mention that the <code>TryStreamExt</code> trait exists &amp; I only found out about it by asking questions in the <a href="https://discord.gg/tokio">discord chat</a>.</p>
 <p>But wait, there is also <a href="https://docs.rs/tokio/0.2.10/tokio/stream/trait.StreamExt.html">StreamExt</a> from tokio  which is subtly different, but does as of <code>0.2.10</code> allow you to run <code>collect()</code> on <code>Result&lt;Bytes, _&gt;</code> item streams.</p>
@@ -159,66 +156,58 @@ async </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;"
 <h2 id="wrapping-inner-streams-in-pin">Wrapping inner streams in <code>Pin</code></h2>
 <p>I got tripped up on this for a while, and needed to again ask in chat for the answer here. If you have an inner stream and you want to call <code>poll_next</code> on it, you need to wrap it in a <code>Pin</code>, otherwise the <code>Stream</code> trait does not stick and you will get some gnarly error message with some weird suggestions:</p>
 <p>The my original shot at the code was:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ccc9c2;">stream</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">stream</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">poll_next</span><span style="color:#ccc9c2;">(cx)
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>stream</span><span style="color:#f29e74;">.</span><span>stream</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">poll_next</span><span>(cx)
 </span></code></pre>
 <p>But it needs to be:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ccc9c2;">Pin</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span style="color:#ccc9c2;"> stream</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">stream)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">poll_next</span><span style="color:#ccc9c2;">(cx)
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>Pin</span><span style="color:#f29e74;">::</span><span>new(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span> stream</span><span style="color:#f29e74;">.</span><span>stream)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">poll_next</span><span>(cx)
 </span></code></pre>
 <p>The compiler error message is not too helpful here, and insists I restrict <code>S</code> by <code>Stream</code>, even though it is already restricted by <code>Stream</code>.</p>
-<pre style="background-color:#212733;">
-<code><span style="color:#ccc9c2;">error[E0599]: no method named `poll_next` found for type `S` in the current scope
-   --&gt; src/lib.rs:282:41
-    |
-282 |                     match stream.stream.poll_next(cx) {
-    |                                         ^^^^^^^^^ method not found in `S`
-    |
-    = help: items from traits can only be used if the type parameter is bounded by the trait
-help: the following trait defines an item `poll_next`, perhaps you need to restrict type parameter `S` with it:
-    |
-254 | impl&lt;E, S: futures::Stream + Stream&gt; Stream for MultipartRequest&lt;S&gt;
-    |         ^^^^^^^^^^^^^^^^^^^^
+<pre style="background-color:#212733;color:#ccc9c2;"><code><span>error[E0599]: no method named `poll_next` found for type `S` in the current scope
+</span><span>   --&gt; src/lib.rs:282:41
+</span><span>    |
+</span><span>282 |                     match stream.stream.poll_next(cx) {
+</span><span>    |                                         ^^^^^^^^^ method not found in `S`
+</span><span>    |
+</span><span>    = help: items from traits can only be used if the type parameter is bounded by the trait
+</span><span>help: the following trait defines an item `poll_next`, perhaps you need to restrict type parameter `S` with it:
+</span><span>    |
+</span><span>254 | impl&lt;E, S: futures::Stream + Stream&gt; Stream for MultipartRequest&lt;S&gt;
+</span><span>    |         ^^^^^^^^^^^^^^^^^^^^
 </span></code></pre>
 <p>You need to make sure that your inner stream implements <code>Unpin</code> as well to go down this path:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">impl</span><span style="color:#ccc9c2;">&lt;E, S&gt; Stream </span><span style="color:#ffa759;">for </span><span style="color:#73d0ff;">MultipartRequest</span><span style="color:#ccc9c2;">&lt;S&gt;
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">impl</span><span>&lt;E, S&gt; Stream </span><span style="color:#ffa759;">for </span><span style="color:#73d0ff;">MultipartRequest</span><span>&lt;S&gt;
 </span><span style="color:#ffa759;">where
-</span><span style="color:#ccc9c2;">    S</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ccc9c2;">Stream&lt;Item = </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span style="color:#ccc9c2;">&lt;Bytes, E&gt;&gt; + Unpin,
-</span></code></pre><h2 id="storing-the-results-from-an-async-fn-in-a-struct">Storing the results from an <code>async fn</code> in a struct</h2>
+</span><span>    S</span><span style="color:#ccc9c2cc;">: </span><span>Stream&lt;Item = </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span>&lt;Bytes, E&gt;&gt; + Unpin,
+</span></code></pre>
+<h2 id="storing-the-results-from-an-async-fn-in-a-struct">Storing the results from an <code>async fn</code> in a struct</h2>
 <p>Some of the methods in tokio are returns from an <code>async fn</code> , like the <a href="https://docs.rs/tokio/0.2.10/tokio/fs/struct.File.html#method.open">File::open</a> method, which I use for <code>FileStream</code>.  I found the answer on <a href="https://stackoverflow.com/questions/58354633/cannot-use-impl-future-to-store-async-function-in-a-vector">stack overflow</a> as to how to do this with <code>std::future</code>, since <code>async fn</code> returns an opaque type.</p>
 <p>For the older version, the OpenFuture was a concrete type:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">pub struct </span><span style="color:#73d0ff;">FileStream </span><span style="color:#ccc9c2;">{
-    inner</span><span style="color:#ccc9c2cc;">: </span><span style="font-style:italic;color:#5ccfe6;">Option</span><span style="color:#ccc9c2;">&lt;FramedRead&lt;File, BytesCodec&gt;&gt;,
-    file</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ccc9c2;">OpenFuture&lt;PathBuf&gt;,
-}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">pub struct </span><span style="color:#73d0ff;">FileStream </span><span>{
+</span><span>    inner</span><span style="color:#ccc9c2cc;">: </span><span style="font-style:italic;color:#5ccfe6;">Option</span><span>&lt;FramedRead&lt;File, BytesCodec&gt;&gt;,
+</span><span>    file</span><span style="color:#ccc9c2cc;">: </span><span>OpenFuture&lt;PathBuf&gt;,
+</span><span>}
 </span></code></pre>
 <p>The newer version is a return from an <code>async fn</code> and is opaque, so we wrap it using <code>Box::pin</code>:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">pub struct </span><span style="color:#73d0ff;">FileStream </span><span style="color:#ccc9c2;">{
-    inner</span><span style="color:#ccc9c2cc;">: </span><span style="font-style:italic;color:#5ccfe6;">Option</span><span style="color:#ccc9c2;">&lt;FramedRead&lt;File, BytesCodec&gt;&gt;,
-    file</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ccc9c2;">Pin&lt;</span><span style="font-style:italic;color:#5ccfe6;">Box</span><span style="color:#ccc9c2;">&lt;dyn Future&lt;Output = </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span style="color:#ccc9c2;">&lt;File, Error&gt;&gt; </span><span style="color:#f29e74;">+ </span><span style="font-style:italic;color:#5ccfe6;">Send </span><span style="color:#f29e74;">+ </span><span style="font-style:italic;color:#5ccfe6;">Sync</span><span style="color:#ccc9c2;">&gt;&gt;,
-}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">pub struct </span><span style="color:#73d0ff;">FileStream </span><span>{
+</span><span>    inner</span><span style="color:#ccc9c2cc;">: </span><span style="font-style:italic;color:#5ccfe6;">Option</span><span>&lt;FramedRead&lt;File, BytesCodec&gt;&gt;,
+</span><span>    file</span><span style="color:#ccc9c2cc;">: </span><span>Pin&lt;</span><span style="font-style:italic;color:#5ccfe6;">Box</span><span>&lt;dyn Future&lt;Output = </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span>&lt;File, Error&gt;&gt; </span><span style="color:#f29e74;">+ </span><span style="font-style:italic;color:#5ccfe6;">Send </span><span style="color:#f29e74;">+ </span><span style="font-style:italic;color:#5ccfe6;">Sync</span><span>&gt;&gt;,
+</span><span>}
 </span></code></pre>
 <p>You can then instantiate this with:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#5ccfe6;">Box</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">pin(File</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">open(file</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">into</span><span style="color:#ccc9c2;">()))
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#5ccfe6;">Box</span><span style="color:#f29e74;">::</span><span>pin(File</span><span style="color:#f29e74;">::</span><span>open(file</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">into</span><span>()))
 </span></code></pre>
 <p>Then it's easy to call passing on the context from an existing <code>poll()</code>:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">file</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">as_mut</span><span style="color:#ccc9c2;">()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">poll</span><span style="color:#ccc9c2;">(cx)
-</span></code></pre><h2 id="notifying-a-task">Notifying a task</h2>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span>file</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">as_mut</span><span>()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">poll</span><span>(cx)
+</span></code></pre>
+<h2 id="notifying-a-task">Notifying a task</h2>
 <p><code>FileStream</code> has two stages.  One is the future to open the file. The second is streaming out the bytes of the file.  When the future resolves to open the file, I want to notify the context that it should be polled again to start streaming.</p>
 <p>The old way of doing this was <code>task::current().notify()</code>:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">inner </span><span style="color:#f29e74;">= </span><span style="font-style:italic;color:#5ccfe6;">Some</span><span style="color:#ccc9c2;">(FramedRead</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new(file</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ccc9c2;">BytesCodec</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new()))</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">task</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">current()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">notify</span><span style="color:#ccc9c2;">()</span><span style="color:#ccc9c2cc;">;
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span>inner </span><span style="color:#f29e74;">= </span><span style="font-style:italic;color:#5ccfe6;">Some</span><span>(FramedRead</span><span style="color:#f29e74;">::</span><span>new(file</span><span style="color:#ccc9c2cc;">, </span><span>BytesCodec</span><span style="color:#f29e74;">::</span><span>new()))</span><span style="color:#ccc9c2cc;">;
+</span><span>task</span><span style="color:#f29e74;">::</span><span>current()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">notify</span><span>()</span><span style="color:#ccc9c2cc;">;
 </span></code></pre>
 <p>The new way appears to be using  <code>cx.waker().wake_by_ref()</code> where <code>cx</code> is the context received from the poll:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">inner </span><span style="color:#f29e74;">= </span><span style="font-style:italic;color:#5ccfe6;">Some</span><span style="color:#ccc9c2;">(FramedRead</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new(file</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ccc9c2;">BytesCodec</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new()))</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">cx</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">waker</span><span style="color:#ccc9c2;">()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">wake_by_ref</span><span style="color:#ccc9c2;">()</span><span style="color:#ccc9c2cc;">;
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span>inner </span><span style="color:#f29e74;">= </span><span style="font-style:italic;color:#5ccfe6;">Some</span><span>(FramedRead</span><span style="color:#f29e74;">::</span><span>new(file</span><span style="color:#ccc9c2cc;">, </span><span>BytesCodec</span><span style="color:#f29e74;">::</span><span>new()))</span><span style="color:#ccc9c2cc;">;
+</span><span>cx</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">waker</span><span>()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">wake_by_ref</span><span>()</span><span style="color:#ccc9c2cc;">;
 </span></code></pre>
 <p>I say appears because the test written works without <code>wake_by_ref()</code> being called.  Requires a bit more investigation here I think to know exactly what's going on.  My <a href="https://github.com/cetra3/mpart-async/blob/981ba0437e19fa47f94a913cf9aaa4717fbe12bc/src/filestream.rs#L56">simple test example</a> works either way, strangely.</p>
 <h2 id="conclusion">Conclusion</h2>

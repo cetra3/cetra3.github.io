@@ -47,90 +47,85 @@
 <h2 id="what-is-lorikeet">What is Lorikeet</h2>
 <p><strong>Lorikeet</strong> is a command line tool and a rust library to run tests for smoke testing and integration testing.  <em>Lorikeet</em> currently supports bash commands and simple HTTP requests along with system information (RAM, Disk &amp; CPU).  There is more information on the <a href="https://github.com/cetra3/lorikeet">github readme</a> about how to write test files, including how to structure dependent tests and make assertions on the output.</p>
 <p>As a simple example, here's a test plan to check to see whether reddit is up, and then tries to login if it is:</p>
-<pre style="background-color:#212733;">
-<code class="language-yaml" data-lang="yaml"><span style="color:#73d0ff;">check_reddit</span><span style="color:#ccc9c2cc;">:
-  </span><span style="color:#73d0ff;">http</span><span style="color:#ccc9c2cc;">: </span><span style="color:#73d0ff;">https://www.reddit.com
-  regex</span><span style="color:#ccc9c2cc;">: </span><span style="color:#73d0ff;">the front page of the internet
-
-login_to_reddit</span><span style="color:#ccc9c2cc;">:
-  </span><span style="color:#73d0ff;">http</span><span style="color:#ccc9c2cc;">: 
-    </span><span style="color:#73d0ff;">url</span><span style="color:#ccc9c2cc;">: </span><span style="color:#73d0ff;">https://www.reddit.com/api/login/{{user}}
-    form</span><span style="color:#ccc9c2cc;">:
-      </span><span style="color:#73d0ff;">user</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ccc9c2;">{{</span><span style="color:#bae67e;">user</span><span style="color:#ccc9c2;">}}
-      </span><span style="color:#73d0ff;">passwd</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ccc9c2;">{{</span><span style="color:#bae67e;">pass</span><span style="color:#ccc9c2;">}}
-      </span><span style="color:#73d0ff;">api_type</span><span style="color:#ccc9c2cc;">: </span><span style="color:#73d0ff;">json
-  jmespath</span><span style="color:#ccc9c2cc;">: </span><span style="color:#73d0ff;">length(json.errors)
-  matches</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffcc66;">0
-  </span><span style="color:#73d0ff;">require</span><span style="color:#ccc9c2cc;">:
-    </span><span style="color:#ccc9c2;">- </span><span style="color:#bae67e;">check_reddit
+<pre data-lang="yaml" style="background-color:#212733;color:#ccc9c2;" class="language-yaml "><code class="language-yaml" data-lang="yaml"><span style="color:#73d0ff;">check_reddit</span><span style="color:#ccc9c2cc;">:
+</span><span>  </span><span style="color:#73d0ff;">http</span><span style="color:#ccc9c2cc;">: </span><span style="color:#bae67e;">https://www.reddit.com
+</span><span>  </span><span style="color:#73d0ff;">regex</span><span style="color:#ccc9c2cc;">: </span><span style="color:#bae67e;">the front page of the internet
+</span><span>
+</span><span style="color:#73d0ff;">login_to_reddit</span><span style="color:#ccc9c2cc;">:
+</span><span>  </span><span style="color:#73d0ff;">http</span><span style="color:#ccc9c2cc;">: 
+</span><span>    </span><span style="color:#73d0ff;">url</span><span style="color:#ccc9c2cc;">: </span><span style="color:#bae67e;">https://www.reddit.com/api/login/{{user}}
+</span><span>    </span><span style="color:#73d0ff;">form</span><span style="color:#ccc9c2cc;">:
+</span><span>      </span><span style="color:#73d0ff;">user</span><span style="color:#ccc9c2cc;">: </span><span>{{</span><span style="color:#bae67e;">user</span><span>}}
+</span><span>      </span><span style="color:#73d0ff;">passwd</span><span style="color:#ccc9c2cc;">: </span><span>{{</span><span style="color:#bae67e;">pass</span><span>}}
+</span><span>      </span><span style="color:#73d0ff;">api_type</span><span style="color:#ccc9c2cc;">: </span><span style="color:#bae67e;">json
+</span><span>  </span><span style="color:#73d0ff;">jmespath</span><span style="color:#ccc9c2cc;">: </span><span style="color:#bae67e;">length(json.errors)
+</span><span>  </span><span style="color:#73d0ff;">matches</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffcc66;">0
+</span><span>  </span><span style="color:#73d0ff;">require</span><span style="color:#ccc9c2cc;">:
+</span><span>    - </span><span style="color:#bae67e;">check_reddit
 </span></code></pre>
 <p>You can run this as a simple cli command, ensuring that you have a <code>config.yml</code> looks something like:</p>
-<pre style="background-color:#212733;">
-<code class="language-yaml" data-lang="yaml"><span style="color:#73d0ff;">user</span><span style="color:#ccc9c2cc;">: </span><span style="color:#73d0ff;">test
-pass</span><span style="color:#ccc9c2cc;">: </span><span style="color:#bae67e;">test
+<pre data-lang="yaml" style="background-color:#212733;color:#ccc9c2;" class="language-yaml "><code class="language-yaml" data-lang="yaml"><span style="color:#73d0ff;">user</span><span style="color:#ccc9c2cc;">: </span><span style="color:#bae67e;">test
+</span><span style="color:#73d0ff;">pass</span><span style="color:#ccc9c2cc;">: </span><span style="color:#bae67e;">test
 </span></code></pre>
 <p>Running it you will see the results:</p>
-<pre style="background-color:#212733;">
-<code class="language-yaml" data-lang="yaml"><span style="color:#73d0ff;">$ lorikeet -c config.yml test.yml
-</span><span style="color:#ccc9c2;">- </span><span style="color:#73d0ff;">name</span><span style="color:#ccc9c2cc;">: </span><span style="color:#73d0ff;">check_reddit
-  pass</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffcc66;">true
-  </span><span style="color:#73d0ff;">output</span><span style="color:#ccc9c2cc;">: </span><span style="color:#73d0ff;">the front page of the internet
-  duration</span><span style="color:#ccc9c2cc;">: </span><span style="color:#73d0ff;">1416.591ms
-
-</span><span style="color:#ccc9c2;">- </span><span style="color:#73d0ff;">name</span><span style="color:#ccc9c2cc;">: </span><span style="color:#73d0ff;">login_to_reddit
-  pass</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffcc66;">true
-  </span><span style="color:#73d0ff;">output</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffcc66;">0
-  </span><span style="color:#73d0ff;">duration</span><span style="color:#ccc9c2cc;">: </span><span style="color:#bae67e;">1089.0276ms
-</span></code></pre><h2 id="skipping-futures-0-1">Skipping futures 0.1</h2>
+<pre data-lang="yaml" style="background-color:#212733;color:#ccc9c2;" class="language-yaml "><code class="language-yaml" data-lang="yaml"><span style="color:#bae67e;">$ lorikeet -c config.yml test.yml
+</span><span>- </span><span style="color:#73d0ff;">name</span><span style="color:#ccc9c2cc;">: </span><span style="color:#bae67e;">check_reddit
+</span><span>  </span><span style="color:#73d0ff;">pass</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffcc66;">true
+</span><span>  </span><span style="color:#73d0ff;">output</span><span style="color:#ccc9c2cc;">: </span><span style="color:#bae67e;">the front page of the internet
+</span><span>  </span><span style="color:#73d0ff;">duration</span><span style="color:#ccc9c2cc;">: </span><span style="color:#bae67e;">1416.591ms
+</span><span>
+</span><span>- </span><span style="color:#73d0ff;">name</span><span style="color:#ccc9c2cc;">: </span><span style="color:#bae67e;">login_to_reddit
+</span><span>  </span><span style="color:#73d0ff;">pass</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffcc66;">true
+</span><span>  </span><span style="color:#73d0ff;">output</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffcc66;">0
+</span><span>  </span><span style="color:#73d0ff;">duration</span><span style="color:#ccc9c2cc;">: </span><span style="color:#bae67e;">1089.0276ms
+</span></code></pre>
+<h2 id="skipping-futures-0-1">Skipping futures 0.1</h2>
 <p>In retrospect, I am glad that I skipped out on rewriting lorikeet with the classic combinator style futures.  The migration from standard blocking code to async code is much easier than writing from combinators.  Having done the former with <a href="../mpart-async-0-3-0/">mpart-async</a>, it felt quite easy to sprinkle in a few <code>async</code> and <code>await</code> statements to get things all wired up.</p>
 <p>As an example, <a href="https://github.com/cetra3/lorikeet/blob/0.10.0/src/step.rs#L391-L394">waiting for the request</a> used to be:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let mut</span><span style="color:#ccc9c2;"> response </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> client
-    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">execute</span><span style="color:#ccc9c2;">(request</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">build</span><span style="color:#ccc9c2;">()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map_err</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">err</span><span style="color:#ccc9c2;">| </span><span style="color:#f28779;">format!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;</span><span style="color:#ffcc66;">{:?}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> err))</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2;">)
-    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map_err</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">err</span><span style="color:#ccc9c2;">| </span><span style="color:#f28779;">format!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;Error connecting to url </span><span style="color:#ffcc66;">{}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> err))</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let mut</span><span> response </span><span style="color:#f29e74;">=</span><span> client
+</span><span>    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">execute</span><span>(request</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">build</span><span>()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map_err</span><span>(|</span><span style="color:#ffcc66;">err</span><span>| </span><span style="color:#f28779;">format!</span><span>(</span><span style="color:#bae67e;">&quot;</span><span style="color:#ffcc66;">{:?}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span> err))</span><span style="color:#f29e74;">?</span><span>)
+</span><span>    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map_err</span><span>(|</span><span style="color:#ffcc66;">err</span><span>| </span><span style="color:#f28779;">format!</span><span>(</span><span style="color:#bae67e;">&quot;Error connecting to url </span><span style="color:#ffcc66;">{}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span> err))</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
 </span></code></pre>
 <p>Now, with async, things are not much different:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> response </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> client
-    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">execute</span><span style="color:#ccc9c2;">(request</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">build</span><span style="color:#ccc9c2;">()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map_err</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">err</span><span style="color:#ccc9c2;">| </span><span style="color:#f28779;">format!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;</span><span style="color:#ffcc66;">{:?}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> err))</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2;">)
-    </span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await
-    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map_err</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">err</span><span style="color:#ccc9c2;">| </span><span style="color:#f28779;">format!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;Error connecting to url </span><span style="color:#ffcc66;">{}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> err))</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-</span></code></pre><h2 id="using-tokio-sync-primitives">Using tokio sync primitives</h2>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let</span><span> response </span><span style="color:#f29e74;">=</span><span> client
+</span><span>    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">execute</span><span>(request</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">build</span><span>()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map_err</span><span>(|</span><span style="color:#ffcc66;">err</span><span>| </span><span style="color:#f28779;">format!</span><span>(</span><span style="color:#bae67e;">&quot;</span><span style="color:#ffcc66;">{:?}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span> err))</span><span style="color:#f29e74;">?</span><span>)
+</span><span>    </span><span style="color:#f29e74;">.</span><span>await
+</span><span>    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map_err</span><span>(|</span><span style="color:#ffcc66;">err</span><span>| </span><span style="color:#f28779;">format!</span><span>(</span><span style="color:#bae67e;">&quot;Error connecting to url </span><span style="color:#ffcc66;">{}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span> err))</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span></code></pre>
+<h2 id="using-tokio-sync-primitives">Using tokio sync primitives</h2>
 <p>Tokio has a few primitives that are very close to their std counterparts.</p>
 <p>Lorikeet now uses a <a href="https://docs.rs/tokio/0.2.18/tokio/sync/struct.Mutex.html">tokio mutex</a> to record the outcome of each of the steps:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ccc9c2;">steps</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">lock</span><span style="color:#ccc9c2;">()</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await[index] </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">Status</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Completed(outcome)</span><span style="color:#ccc9c2cc;">;
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>steps</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">lock</span><span>()</span><span style="color:#f29e74;">.</span><span>await[index] </span><span style="color:#f29e74;">= </span><span>Status</span><span style="color:#f29e74;">::</span><span>Completed(outcome)</span><span style="color:#ccc9c2cc;">;
 </span></code></pre>
 <p>Also using an <a href="https://docs.rs/tokio/0.2.18/tokio/sync/mpsc/fn.unbounded_channel.html">unbounded channel</a> so each step can inform the main runner when they are finished:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let </span><span style="color:#ccc9c2;">(tx</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffa759;">mut</span><span style="color:#ccc9c2;"> rx) </span><span style="color:#f29e74;">= </span><span style="color:#f28779;">unbounded_channel</span><span style="color:#ccc9c2;">()</span><span style="color:#ccc9c2cc;">;
-
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let </span><span>(tx</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffa759;">mut</span><span> rx) </span><span style="color:#f29e74;">= </span><span style="color:#f28779;">unbounded_channel</span><span>()</span><span style="color:#ccc9c2cc;">;
+</span><span>
 </span><span style="font-style:italic;color:#5c6773;">// later on....
-
-</span><span style="color:#ffa759;">if let </span><span style="font-style:italic;color:#5ccfe6;">Some</span><span style="color:#ccc9c2;">(finished_idx) </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> rx</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">recv</span><span style="color:#ccc9c2;">()</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await {
-  </span><span style="color:#f29e74;">...
-</span><span style="color:#ccc9c2;">}
+</span><span>
+</span><span style="color:#ffa759;">if let </span><span style="font-style:italic;color:#5ccfe6;">Some</span><span>(finished_idx) </span><span style="color:#f29e74;">=</span><span> rx</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">recv</span><span>()</span><span style="color:#f29e74;">.</span><span>await {
+</span><span>  </span><span style="color:#f29e74;">...
+</span><span>}
 </span></code></pre>
 <p>Interesting to note that the <code>UnboundedSender</code> <code>send()</code> method is not async and does not block either.</p>
 <h2 id="multipart-file-uploads">Multipart File Uploads</h2>
 <p>The new version of reqwest <a href="https://github.com/seanmonstar/reqwest/issues/646">does not support file uploads</a> easily.  You don't want to buffer the entire file in memory.  Luckily I have had some experience on how to wire this up with <a href="https://crates.io/crates/mpart-async">mpart-async</a>, and can reuse some of the learnings there.</p>
 <p>This does require the <a href="https://crates.io/crates/tokio-util">tokio-util</a> crate, which bridges <code>AsyncRead</code>/<code>AsyncWrite</code> with <code>Sink</code>/<code>Stream</code>.</p>
 <p>The relevent glue section <a href="https://github.com/cetra3/lorikeet/blob/ef8ba4a0f08e82d4cb33524b9e74cc50beec9078/src/step/http.rs#L157-L167">is as follows</a>:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> file_name </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> path_struct
-    </span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">file
-    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">file_name</span><span style="color:#ccc9c2;">()
-    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">val</span><span style="color:#ccc9c2;">| val</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">to_string_lossy</span><span style="color:#ccc9c2;">()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">to_string</span><span style="color:#ccc9c2;">())
-    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">unwrap_or_default</span><span style="color:#ccc9c2;">()</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> file </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">File</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">open(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">path_struct</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">file)
-    </span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await
-    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map_err</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">err</span><span style="color:#ccc9c2;">| </span><span style="color:#f28779;">format!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;</span><span style="color:#ffcc66;">{:?}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> err))</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> reader </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">Body</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">wrap_stream(FramedRead</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new(file</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ccc9c2;">BytesCodec</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new()))</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ccc9c2;">form</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">part</span><span style="color:#ccc9c2;">(key</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ccc9c2;">Part</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">stream(reader)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">file_name</span><span style="color:#ccc9c2;">(file_name)
-</span></code></pre><h2 id="detecting-blocking-code">Detecting Blocking Code</h2>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let</span><span> file_name </span><span style="color:#f29e74;">=</span><span> path_struct
+</span><span>    </span><span style="color:#f29e74;">.</span><span>file
+</span><span>    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">file_name</span><span>()
+</span><span>    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map</span><span>(|</span><span style="color:#ffcc66;">val</span><span>| val</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">to_string_lossy</span><span>()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">to_string</span><span>())
+</span><span>    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">unwrap_or_default</span><span>()</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span style="color:#ffa759;">let</span><span> file </span><span style="color:#f29e74;">= </span><span>File</span><span style="color:#f29e74;">::</span><span>open(</span><span style="color:#f29e74;">&amp;</span><span>path_struct</span><span style="color:#f29e74;">.</span><span>file)
+</span><span>    </span><span style="color:#f29e74;">.</span><span>await
+</span><span>    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map_err</span><span>(|</span><span style="color:#ffcc66;">err</span><span>| </span><span style="color:#f28779;">format!</span><span>(</span><span style="color:#bae67e;">&quot;</span><span style="color:#ffcc66;">{:?}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span> err))</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span style="color:#ffa759;">let</span><span> reader </span><span style="color:#f29e74;">= </span><span>Body</span><span style="color:#f29e74;">::</span><span>wrap_stream(FramedRead</span><span style="color:#f29e74;">::</span><span>new(file</span><span style="color:#ccc9c2cc;">, </span><span>BytesCodec</span><span style="color:#f29e74;">::</span><span>new()))</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>form</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">part</span><span>(key</span><span style="color:#ccc9c2cc;">, </span><span>Part</span><span style="color:#f29e74;">::</span><span>stream(reader)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">file_name</span><span>(file_name)
+</span></code></pre>
+<h2 id="detecting-blocking-code">Detecting Blocking Code</h2>
 <p>There is no annotation or warning whenever you are using blocking code in an async context.  This is an issue especially when porting over older code which was previously blocking.  Chances are I have missed a few sections that are blocking and will need to revisit them accordingly.</p>
 <p>Luckily, the fail case for blocking code is usually reduced throughput, down to the number of worker threads, so it is not cataclysmic if there are some blocking sections in your async code.</p>
 <h2 id="conclusion">Conclusion</h2>

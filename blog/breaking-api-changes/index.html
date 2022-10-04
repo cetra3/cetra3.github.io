@@ -84,30 +84,28 @@ to prevent the breakage from affecting dependencies.</p>
 <p>Another RFC related to versioning is <a href="https://github.com/rust-lang/rfcs/blob/master/text/2008-non-exhaustive.md">Non-Exhaustive</a>, which is a handy way of planning breaking changes ahead of time.  It works with enums by forcing open ended <code>match</code> statements, which means consumers of your enum won't break if a new variant is introducted. It also works with structs and ensures users consuming libraries can't create them.</p>
 <p>This was recently <a href="https://blog.rust-lang.org/2019/12/19/Rust-1.40.0.html">stabilised in Rust 1.40</a> so it's a rather new feature of the language (on a side note: it's not easy to find when a particular RFC is stabilised, it would be great to have this reflected in the RFC somewhere).</p>
 <p>As an example if you have an enum like this:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ccc9c2cc;">#</span><span style="color:#ccc9c2;">[</span><span style="color:#ffd580;">non_exhaustive</span><span style="color:#ccc9c2;">]
-</span><span style="color:#ffa759;">pub enum </span><span style="color:#73d0ff;">Error </span><span style="color:#ccc9c2;">{
-    Message(</span><span style="font-style:italic;color:#5ccfe6;">String</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">    Other</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ccc9c2cc;">#</span><span>[</span><span style="color:#ffd580;">non_exhaustive</span><span>]
+</span><span style="color:#ffa759;">pub enum </span><span style="color:#73d0ff;">Error </span><span>{
+</span><span>    Message(</span><span style="font-style:italic;color:#5ccfe6;">String</span><span>)</span><span style="color:#ccc9c2cc;">,
+</span><span>    Other</span><span style="color:#ccc9c2cc;">,
+</span><span>}
 </span></code></pre>
 <p>You would need to <code>match</code> against the enum like this:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">match</span><span style="color:#ccc9c2;"> error {
-    Message(</span><span style="color:#ffa759;">ref</span><span style="color:#ccc9c2;"> s) </span><span style="color:#f29e74;">=&gt; ...</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">    Other </span><span style="color:#f29e74;">=&gt; ...</span><span style="color:#ccc9c2cc;">,
-    </span><span style="color:#f29e74;">_ =&gt; ...</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">match</span><span> error {
+</span><span>    Message(</span><span style="color:#ffa759;">ref</span><span> s) </span><span style="color:#f29e74;">=&gt; ...</span><span style="color:#ccc9c2cc;">,
+</span><span>    Other </span><span style="color:#f29e74;">=&gt; ...</span><span style="color:#ccc9c2cc;">,
+</span><span>    </span><span style="color:#f29e74;">_ =&gt; ...</span><span style="color:#ccc9c2cc;">,
+</span><span>}
 </span></code></pre>
 <p>Your library could then introduce a new variant, which wouldn't break the existing consumer:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ccc9c2cc;">#</span><span style="color:#ccc9c2;">[</span><span style="color:#ffd580;">non_exhaustive</span><span style="color:#ccc9c2;">]
-</span><span style="color:#ffa759;">pub enum </span><span style="color:#73d0ff;">Error </span><span style="color:#ccc9c2;">{
-    Message(</span><span style="font-style:italic;color:#5ccfe6;">String</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">    IOError</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">    Other</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">}
-</span></code></pre><h2 id="other-tools">Other Tools</h2>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ccc9c2cc;">#</span><span>[</span><span style="color:#ffd580;">non_exhaustive</span><span>]
+</span><span style="color:#ffa759;">pub enum </span><span style="color:#73d0ff;">Error </span><span>{
+</span><span>    Message(</span><span style="font-style:italic;color:#5ccfe6;">String</span><span>)</span><span style="color:#ccc9c2cc;">,
+</span><span>    IOError</span><span style="color:#ccc9c2cc;">,
+</span><span>    Other</span><span style="color:#ccc9c2cc;">,
+</span><span>}
+</span></code></pre>
+<h2 id="other-tools">Other Tools</h2>
 <p>There have been some tools to both manage breaking changes in the past, a lot of the things I found were unmaintained or not in active use.  There might also be some great language features that I haven't discovered yet that crate authors are already using.</p>
 <h3 id="the-semver-trick">The Semver Trick</h3>
 <p>Documented here is the <a href="https://github.com/dtolnay/semver-trick">semver trick</a>, which touts to be able to assist in this with downstream dependencies.</p>

@@ -56,52 +56,48 @@
 <h3 id="the-tcp-stream">The TCP Stream</h3>
 <p>The TCP stream is your standard tcp connection.  In tokio, you can either <code>bind</code> or <code>connect</code> to a TCP socket.</p>
 <p>With <code>connect</code>, you will get a straight tcp stream, if successful:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> tcp_stream </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">TcpStream</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">connect(</span><span style="color:#bae67e;">&quot;127.0.0.1:17653&quot;</span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let</span><span> tcp_stream </span><span style="color:#f29e74;">= </span><span>TcpStream</span><span style="color:#f29e74;">::</span><span>connect(</span><span style="color:#bae67e;">&quot;127.0.0.1:17653&quot;</span><span>)</span><span style="color:#f29e74;">.</span><span>await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
 </span></code></pre>
 <p>With <code>bind</code> you will get a listener, which will produce tcp streams when new connections come in:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let mut</span><span style="color:#ccc9c2;"> listener </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">TcpListener</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">bind(</span><span style="color:#bae67e;">&quot;127.0.0.1:17653&quot;</span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ffa759;">while let </span><span style="font-style:italic;color:#5ccfe6;">Some</span><span style="color:#ccc9c2;">(tcp_stream) </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> listener</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">try_next</span><span style="color:#ccc9c2;">()</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await</span><span style="color:#f29e74;">? </span><span style="color:#ccc9c2;">{
-    </span><span style="font-style:italic;color:#5c6773;">//do something with the tcp stream
-</span><span style="color:#ccc9c2;">}
-</span></code></pre><h3 id="the-frame">The Frame</h3>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let mut</span><span> listener </span><span style="color:#f29e74;">= </span><span>TcpListener</span><span style="color:#f29e74;">::</span><span>bind(</span><span style="color:#bae67e;">&quot;127.0.0.1:17653&quot;</span><span>)</span><span style="color:#f29e74;">.</span><span>await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span style="color:#ffa759;">while let </span><span style="font-style:italic;color:#5ccfe6;">Some</span><span>(tcp_stream) </span><span style="color:#f29e74;">=</span><span> listener</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">try_next</span><span>()</span><span style="color:#f29e74;">.</span><span>await</span><span style="color:#f29e74;">? </span><span>{
+</span><span>    </span><span style="font-style:italic;color:#5c6773;">//do something with the tcp stream
+</span><span>}
+</span></code></pre>
+<h3 id="the-frame">The Frame</h3>
 <p>Ok so we have bytes coming across the wire now from our standard TCP stream.  As bytes come in, the tcp stream will be woken up so work can commence on it.  But TCP streams do not have a beginning or end, they are just a stream of bytes. We need something to <em>break</em> up this stream of bytes into discrete objects.  This is where <code>tokio_util::codec::Framed</code> comes in: it chunks down bytes on the wire into frames.</p>
 <p>The <code>tokio_util</code> crate comes with the <a href="https://docs.rs/tokio-util/0.3.1/tokio_util/codec/trait.Encoder.html">Encoder</a>/<a href="https://docs.rs/tokio-util/0.3.1/tokio_util/codec/trait.Decoder.html">Decoder</a> traits which allow you to implement this.  <code>tokio-util</code> also comes with a simple, <a href="https://docs.rs/tokio-util/0.3.1/tokio_util/codec/length_delimited/index.html">Length Delimited Codec</a> which, on the wire looks like this:</p>
-<pre style="background-color:#212733;">
-<code><span style="color:#ccc9c2;">+----------+--------------------------------+
-| length   |          payload               |
-+----------+--------------------------------+
+<pre style="background-color:#212733;color:#ccc9c2;"><code><span>+----------+--------------------------------+
+</span><span>| length   |          payload               |
+</span><span>+----------+--------------------------------+
 </span></code></pre>
 <p>When decoding, this will read the length header, allocate some memory and wait until the payload is fully delivered.  If there are not enough bytes on the wire to do this, then it will be continuously polled until it is ready, keeping around a buffer. The semantics of <code>Decoder</code> mean that if you return no bytes, then it's an indication there needs to be more to decode a frame successfully.</p>
 <p>When encoding, the whole thing is ready to go, so tack on the length, your payload and let tokio handle the rest.</p>
 <h3 id="the-serde-frame">The Serde Frame</h3>
 <p>We now have some raw bytes that have been bundled into frames which can be encoded/decoded from the raw bytes into something more meaningful.  Rather than implement this by hand, we can rely on <code>tokio-serde</code> with one of the existing codecs, such as JSON, CBOR, Bincode or Messagepack.</p>
 <p>Our existing job queue uses CBOR so we'll use that here as well.  We can use the same messages <a href="https://github.com/cetra3/jobq/blob/master/src/lib.rs">we have previously used</a> but we will condense down the Client/Worker to just <a href="https://github.com/cetra3/jobq/blob/518c6c025a9e10477819fcc87acf8747383e9ba3/src/lib.rs#L21-L25"><code>ClientMessage</code></a>:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ccc9c2cc;">#</span><span style="color:#ccc9c2;">[</span><span style="color:#ffd580;">derive</span><span style="color:#ccc9c2;">(Serialize</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> Deserialize</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> Debug)]
-</span><span style="color:#ffa759;">pub enum </span><span style="color:#73d0ff;">ServerMessage </span><span style="color:#ccc9c2;">{
-    Hello(</span><span style="font-style:italic;color:#5ccfe6;">String</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">, </span><span style="font-style:italic;color:#5c6773;">// Hello with client name
-</span><span style="color:#ccc9c2;">    Request(JobRequest)</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">    Completed(Job)</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">    Failed(Job</span><span style="color:#ccc9c2cc;">, </span><span style="font-style:italic;color:#5ccfe6;">String</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">}
-
-</span><span style="color:#ccc9c2cc;">#</span><span style="color:#ccc9c2;">[</span><span style="color:#ffd580;">derive</span><span style="color:#ccc9c2;">(Serialize</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> Deserialize</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> Debug)]
-</span><span style="color:#ffa759;">pub enum </span><span style="color:#73d0ff;">ClientMessage </span><span style="color:#ccc9c2;">{
-    Hello(</span><span style="font-style:italic;color:#5ccfe6;">String</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">    Order(Job)</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">    Acknowledged(Job)</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ccc9c2cc;">#</span><span>[</span><span style="color:#ffd580;">derive</span><span>(Serialize</span><span style="color:#ccc9c2cc;">,</span><span> Deserialize</span><span style="color:#ccc9c2cc;">,</span><span> Debug)]
+</span><span style="color:#ffa759;">pub enum </span><span style="color:#73d0ff;">ServerMessage </span><span>{
+</span><span>    Hello(</span><span style="font-style:italic;color:#5ccfe6;">String</span><span>)</span><span style="color:#ccc9c2cc;">, </span><span style="font-style:italic;color:#5c6773;">// Hello with client name
+</span><span>    Request(JobRequest)</span><span style="color:#ccc9c2cc;">,
+</span><span>    Completed(Job)</span><span style="color:#ccc9c2cc;">,
+</span><span>    Failed(Job</span><span style="color:#ccc9c2cc;">, </span><span style="font-style:italic;color:#5ccfe6;">String</span><span>)</span><span style="color:#ccc9c2cc;">,
+</span><span>}
+</span><span>
+</span><span style="color:#ccc9c2cc;">#</span><span>[</span><span style="color:#ffd580;">derive</span><span>(Serialize</span><span style="color:#ccc9c2cc;">,</span><span> Deserialize</span><span style="color:#ccc9c2cc;">,</span><span> Debug)]
+</span><span style="color:#ffa759;">pub enum </span><span style="color:#73d0ff;">ClientMessage </span><span>{
+</span><span>    Hello(</span><span style="font-style:italic;color:#5ccfe6;">String</span><span>)</span><span style="color:#ccc9c2cc;">,
+</span><span>    Order(Job)</span><span style="color:#ccc9c2cc;">,
+</span><span>    Acknowledged(Job)</span><span style="color:#ccc9c2cc;">,
+</span><span>}
 </span></code></pre>
 <p>Putting these 3 layers together, we get a <code>Stream</code>/<code>Sink</code> we can send values to:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> tcp_stream </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">TcpStream</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">connect(addr)</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> length_delimited </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">tokio_util</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">codec</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Framed</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new(tcp_stream</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ccc9c2;">LengthDelimitedCodec</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new())</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> connection </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">tokio_serde</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Framed</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new(length_delimited</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ccc9c2;">Cbor</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">default())</span><span style="color:#ccc9c2cc;">;
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let</span><span> tcp_stream </span><span style="color:#f29e74;">= </span><span>TcpStream</span><span style="color:#f29e74;">::</span><span>connect(addr)</span><span style="color:#f29e74;">.</span><span>await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span style="color:#ffa759;">let</span><span> length_delimited </span><span style="color:#f29e74;">= </span><span>tokio_util</span><span style="color:#f29e74;">::</span><span>codec</span><span style="color:#f29e74;">::</span><span>Framed</span><span style="color:#f29e74;">::</span><span>new(tcp_stream</span><span style="color:#ccc9c2cc;">, </span><span>LengthDelimitedCodec</span><span style="color:#f29e74;">::</span><span>new())</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span style="color:#ffa759;">let</span><span> connection </span><span style="color:#f29e74;">= </span><span>tokio_serde</span><span style="color:#f29e74;">::</span><span>Framed</span><span style="color:#f29e74;">::</span><span>new(length_delimited</span><span style="color:#ccc9c2cc;">, </span><span>Cbor</span><span style="color:#f29e74;">::</span><span>default())</span><span style="color:#ccc9c2cc;">;
 </span></code></pre>
 <p>With that we have our transport that we want: length delimited cbor frames.  On the wire this is not too different to ZeroMQ, but would probably shave a few bytes here and there.  Now we need to implement the Server/Client components.</p>
 <h2 id="implementing-a-server">Implementing a Server</h2>
@@ -120,174 +116,171 @@
 <h4 id="pending-clients">Pending Clients</h4>
 <p>How do we know the client name when connecting?  Well we can implement a list of pending clients.  When they send a <code>ServerMessage::Hello</code>  message, we can then put them in our known clients list.  This is a pretty lightweight handshake, but accomplishes our goals.</p>
 <p>First, we convert the tcp stream from listener into a list of pending clients:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> self_mut </span><span style="color:#f29e74;">= &amp;</span><span style="color:#ffa759;">mut </span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">as_mut</span><span style="color:#ccc9c2;">()</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ffa759;">if let </span><span style="color:#ccc9c2;">Poll</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Ready(val) </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">Pin</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span style="color:#ccc9c2;"> self_mut</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">listener)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">poll_next</span><span style="color:#ccc9c2;">(cx) {
-    </span><span style="color:#ffa759;">match</span><span style="color:#ccc9c2;"> val {
-        </span><span style="font-style:italic;color:#5ccfe6;">Some</span><span style="color:#ccc9c2;">(</span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span style="color:#ccc9c2;">(tcp_stream)) </span><span style="color:#f29e74;">=&gt; </span><span style="color:#ccc9c2;">{
-            </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> length_delimited </span><span style="color:#f29e74;">=
-                </span><span style="color:#ccc9c2;">CodecFramed</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new(tcp_stream</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ccc9c2;">LengthDelimitedCodec</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new())</span><span style="color:#ccc9c2cc;">;
-
-            </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> framed </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">Framed</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new(length_delimited</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ccc9c2;">Cbor</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">default())</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ccc9c2;">            self_mut</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">pending_clients</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">push</span><span style="color:#ccc9c2;">(framed)</span><span style="color:#ccc9c2cc;">;
-        </span><span style="color:#ccc9c2;">}
-        </span><span style="font-style:italic;color:#5ccfe6;">Some</span><span style="color:#ccc9c2;">(</span><span style="font-style:italic;color:#5ccfe6;">Err</span><span style="color:#ccc9c2;">(err)) </span><span style="color:#f29e74;">=&gt; </span><span style="color:#ccc9c2;">{
-            </span><span style="color:#f28779;">error!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;Error checking for new requests:{:?}&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> err)</span><span style="color:#ccc9c2cc;">;
-        </span><span style="color:#ccc9c2;">}
-        </span><span style="font-style:italic;color:#5ccfe6;">None </span><span style="color:#f29e74;">=&gt; </span><span style="color:#ccc9c2;">{
-            </span><span style="color:#ffa759;">return </span><span style="color:#ccc9c2;">Poll</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Ready(</span><span style="font-style:italic;color:#5ccfe6;">None</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;
-        </span><span style="color:#ccc9c2;">}
-    }
-}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let</span><span> self_mut </span><span style="color:#f29e74;">= &amp;</span><span style="color:#ffa759;">mut </span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">as_mut</span><span>()</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span style="color:#ffa759;">if let </span><span>Poll</span><span style="color:#f29e74;">::</span><span>Ready(val) </span><span style="color:#f29e74;">= </span><span>Pin</span><span style="color:#f29e74;">::</span><span>new(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span> self_mut</span><span style="color:#f29e74;">.</span><span>listener)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">poll_next</span><span>(cx) {
+</span><span>    </span><span style="color:#ffa759;">match</span><span> val {
+</span><span>        </span><span style="font-style:italic;color:#5ccfe6;">Some</span><span>(</span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span>(tcp_stream)) </span><span style="color:#f29e74;">=&gt; </span><span>{
+</span><span>            </span><span style="color:#ffa759;">let</span><span> length_delimited </span><span style="color:#f29e74;">=
+</span><span>                CodecFramed</span><span style="color:#f29e74;">::</span><span>new(tcp_stream</span><span style="color:#ccc9c2cc;">, </span><span>LengthDelimitedCodec</span><span style="color:#f29e74;">::</span><span>new())</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>            </span><span style="color:#ffa759;">let</span><span> framed </span><span style="color:#f29e74;">= </span><span>Framed</span><span style="color:#f29e74;">::</span><span>new(length_delimited</span><span style="color:#ccc9c2cc;">, </span><span>Cbor</span><span style="color:#f29e74;">::</span><span>default())</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>            self_mut</span><span style="color:#f29e74;">.</span><span>pending_clients</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">push</span><span>(framed)</span><span style="color:#ccc9c2cc;">;
+</span><span>        }
+</span><span>        </span><span style="font-style:italic;color:#5ccfe6;">Some</span><span>(</span><span style="font-style:italic;color:#5ccfe6;">Err</span><span>(err)) </span><span style="color:#f29e74;">=&gt; </span><span>{
+</span><span>            </span><span style="color:#f28779;">error!</span><span>(</span><span style="color:#bae67e;">&quot;Error checking for new requests:{:?}&quot;</span><span style="color:#ccc9c2cc;">,</span><span> err)</span><span style="color:#ccc9c2cc;">;
+</span><span>        }
+</span><span>        </span><span style="font-style:italic;color:#5ccfe6;">None </span><span style="color:#f29e74;">=&gt; </span><span>{
+</span><span>            </span><span style="color:#ffa759;">return </span><span>Poll</span><span style="color:#f29e74;">::</span><span>Ready(</span><span style="font-style:italic;color:#5ccfe6;">None</span><span>)</span><span style="color:#ccc9c2cc;">;
+</span><span>        }
+</span><span>    }
+</span><span>}
 </span></code></pre>
 <p>Now, with that checked off, we can then consult our pending clients.  Note here I am swapping out the pending clients <code>Vec</code> with an empty <code>Vec</code> to avoid doubly borrowing as mutable.  There may be an easier/more efficient way of doing this and would be interested in knowing what that may look like.</p>
 <p>We will repopulate the list as we go through, so we won't lose any pending clients, but one or two may drop off if they are not doing the handshake correctly or they have already disconnected.  We'll also add the <code>Hello</code> message to our messages to send as a <code>Stream</code> response.  That's our <code>buffer</code> that we will be using.</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let mut</span><span style="color:#ccc9c2;"> new_pending </span><span style="color:#f29e74;">= </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new()</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">mem</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">swap(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span style="color:#ccc9c2;"> self_mut</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">pending_clients</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span style="color:#ccc9c2;"> new_pending)</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ffa759;">for mut</span><span style="color:#ccc9c2;"> pending </span><span style="color:#f29e74;">in</span><span style="color:#ccc9c2;"> new_pending</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">into_iter</span><span style="color:#ccc9c2;">() {
-    </span><span style="color:#ffa759;">if let </span><span style="color:#ccc9c2;">Poll</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Ready(val) </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">Pin</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span style="color:#ccc9c2;"> pending)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">poll_next</span><span style="color:#ccc9c2;">(cx) {
-        </span><span style="color:#ffa759;">match</span><span style="color:#ccc9c2;"> val {
-            </span><span style="font-style:italic;color:#5ccfe6;">Some</span><span style="color:#ccc9c2;">(</span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span style="color:#ccc9c2;">(ServerMessage</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Hello(name))) </span><span style="color:#f29e74;">=&gt; </span><span style="color:#ccc9c2;">{
-                </span><span style="color:#f28779;">debug!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;New Client connection from `{}`&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> name)</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">                self_mut</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">buffer</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">push</span><span style="color:#ccc9c2;">(ServerMessage</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Hello(name</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">clone</span><span style="color:#ccc9c2;">()))</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">                self_mut</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">clients</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">insert</span><span style="color:#ccc9c2;">(name</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> pending)</span><span style="color:#ccc9c2cc;">;
-            </span><span style="color:#ccc9c2;">}
-            </span><span style="font-style:italic;color:#5ccfe6;">Some</span><span style="color:#ccc9c2;">(</span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span style="color:#ccc9c2;">(msg)) </span><span style="color:#f29e74;">=&gt; </span><span style="color:#ccc9c2;">{
-                </span><span style="color:#f28779;">warn!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;Received unknown message during handshake:{:?}&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> msg)</span><span style="color:#ccc9c2cc;">;
-            </span><span style="color:#ccc9c2;">}
-            </span><span style="font-style:italic;color:#5ccfe6;">Some</span><span style="color:#ccc9c2;">(</span><span style="font-style:italic;color:#5ccfe6;">Err</span><span style="color:#ccc9c2;">(err)) </span><span style="color:#f29e74;">=&gt; </span><span style="color:#ccc9c2;">{
-                </span><span style="color:#f28779;">error!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;Error checking for new requests:{:?}&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> err)</span><span style="color:#ccc9c2cc;">;
-            </span><span style="color:#ccc9c2;">}
-            </span><span style="font-style:italic;color:#5ccfe6;">None </span><span style="color:#f29e74;">=&gt; </span><span style="color:#ccc9c2;">()</span><span style="color:#ccc9c2cc;">,
-        </span><span style="color:#ccc9c2;">}
-    } </span><span style="color:#ffa759;">else </span><span style="color:#ccc9c2;">{
-        self_mut</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">pending_clients</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">push</span><span style="color:#ccc9c2;">(pending)</span><span style="color:#ccc9c2cc;">;
-    </span><span style="color:#ccc9c2;">}
-}
-</span></code></pre><h4 id="existing-clients">Existing Clients</h4>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let mut</span><span> new_pending </span><span style="color:#f29e74;">= </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span style="color:#f29e74;">::</span><span>new()</span><span style="color:#ccc9c2cc;">;
+</span><span>mem</span><span style="color:#f29e74;">::</span><span>swap(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span> self_mut</span><span style="color:#f29e74;">.</span><span>pending_clients</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span> new_pending)</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span style="color:#ffa759;">for mut</span><span> pending </span><span style="color:#f29e74;">in</span><span> new_pending</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">into_iter</span><span>() {
+</span><span>    </span><span style="color:#ffa759;">if let </span><span>Poll</span><span style="color:#f29e74;">::</span><span>Ready(val) </span><span style="color:#f29e74;">= </span><span>Pin</span><span style="color:#f29e74;">::</span><span>new(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span> pending)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">poll_next</span><span>(cx) {
+</span><span>        </span><span style="color:#ffa759;">match</span><span> val {
+</span><span>            </span><span style="font-style:italic;color:#5ccfe6;">Some</span><span>(</span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span>(ServerMessage</span><span style="color:#f29e74;">::</span><span>Hello(name))) </span><span style="color:#f29e74;">=&gt; </span><span>{
+</span><span>                </span><span style="color:#f28779;">debug!</span><span>(</span><span style="color:#bae67e;">&quot;New Client connection from `{}`&quot;</span><span style="color:#ccc9c2cc;">,</span><span> name)</span><span style="color:#ccc9c2cc;">;
+</span><span>                self_mut</span><span style="color:#f29e74;">.</span><span>buffer</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">push</span><span>(ServerMessage</span><span style="color:#f29e74;">::</span><span>Hello(name</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">clone</span><span>()))</span><span style="color:#ccc9c2cc;">;
+</span><span>                self_mut</span><span style="color:#f29e74;">.</span><span>clients</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">insert</span><span>(name</span><span style="color:#ccc9c2cc;">,</span><span> pending)</span><span style="color:#ccc9c2cc;">;
+</span><span>            }
+</span><span>            </span><span style="font-style:italic;color:#5ccfe6;">Some</span><span>(</span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span>(msg)) </span><span style="color:#f29e74;">=&gt; </span><span>{
+</span><span>                </span><span style="color:#f28779;">warn!</span><span>(</span><span style="color:#bae67e;">&quot;Received unknown message during handshake:{:?}&quot;</span><span style="color:#ccc9c2cc;">,</span><span> msg)</span><span style="color:#ccc9c2cc;">;
+</span><span>            }
+</span><span>            </span><span style="font-style:italic;color:#5ccfe6;">Some</span><span>(</span><span style="font-style:italic;color:#5ccfe6;">Err</span><span>(err)) </span><span style="color:#f29e74;">=&gt; </span><span>{
+</span><span>                </span><span style="color:#f28779;">error!</span><span>(</span><span style="color:#bae67e;">&quot;Error checking for new requests:{:?}&quot;</span><span style="color:#ccc9c2cc;">,</span><span> err)</span><span style="color:#ccc9c2cc;">;
+</span><span>            }
+</span><span>            </span><span style="font-style:italic;color:#5ccfe6;">None </span><span style="color:#f29e74;">=&gt; </span><span>()</span><span style="color:#ccc9c2cc;">,
+</span><span>        }
+</span><span>    } </span><span style="color:#ffa759;">else </span><span>{
+</span><span>        self_mut</span><span style="color:#f29e74;">.</span><span>pending_clients</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">push</span><span>(pending)</span><span style="color:#ccc9c2cc;">;
+</span><span>    }
+</span><span>}
+</span></code></pre>
+<h4 id="existing-clients">Existing Clients</h4>
 <p>We'll do the same <em>trick</em> for the client <code>HashMap</code>: swap it out for an empty one as we're processing.</p>
 <p>We'll put all received messages into an internal buffer, which we will use later to send the actual response from the stream.</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let mut</span><span style="color:#ccc9c2;"> new_clients </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">HashMap</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new()</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">mem</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">swap(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span style="color:#ccc9c2;"> self_mut</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">clients</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span style="color:#ccc9c2;"> new_clients)</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ffa759;">for </span><span style="color:#ccc9c2;">(name</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffa759;">mut</span><span style="color:#ccc9c2;"> client) </span><span style="color:#f29e74;">in</span><span style="color:#ccc9c2;"> new_clients</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">into_iter</span><span style="color:#ccc9c2;">() {
-    </span><span style="color:#ffa759;">match </span><span style="color:#ccc9c2;">Pin</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span style="color:#ccc9c2;"> client)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">poll_next</span><span style="color:#ccc9c2;">(cx) {
-        Poll</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Ready(</span><span style="font-style:italic;color:#5ccfe6;">Some</span><span style="color:#ccc9c2;">(</span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span style="color:#ccc9c2;">(val))) </span><span style="color:#f29e74;">=&gt; </span><span style="color:#ccc9c2;">{
-            </span><span style="color:#f28779;">trace!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;Received message from `{}`: {:?}&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> name</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> val)</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">            self_mut</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">buffer</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">push</span><span style="color:#ccc9c2;">(val)</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">            self_mut</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">clients</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">insert</span><span style="color:#ccc9c2;">(name</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> client)</span><span style="color:#ccc9c2cc;">;
-        </span><span style="color:#ccc9c2;">}
-        Poll</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Ready(</span><span style="font-style:italic;color:#5ccfe6;">None</span><span style="color:#ccc9c2;">) </span><span style="color:#f29e74;">=&gt; </span><span style="color:#ccc9c2;">{
-            </span><span style="font-style:italic;color:#5c6773;">//Finished
-            </span><span style="color:#f28779;">debug!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;Client `{}` disconnecting&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> name)</span><span style="color:#ccc9c2cc;">;
-        </span><span style="color:#ccc9c2;">}
-        Poll</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Ready(</span><span style="font-style:italic;color:#5ccfe6;">Some</span><span style="color:#ccc9c2;">(</span><span style="font-style:italic;color:#5ccfe6;">Err</span><span style="color:#ccc9c2;">(err))) </span><span style="color:#f29e74;">=&gt; </span><span style="color:#ccc9c2;">{
-            </span><span style="font-style:italic;color:#5c6773;">//Error
-            </span><span style="color:#f28779;">error!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;Error from `{}`: {} Removing connection.&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> name</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> err)</span><span style="color:#ccc9c2cc;">;
-        </span><span style="color:#ccc9c2;">}
-        Poll</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Pending </span><span style="color:#f29e74;">=&gt; </span><span style="color:#ccc9c2;">{
-            self_mut</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">clients</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">insert</span><span style="color:#ccc9c2;">(name</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> client)</span><span style="color:#ccc9c2cc;">;
-        </span><span style="color:#ccc9c2;">}
-    }
-}
-</span></code></pre><h4 id="returning-messages">Returning Messages</h4>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let mut</span><span> new_clients </span><span style="color:#f29e74;">= </span><span>HashMap</span><span style="color:#f29e74;">::</span><span>new()</span><span style="color:#ccc9c2cc;">;
+</span><span>mem</span><span style="color:#f29e74;">::</span><span>swap(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span> self_mut</span><span style="color:#f29e74;">.</span><span>clients</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span> new_clients)</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span style="color:#ffa759;">for </span><span>(name</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffa759;">mut</span><span> client) </span><span style="color:#f29e74;">in</span><span> new_clients</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">into_iter</span><span>() {
+</span><span>    </span><span style="color:#ffa759;">match </span><span>Pin</span><span style="color:#f29e74;">::</span><span>new(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span> client)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">poll_next</span><span>(cx) {
+</span><span>        Poll</span><span style="color:#f29e74;">::</span><span>Ready(</span><span style="font-style:italic;color:#5ccfe6;">Some</span><span>(</span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span>(val))) </span><span style="color:#f29e74;">=&gt; </span><span>{
+</span><span>            </span><span style="color:#f28779;">trace!</span><span>(</span><span style="color:#bae67e;">&quot;Received message from `{}`: {:?}&quot;</span><span style="color:#ccc9c2cc;">,</span><span> name</span><span style="color:#ccc9c2cc;">,</span><span> val)</span><span style="color:#ccc9c2cc;">;
+</span><span>            self_mut</span><span style="color:#f29e74;">.</span><span>buffer</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">push</span><span>(val)</span><span style="color:#ccc9c2cc;">;
+</span><span>            self_mut</span><span style="color:#f29e74;">.</span><span>clients</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">insert</span><span>(name</span><span style="color:#ccc9c2cc;">,</span><span> client)</span><span style="color:#ccc9c2cc;">;
+</span><span>        }
+</span><span>        Poll</span><span style="color:#f29e74;">::</span><span>Ready(</span><span style="font-style:italic;color:#5ccfe6;">None</span><span>) </span><span style="color:#f29e74;">=&gt; </span><span>{
+</span><span>            </span><span style="font-style:italic;color:#5c6773;">//Finished
+</span><span>            </span><span style="color:#f28779;">debug!</span><span>(</span><span style="color:#bae67e;">&quot;Client `{}` disconnecting&quot;</span><span style="color:#ccc9c2cc;">,</span><span> name)</span><span style="color:#ccc9c2cc;">;
+</span><span>        }
+</span><span>        Poll</span><span style="color:#f29e74;">::</span><span>Ready(</span><span style="font-style:italic;color:#5ccfe6;">Some</span><span>(</span><span style="font-style:italic;color:#5ccfe6;">Err</span><span>(err))) </span><span style="color:#f29e74;">=&gt; </span><span>{
+</span><span>            </span><span style="font-style:italic;color:#5c6773;">//Error
+</span><span>            </span><span style="color:#f28779;">error!</span><span>(</span><span style="color:#bae67e;">&quot;Error from `{}`: {} Removing connection.&quot;</span><span style="color:#ccc9c2cc;">,</span><span> name</span><span style="color:#ccc9c2cc;">,</span><span> err)</span><span style="color:#ccc9c2cc;">;
+</span><span>        }
+</span><span>        Poll</span><span style="color:#f29e74;">::</span><span>Pending </span><span style="color:#f29e74;">=&gt; </span><span>{
+</span><span>            self_mut</span><span style="color:#f29e74;">.</span><span>clients</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">insert</span><span>(name</span><span style="color:#ccc9c2cc;">,</span><span> client)</span><span style="color:#ccc9c2cc;">;
+</span><span>        }
+</span><span>    }
+</span><span>}
+</span></code></pre>
+<h4 id="returning-messages">Returning Messages</h4>
 <p>We've buffered up the returned messages into a <code>Vec</code> and we can return one.  But if there are more after popping we can let the waker know we may have more stuff to process:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">if let </span><span style="font-style:italic;color:#5ccfe6;">Some</span><span style="color:#ccc9c2;">(val) </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> self_mut</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">buffer</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">pop</span><span style="color:#ccc9c2;">() {
-    </span><span style="color:#ffa759;">if</span><span style="color:#ccc9c2;"> self_mut</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">buffer</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">len</span><span style="color:#ccc9c2;">() </span><span style="color:#f29e74;">&gt; </span><span style="color:#ffcc66;">0 </span><span style="color:#ccc9c2;">{
-        cx</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">waker</span><span style="color:#ccc9c2;">()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">wake_by_ref</span><span style="color:#ccc9c2;">()</span><span style="color:#ccc9c2cc;">;
-    </span><span style="color:#ccc9c2;">}
-    </span><span style="color:#ffa759;">return </span><span style="color:#ccc9c2;">Poll</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Ready(</span><span style="font-style:italic;color:#5ccfe6;">Some</span><span style="color:#ccc9c2;">(</span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span style="color:#ccc9c2;">(val)))</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">}
-
-</span><span style="color:#ffa759;">return </span><span style="color:#ccc9c2;">Poll</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Pending</span><span style="color:#ccc9c2cc;">;
-</span></code></pre><h3 id="sending-messages">Sending Messages</h3>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">if let </span><span style="font-style:italic;color:#5ccfe6;">Some</span><span>(val) </span><span style="color:#f29e74;">=</span><span> self_mut</span><span style="color:#f29e74;">.</span><span>buffer</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">pop</span><span>() {
+</span><span>    </span><span style="color:#ffa759;">if</span><span> self_mut</span><span style="color:#f29e74;">.</span><span>buffer</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">len</span><span>() </span><span style="color:#f29e74;">&gt; </span><span style="color:#ffcc66;">0 </span><span>{
+</span><span>        cx</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">waker</span><span>()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">wake_by_ref</span><span>()</span><span style="color:#ccc9c2cc;">;
+</span><span>    }
+</span><span>    </span><span style="color:#ffa759;">return </span><span>Poll</span><span style="color:#f29e74;">::</span><span>Ready(</span><span style="font-style:italic;color:#5ccfe6;">Some</span><span>(</span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span>(val)))</span><span style="color:#ccc9c2cc;">;
+</span><span>}
+</span><span>
+</span><span style="color:#ffa759;">return </span><span>Poll</span><span style="color:#f29e74;">::</span><span>Pending</span><span style="color:#ccc9c2cc;">;
+</span></code></pre>
+<h3 id="sending-messages">Sending Messages</h3>
 <p>Sending messages requires that you know the name of the client, but it is otherwise a simple wrapper:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">pub</span><span style="color:#ccc9c2;"> async </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">send_message</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut </span><span style="color:#ffcc66;">self</span><span style="color:#ccc9c2;">, </span><span style="color:#ffcc66;">client</span><span style="color:#ccc9c2cc;">: </span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">str</span><span style="color:#ccc9c2;">, </span><span style="color:#ffcc66;">msg</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> ClientMessage) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span style="color:#ccc9c2;">&lt;(), Error&gt; {
-    </span><span style="color:#ffa759;">if let </span><span style="font-style:italic;color:#5ccfe6;">Some</span><span style="color:#ccc9c2;">(connection) </span><span style="color:#f29e74;">= </span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">clients</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">get_mut</span><span style="color:#ccc9c2;">(client) {
-        connection</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">send</span><span style="color:#ccc9c2;">(msg)</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-    </span><span style="color:#ccc9c2;">} </span><span style="color:#ffa759;">else </span><span style="color:#ccc9c2;">{
-        </span><span style="color:#ffa759;">return </span><span style="font-style:italic;color:#5ccfe6;">Err</span><span style="color:#ccc9c2;">(</span><span style="color:#f28779;">anyhow!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;Client `{}` not connected!&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> client))</span><span style="color:#ccc9c2cc;">;
-    </span><span style="color:#ccc9c2;">}
-
-    </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span style="color:#ccc9c2;">(())
-}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">pub</span><span> async </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">send_message</span><span>(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut </span><span style="color:#ffcc66;">self</span><span>, </span><span style="color:#ffcc66;">client</span><span style="color:#ccc9c2cc;">: </span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">str</span><span>, </span><span style="color:#ffcc66;">msg</span><span style="color:#ccc9c2cc;">:</span><span> ClientMessage) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span>&lt;(), Error&gt; {
+</span><span>    </span><span style="color:#ffa759;">if let </span><span style="font-style:italic;color:#5ccfe6;">Some</span><span>(connection) </span><span style="color:#f29e74;">= </span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span>clients</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">get_mut</span><span>(client) {
+</span><span>        connection</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">send</span><span>(msg)</span><span style="color:#f29e74;">.</span><span>await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span><span>    } </span><span style="color:#ffa759;">else </span><span>{
+</span><span>        </span><span style="color:#ffa759;">return </span><span style="font-style:italic;color:#5ccfe6;">Err</span><span>(</span><span style="color:#f28779;">anyhow!</span><span>(</span><span style="color:#bae67e;">&quot;Client `{}` not connected!&quot;</span><span style="color:#ccc9c2cc;">,</span><span> client))</span><span style="color:#ccc9c2cc;">;
+</span><span>    }
+</span><span>
+</span><span>    </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span>(())
+</span><span>}
 </span></code></pre>
 <p>We can even expose a way to check if any clients are connected of that name, and simply not bother sending a message in this case:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">pub fn </span><span style="color:#ffd580;">is_connected</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffcc66;">self</span><span style="color:#ccc9c2;">, </span><span style="color:#ffcc66;">client</span><span style="color:#ccc9c2cc;">: </span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">str</span><span style="color:#ccc9c2;">) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="color:#ffa759;">bool </span><span style="color:#ccc9c2;">{
-    </span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">clients</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">contains_key</span><span style="color:#ccc9c2;">(client)
-}
-</span></code></pre><h3 id="changes-to-the-server">Changes to the Server</h3>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">pub fn </span><span style="color:#ffd580;">is_connected</span><span>(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffcc66;">self</span><span>, </span><span style="color:#ffcc66;">client</span><span style="color:#ccc9c2cc;">: </span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">str</span><span>) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="color:#ffa759;">bool </span><span>{
+</span><span>    </span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span>clients</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">contains_key</span><span>(client)
+</span><span>}
+</span></code></pre>
+<h3 id="changes-to-the-server">Changes to the Server</h3>
 <p>The <code>Server</code> struct itself does not really change all that much.  Instead of using a <code>tmq::router</code> we'll use our new <code>Router</code>.  Although strictly not equivalent, for the purpose of the job queue, this is an OK analogue:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let mut</span><span style="color:#ccc9c2;"> router </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">Router</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new(</span><span style="color:#f29e74;">&amp;</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">job_address)</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ffa759;">while let </span><span style="font-style:italic;color:#5ccfe6;">Some</span><span style="color:#ccc9c2;">(server_msg) </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> router</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">next</span><span style="color:#ccc9c2;">()</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await {
-    </span><span style="font-style:italic;color:#5c6773;">// existing server logic here
-</span><span style="color:#ccc9c2;">}
-</span></code></pre><h2 id="implementing-clients">Implementing Clients</h2>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let mut</span><span> router </span><span style="color:#f29e74;">= </span><span>Router</span><span style="color:#f29e74;">::</span><span>new(</span><span style="color:#f29e74;">&amp;</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span>job_address)</span><span style="color:#f29e74;">.</span><span>await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span style="color:#ffa759;">while let </span><span style="font-style:italic;color:#5ccfe6;">Some</span><span>(server_msg) </span><span style="color:#f29e74;">=</span><span> router</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">next</span><span>()</span><span style="color:#f29e74;">.</span><span>await {
+</span><span>    </span><span style="font-style:italic;color:#5c6773;">// existing server logic here
+</span><span>}
+</span></code></pre>
+<h2 id="implementing-clients">Implementing Clients</h2>
 <p>Not much has changed here as well.  We could get away with not using our own struct definition here at all and just set up a connection, but would be great if we had something we could plop in where the old <code>tmq::dealer</code> was used.</p>
 <h3 id="dealer">Dealer</h3>
 <p>We implement a <code>Dealer</code> struct which simply wraps a <code>tokio_serde::Framed</code>:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">type </span><span style="color:#73d0ff;">ClientFramed </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">Framed&lt;
-    CodecFramed&lt;TcpStream, LengthDelimitedCodec&gt;,
-    ClientMessage,
-    ServerMessage,
-    Cbor&lt;ClientMessage, ServerMessage&gt;,
-&gt;</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ffa759;">pub struct </span><span style="color:#73d0ff;">Dealer </span><span style="color:#ccc9c2;">{
-    connection</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> ClientFramed,
-}
-
-</span><span style="color:#ffa759;">impl </span><span style="color:#73d0ff;">Dealer </span><span style="color:#ccc9c2;">{
-    </span><span style="color:#ffa759;">pub</span><span style="color:#ccc9c2;"> async </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">new</span><span style="color:#ccc9c2;">&lt;A</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> ToSocketAddrs&gt;(</span><span style="color:#ffcc66;">addr</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> A) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span style="color:#ccc9c2;">&lt;</span><span style="color:#ffa759;">Self</span><span style="color:#ccc9c2;">, Error&gt; {
-        </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> tcp_stream </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">TcpStream</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">connect(addr)</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-
-        </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> length_delimited </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">CodecFramed</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new(tcp_stream</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ccc9c2;">LengthDelimitedCodec</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new())</span><span style="color:#ccc9c2cc;">;
-
-        </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> connection </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">Framed</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new(length_delimited</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ccc9c2;">Cbor</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">default())</span><span style="color:#ccc9c2cc;">;
-
-        </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span style="color:#ccc9c2;">(</span><span style="color:#ffa759;">Self </span><span style="color:#ccc9c2;">{ connection })
-    }
-}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">type </span><span style="color:#73d0ff;">ClientFramed </span><span style="color:#f29e74;">= </span><span>Framed&lt;
+</span><span>    CodecFramed&lt;TcpStream, LengthDelimitedCodec&gt;,
+</span><span>    ClientMessage,
+</span><span>    ServerMessage,
+</span><span>    Cbor&lt;ClientMessage, ServerMessage&gt;,
+</span><span>&gt;</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span style="color:#ffa759;">pub struct </span><span style="color:#73d0ff;">Dealer </span><span>{
+</span><span>    connection</span><span style="color:#ccc9c2cc;">:</span><span> ClientFramed,
+</span><span>}
+</span><span>
+</span><span style="color:#ffa759;">impl </span><span style="color:#73d0ff;">Dealer </span><span>{
+</span><span>    </span><span style="color:#ffa759;">pub</span><span> async </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">new</span><span>&lt;A</span><span style="color:#ccc9c2cc;">:</span><span> ToSocketAddrs&gt;(</span><span style="color:#ffcc66;">addr</span><span style="color:#ccc9c2cc;">:</span><span> A) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span>&lt;</span><span style="color:#ffa759;">Self</span><span>, Error&gt; {
+</span><span>        </span><span style="color:#ffa759;">let</span><span> tcp_stream </span><span style="color:#f29e74;">= </span><span>TcpStream</span><span style="color:#f29e74;">::</span><span>connect(addr)</span><span style="color:#f29e74;">.</span><span>await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>        </span><span style="color:#ffa759;">let</span><span> length_delimited </span><span style="color:#f29e74;">= </span><span>CodecFramed</span><span style="color:#f29e74;">::</span><span>new(tcp_stream</span><span style="color:#ccc9c2cc;">, </span><span>LengthDelimitedCodec</span><span style="color:#f29e74;">::</span><span>new())</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>        </span><span style="color:#ffa759;">let</span><span> connection </span><span style="color:#f29e74;">= </span><span>Framed</span><span style="color:#f29e74;">::</span><span>new(length_delimited</span><span style="color:#ccc9c2cc;">, </span><span>Cbor</span><span style="color:#f29e74;">::</span><span>default())</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>        </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span>(</span><span style="color:#ffa759;">Self </span><span>{ connection })
+</span><span>    }
+</span><span>}
 </span></code></pre>
 <p>With the dealer, both receiving and sending marry up with <code>Stream</code> and <code>Sink</code> quite well, so we can implement that quite easily:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">impl </span><span style="color:#ccc9c2;">Stream </span><span style="color:#ffa759;">for </span><span style="color:#73d0ff;">Dealer </span><span style="color:#ccc9c2;">{
-    </span><span style="color:#ffa759;">type </span><span style="color:#73d0ff;">Item </span><span style="color:#f29e74;">= </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span style="color:#ccc9c2;">&lt;ClientMessage, Error&gt;</span><span style="color:#ccc9c2cc;">;
-
-    </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">poll_next</span><span style="color:#ccc9c2;">(</span><span style="color:#ffa759;">mut </span><span style="color:#ffcc66;">self</span><span style="color:#ccc9c2;">: Pin&lt;</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut Self</span><span style="color:#ccc9c2;">&gt;, </span><span style="color:#ffcc66;">cx</span><span style="color:#ccc9c2cc;">: </span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut </span><span style="color:#ccc9c2;">Context&lt;&#39;</span><span style="color:#f29e74;">_</span><span style="color:#ccc9c2;">&gt;) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="color:#ccc9c2;">Poll&lt;</span><span style="font-style:italic;color:#5ccfe6;">Option</span><span style="color:#ccc9c2;">&lt;</span><span style="color:#ffa759;">Self</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Item&gt;&gt; {
-        </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> self_mut </span><span style="color:#f29e74;">= &amp;</span><span style="color:#ffa759;">mut </span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">as_mut</span><span style="color:#ccc9c2;">()</span><span style="color:#ccc9c2cc;">;
-
-        </span><span style="color:#ffa759;">match </span><span style="color:#ccc9c2;">Pin</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span style="color:#ccc9c2;"> self_mut</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">connection)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">poll_next</span><span style="color:#ccc9c2;">(cx) {
-            Poll</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Ready(</span><span style="font-style:italic;color:#5ccfe6;">Some</span><span style="color:#ccc9c2;">(val)) </span><span style="color:#f29e74;">=&gt; </span><span style="color:#ccc9c2;">Poll</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Ready(</span><span style="font-style:italic;color:#5ccfe6;">Some</span><span style="color:#ccc9c2;">(val</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map_err</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">err</span><span style="color:#ccc9c2;">| err</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">into</span><span style="color:#ccc9c2;">())))</span><span style="color:#ccc9c2cc;">,
-            </span><span style="color:#ccc9c2;">Poll</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Ready(</span><span style="font-style:italic;color:#5ccfe6;">None</span><span style="color:#ccc9c2;">) </span><span style="color:#f29e74;">=&gt; </span><span style="color:#ccc9c2;">Poll</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Ready(</span><span style="font-style:italic;color:#5ccfe6;">None</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">,
-            </span><span style="color:#ccc9c2;">Poll</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Pending </span><span style="color:#f29e74;">=&gt; </span><span style="color:#ccc9c2;">Poll</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Pending</span><span style="color:#ccc9c2cc;">,
-        </span><span style="color:#ccc9c2;">}
-    }
-}
-</span></code></pre><h3 id="worker-changes">Worker Changes</h3>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">impl </span><span>Stream </span><span style="color:#ffa759;">for </span><span style="color:#73d0ff;">Dealer </span><span>{
+</span><span>    </span><span style="color:#ffa759;">type </span><span style="color:#73d0ff;">Item </span><span style="color:#f29e74;">= </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span>&lt;ClientMessage, Error&gt;</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">poll_next</span><span>(</span><span style="color:#ffa759;">mut </span><span style="color:#ffcc66;">self</span><span>: Pin&lt;</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut Self</span><span>&gt;, </span><span style="color:#ffcc66;">cx</span><span style="color:#ccc9c2cc;">: </span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut </span><span>Context&lt;&#39;</span><span style="color:#f29e74;">_</span><span>&gt;) </span><span style="color:#ccc9c2cc;">-&gt; </span><span>Poll&lt;</span><span style="font-style:italic;color:#5ccfe6;">Option</span><span>&lt;</span><span style="color:#ffa759;">Self</span><span style="color:#f29e74;">::</span><span>Item&gt;&gt; {
+</span><span>        </span><span style="color:#ffa759;">let</span><span> self_mut </span><span style="color:#f29e74;">= &amp;</span><span style="color:#ffa759;">mut </span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">as_mut</span><span>()</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>        </span><span style="color:#ffa759;">match </span><span>Pin</span><span style="color:#f29e74;">::</span><span>new(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span> self_mut</span><span style="color:#f29e74;">.</span><span>connection)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">poll_next</span><span>(cx) {
+</span><span>            Poll</span><span style="color:#f29e74;">::</span><span>Ready(</span><span style="font-style:italic;color:#5ccfe6;">Some</span><span>(val)) </span><span style="color:#f29e74;">=&gt; </span><span>Poll</span><span style="color:#f29e74;">::</span><span>Ready(</span><span style="font-style:italic;color:#5ccfe6;">Some</span><span>(val</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map_err</span><span>(|</span><span style="color:#ffcc66;">err</span><span>| err</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">into</span><span>())))</span><span style="color:#ccc9c2cc;">,
+</span><span>            Poll</span><span style="color:#f29e74;">::</span><span>Ready(</span><span style="font-style:italic;color:#5ccfe6;">None</span><span>) </span><span style="color:#f29e74;">=&gt; </span><span>Poll</span><span style="color:#f29e74;">::</span><span>Ready(</span><span style="font-style:italic;color:#5ccfe6;">None</span><span>)</span><span style="color:#ccc9c2cc;">,
+</span><span>            Poll</span><span style="color:#f29e74;">::</span><span>Pending </span><span style="color:#f29e74;">=&gt; </span><span>Poll</span><span style="color:#f29e74;">::</span><span>Pending</span><span style="color:#ccc9c2cc;">,
+</span><span>        }
+</span><span>    }
+</span><span>}
+</span></code></pre>
+<h3 id="worker-changes">Worker Changes</h3>
 <p>The worker doesn't change much, we <a href="https://github.com/cetra3/jobq/blob/518c6c025a9e10477819fcc87acf8747383e9ba3/src/worker.rs#L19">call split</a> on the <code>Dealer</code> struct to get our two pipes, but otherwise treat it as per normal:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let </span><span style="color:#ccc9c2;">(</span><span style="color:#ffa759;">mut</span><span style="color:#ccc9c2;"> send_skt</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> recv) </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">Dealer</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">job_address)</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await</span><span style="color:#f29e74;">?.</span><span style="color:#f28779;">split</span><span style="color:#ccc9c2;">()</span><span style="color:#ccc9c2cc;">;
-</span></code></pre><h2 id="running-the-changes">Running the Changes</h2>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let </span><span>(</span><span style="color:#ffa759;">mut</span><span> send_skt</span><span style="color:#ccc9c2cc;">,</span><span> recv) </span><span style="color:#f29e74;">= </span><span>Dealer</span><span style="color:#f29e74;">::</span><span>new(</span><span style="color:#f29e74;">&amp;</span><span>job_address)</span><span style="color:#f29e74;">.</span><span>await</span><span style="color:#f29e74;">?.</span><span style="color:#f28779;">split</span><span>()</span><span style="color:#ccc9c2cc;">;
+</span></code></pre>
+<h2 id="running-the-changes">Running the Changes</h2>
 <p>Running the branch we should see a lot of the same chatter we saw from the <a href="../implementing-a-jobq/">previous version</a>:</p>
-<pre style="background-color:#212733;">
-<code><span style="color:#ccc9c2;"> 2020-05-13 11:13:02 DEBUG jobq::server &gt; New: Job { id: 5500, username: &quot;test_client&quot;, name: &quot;test&quot;, uuid: 95182793-7a08-4329-a9f1-4be0c1f1d041, params: Null, priority: Normal, status: Queued }
- 2020-05-13 11:13:02 WARN  jobq::server &gt; Job failed: 5496, Reason: Simulating failure
- 2020-05-13 11:13:02 WARN  jobq::server &gt; Job failed: 5484, Reason: Simulating failure
- 2020-05-13 11:13:02 WARN  jobq::server &gt; Job failed: 5472, Reason: Simulating failure
- 2020-05-13 11:13:03 WARN  jobq::server &gt; Job failed: 5460, Reason: Simulating failure
-</span></code></pre><h2 id="conclusion">Conclusion</h2>
+<pre style="background-color:#212733;color:#ccc9c2;"><code><span> 2020-05-13 11:13:02 DEBUG jobq::server &gt; New: Job { id: 5500, username: &quot;test_client&quot;, name: &quot;test&quot;, uuid: 95182793-7a08-4329-a9f1-4be0c1f1d041, params: Null, priority: Normal, status: Queued }
+</span><span> 2020-05-13 11:13:02 WARN  jobq::server &gt; Job failed: 5496, Reason: Simulating failure
+</span><span> 2020-05-13 11:13:02 WARN  jobq::server &gt; Job failed: 5484, Reason: Simulating failure
+</span><span> 2020-05-13 11:13:02 WARN  jobq::server &gt; Job failed: 5472, Reason: Simulating failure
+</span><span> 2020-05-13 11:13:03 WARN  jobq::server &gt; Job failed: 5460, Reason: Simulating failure
+</span></code></pre>
+<h2 id="conclusion">Conclusion</h2>
 <p>Implementing a more barebones messaging system native in rust took not much time at all.  While this solution is not nearly as robust as using ZeroMQ, it does provide a more building blocks approach to messaging, reducing external dependencies.  I found the hardest portion was gluing everything together between the 3 main crates and getting the types right.  <em>Tokio-Serde</em> could use a bit more fleshing out and does seem quite embryonic still, but it is enough to get your hands dirty.</p>
 <p>The initial design of the jobq made it easy to slot in another transport layer as well.  All the structs &amp; types were all ready and rolling to go, we just needed a couple of extra libraries to fill in the pieces.</p>
 
