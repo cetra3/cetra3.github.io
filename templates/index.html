@@ -4,48 +4,55 @@
 
 <h1>Cetra's Thoughts</h1>
 
-<p>Hello! This is my website where I post blogs and investigations mostly about <a href="https://www.rust-lang.org/">Rust</a>.</p>
+<p>Hello! This is my website where I post blogs and investigations mostly about <a
+    href="https://www.rust-lang.org/">Rust</a>.</p>
 
-<p>Currently, I am building things for <a href="https://www.formlogic.com/">Formlogic</a>. <br /> Previously, I was the Technical Director and co-founder of <a href="https://www.parashift.com.au/">Parashift</a>.</p>
+<p>Currently, I am building things for <a href="https://www.formlogic.com/">Formlogic</a>. <br /> Previously, I was the
+  Technical Director and co-founder of <a href="https://www.parashift.com.au/">Parashift</a>.</p>
 
 
 <h3>My Projects</h3>
-<p>Here is a small selection of projects I have been working on. Check out my <a href="https://github.com/cetra3/">GitHub profile</a> for more</p>
+<p>Here is a small selection of projects I have been working on. Check out my <a
+    href="https://github.com/cetra3/">GitHub profile</a> for more</p>
 <article class="card">
- <div class="card-header">
-   <div class="card-title h3">DiveDB</div>
-   <em>Scuba Diving Database with Dive Sites and Dive Photos</em>
- </div>
- <div class="card-body">
-   DiveDB is a website for cataloguing and recording scuba diving related activities.  It currently includes a <a href="https://divedb.net/divesites/map">dive site map</a>, <a href="https://divedb.net/photos">photos</a> & dive log functionality.  The backend is written with <span class="label">Actix-Web</span> and the frontend in <span class="label">React</span>.
- </div>
- <div class="card-footer">
-      <a href="https://divedb.net/">https://divedb.net/</a>
- </div>
+  <div class="card-header">
+    <div class="card-title h3">DiveDB</div>
+    <em>Scuba Diving Database with Dive Sites and Dive Photos</em>
+  </div>
+  <div class="card-body">
+    DiveDB is a website for cataloguing and recording scuba diving related activities. It currently includes a <a
+      href="https://divedb.net/divesites/map">dive site map</a>, <a href="https://divedb.net/photos">photos</a> & dive
+    log functionality. The backend is written with <span class="label"><a href="https://actix.rs/">Actix Web</a></span>
+    and the frontend with <span class="label"><a href="https://kit.svelte.dev/">SvelteKit</a></span>.
+  </div>
+  <div class="card-footer">
+    <a href="https://divedb.net/">https://divedb.net/</a>
+  </div>
 </article>
 <article class="card">
- <div class="card-header">
-   <div class="card-title h3">Lorikeet</div>
-   <em>A Parallel Test Runner for DevOps</em>
- </div>
- <div class="card-body">
-   Lorikeet is a command line tool and a rust library to run tests for smoke testing and integration testing. Lorikeet currently supports bash commands and simple http requests along with system information (ram, cpu)
- </div>
- <div class="card-footer">
-      <a href="https://github.com/cetra3/lorikeet">https://github.com/cetra3/lorikeet</a>
- </div>
+  <div class="card-header">
+    <div class="card-title h3">Lorikeet</div>
+    <em>A Parallel Test Runner for DevOps</em>
+  </div>
+  <div class="card-body">
+    Lorikeet is a command line tool and a rust library to run tests for smoke testing and integration testing. Lorikeet
+    currently supports bash commands and simple http requests along with system information (ram, cpu)
+  </div>
+  <div class="card-footer">
+    <a href="https://github.com/cetra3/lorikeet">https://github.com/cetra3/lorikeet</a>
+  </div>
 </article>
 <article class="card">
- <div class="card-header">
-   <div class="card-title h3">TMQ</div>
-   <em>Rust ZeroMQ bindings for Tokio</em>
- </div>
- <div class="card-body">
-   This crate bridges Tokio and ZeroMQ to allow for ZeroMQ in the async world.
- </div>
- <div class="card-footer">
-      <a href="https://github.com/cetra3/tmq">https://github.com/cetra3/tmq</a>
- </div>
+  <div class="card-header">
+    <div class="card-title h3">TMQ</div>
+    <em>Rust ZeroMQ bindings for Tokio</em>
+  </div>
+  <div class="card-body">
+    This crate bridges Tokio and ZeroMQ to allow for ZeroMQ in the async world.
+  </div>
+  <div class="card-footer">
+    <a href="https://github.com/cetra3/tmq">https://github.com/cetra3/tmq</a>
+  </div>
 </article>
 
 {% set blog = get_section(path="blog/_index.md") -%}
@@ -54,22 +61,25 @@
 
 <article id="{{page.title}}" class="card">
   <div class="card-header">
-     <div class="card-title h3">{{page.title}}</div>
-     <em>{{page.description}}</em>
-     <br />
-     {% if page.taxonomies %}
-     <div class="card-subtitle">
-     {% for tag in page.taxonomies.tags %}<small class="label label-primary">{{tag}}</small> {% endfor %}<small class="label">{{ page.date | date(format="%Y-%m-%d") }}</small>
-     </div>
-     {% endif %}
+    <div class="card-title h3">{{page.title}}</div>
+    <em>{{page.description}}</em>
+    <br />
+    {% if page.taxonomies %}
+    <div class="card-subtitle">
+      {% for tag in page.taxonomies.tags %}<small class="label label-primary">{{tag}}</small> {% endfor %}<small
+        class="label">{{ page.date | date(format="%Y-%m-%d") }}</small>
+    </div>
+    {% endif %}
   </div>
   <div class="card-body">
-      {{ page.content | safe | striptags | truncate }}
+    {{ page.content | safe | striptags | truncate }}
   </div>
   <div class="card-footer">
-      <a href="{{page.permalink}}">Continue Reading</a>
+    <a href="{{page.permalink}}">Continue Reading</a>
   </div>
 </article>
 {% endfor %}
+
+<a href="/blog/">More Blogs</a>
 
 {% endblock content %}

@@ -46,40 +46,39 @@
 <p><a href="https://crates.io/crates/tmq/0.1.0">Version <code>0.1.0</code></a> is an alpha release which implements <code>request</code>, <code>response</code>, <code>publish</code> and <code>subscribe</code> style sockets.</p>
 <h2 id="usage-example">Usage Example</h2>
 <p>This example uses <code>tmq</code> to subscribe to messages, and then prints them out via <a href="https://github.com/seanmonstar/pretty-env-logger">pretty-env-logger</a>:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">extern crate</span><span style="color:#ccc9c2;"> failure</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ffa759;">extern crate</span><span style="color:#ccc9c2;"> futures</span><span style="color:#ccc9c2cc;">;
-#</span><span style="color:#ccc9c2;">[</span><span style="color:#ffd580;">macro_use</span><span style="color:#ccc9c2;">]
-</span><span style="color:#ffa759;">extern crate</span><span style="color:#ccc9c2;"> log</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ffa759;">extern crate</span><span style="color:#ccc9c2;"> pretty_env_logger</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ffa759;">extern crate</span><span style="color:#ccc9c2;"> tmq</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ffa759;">extern crate</span><span style="color:#ccc9c2;"> tokio</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ffa759;">use </span><span style="color:#ccc9c2;">futures</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">{Future</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> Stream}</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ffa759;">use </span><span style="color:#ccc9c2;">tmq</span><span style="color:#f29e74;">::*</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ffa759;">use </span><span style="color:#ccc9c2;">std</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">env</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">main</span><span style="color:#ccc9c2;">() {
-    </span><span style="color:#ffa759;">if let </span><span style="font-style:italic;color:#5ccfe6;">Err</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">_</span><span style="color:#ccc9c2;">) </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">env</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">var(</span><span style="color:#bae67e;">&quot;RUST_LOG&quot;</span><span style="color:#ccc9c2;">) {
-        env</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">set_var(</span><span style="color:#bae67e;">&quot;RUST_LOG&quot;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#bae67e;">&quot;subscribe=DEBUG&quot;</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;
-    </span><span style="color:#ccc9c2;">}
-
-    pretty_env_logger</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">init()</span><span style="color:#ccc9c2cc;">;
-
-    </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> request </span><span style="color:#f29e74;">= </span><span style="color:#f28779;">subscribe</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">Context</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new())
-        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">connect</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;tcp://127.0.0.1:7899&quot;</span><span style="color:#ccc9c2;">)
-        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">expect</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;Couldn&#39;t connect&quot;</span><span style="color:#ccc9c2;">)
-        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">subscribe</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;&quot;</span><span style="color:#ccc9c2;">)
-        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">for_each</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">val</span><span style="color:#ccc9c2;">| {
-            </span><span style="color:#f28779;">info!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;Subscribe: {}&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> val</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">as_str</span><span style="color:#ccc9c2;">()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">unwrap_or</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;&quot;</span><span style="color:#ccc9c2;">))</span><span style="color:#ccc9c2cc;">;
-            </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span style="color:#ccc9c2;">(())
-        })
-        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map_err</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">e</span><span style="color:#ccc9c2;">| {
-            </span><span style="color:#f28779;">error!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;Error Subscribing: {}&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> e)</span><span style="color:#ccc9c2cc;">;
-        </span><span style="color:#ccc9c2;">})</span><span style="color:#ccc9c2cc;">;
-
-    </span><span style="color:#ccc9c2;">tokio</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">run(request)</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">extern crate</span><span> failure</span><span style="color:#ccc9c2cc;">;
+</span><span style="color:#ffa759;">extern crate</span><span> futures</span><span style="color:#ccc9c2cc;">;
+</span><span style="color:#ccc9c2cc;">#</span><span>[</span><span style="color:#ffd580;">macro_use</span><span>]
+</span><span style="color:#ffa759;">extern crate</span><span> log</span><span style="color:#ccc9c2cc;">;
+</span><span style="color:#ffa759;">extern crate</span><span> pretty_env_logger</span><span style="color:#ccc9c2cc;">;
+</span><span style="color:#ffa759;">extern crate</span><span> tmq</span><span style="color:#ccc9c2cc;">;
+</span><span style="color:#ffa759;">extern crate</span><span> tokio</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span style="color:#ffa759;">use </span><span>futures</span><span style="color:#f29e74;">::</span><span>{Future</span><span style="color:#ccc9c2cc;">,</span><span> Stream}</span><span style="color:#ccc9c2cc;">;
+</span><span style="color:#ffa759;">use </span><span>tmq</span><span style="color:#f29e74;">::*</span><span style="color:#ccc9c2cc;">;
+</span><span style="color:#ffa759;">use </span><span>std</span><span style="color:#f29e74;">::</span><span>env</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">main</span><span>() {
+</span><span>    </span><span style="color:#ffa759;">if let </span><span style="font-style:italic;color:#5ccfe6;">Err</span><span>(</span><span style="color:#f29e74;">_</span><span>) </span><span style="color:#f29e74;">= </span><span>env</span><span style="color:#f29e74;">::</span><span>var(</span><span style="color:#bae67e;">&quot;RUST_LOG&quot;</span><span>) {
+</span><span>        env</span><span style="color:#f29e74;">::</span><span>set_var(</span><span style="color:#bae67e;">&quot;RUST_LOG&quot;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#bae67e;">&quot;subscribe=DEBUG&quot;</span><span>)</span><span style="color:#ccc9c2cc;">;
+</span><span>    }
+</span><span>
+</span><span>    pretty_env_logger</span><span style="color:#f29e74;">::</span><span>init()</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    </span><span style="color:#ffa759;">let</span><span> request </span><span style="color:#f29e74;">= </span><span style="color:#f28779;">subscribe</span><span>(</span><span style="color:#f29e74;">&amp;</span><span>Context</span><span style="color:#f29e74;">::</span><span>new())
+</span><span>        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">connect</span><span>(</span><span style="color:#bae67e;">&quot;tcp://127.0.0.1:7899&quot;</span><span>)
+</span><span>        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">expect</span><span>(</span><span style="color:#bae67e;">&quot;Couldn&#39;t connect&quot;</span><span>)
+</span><span>        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">subscribe</span><span>(</span><span style="color:#bae67e;">&quot;&quot;</span><span>)
+</span><span>        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">for_each</span><span>(|</span><span style="color:#ffcc66;">val</span><span>| {
+</span><span>            </span><span style="color:#f28779;">info!</span><span>(</span><span style="color:#bae67e;">&quot;Subscribe: {}&quot;</span><span style="color:#ccc9c2cc;">,</span><span> val</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">as_str</span><span>()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">unwrap_or</span><span>(</span><span style="color:#bae67e;">&quot;&quot;</span><span>))</span><span style="color:#ccc9c2cc;">;
+</span><span>            </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span>(())
+</span><span>        })
+</span><span>        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map_err</span><span>(|</span><span style="color:#ffcc66;">e</span><span>| {
+</span><span>            </span><span style="color:#f28779;">error!</span><span>(</span><span style="color:#bae67e;">&quot;Error Subscribing: {}&quot;</span><span style="color:#ccc9c2cc;">,</span><span> e)</span><span style="color:#ccc9c2cc;">;
+</span><span>        })</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    tokio</span><span style="color:#f29e74;">::</span><span>run(request)</span><span style="color:#ccc9c2cc;">;
+</span><span>}
 </span></code></pre>
 <p>Other examples of usage can be found in the project itself: <a href="https://github.com/cetra3/tmq/tree/master/examples">https://github.com/cetra3/tmq/tree/master/examples</a></p>
 <h2 id="existing-rust-crates">Existing Rust Crates</h2>
@@ -100,38 +99,36 @@
 <p>To do a direct comparison of both libraries we're using the <code>response</code> example.  This example is a simple echo response, which when it receives a message, it echos it back verbatim to the requester.</p>
 <h4 id="tokio-zmq">tokio-zmq</h4>
 <p>Here is the <a href="https://git.asonix.dog/asonix/async-zmq/src/branch/development/tokio-zmq/examples">excerpt</a> from <code>tokio-zmq</code>:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> ctx </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">Arc</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new(zmq</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Context</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new())</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> req_fut </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">Req</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">builder(ctx)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">connect</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;tcp://localhost:5560&quot;</span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">build</span><span style="color:#ccc9c2;">()</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> runner </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> req_fut</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">and_then</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">req</span><span style="color:#ccc9c2;">| {
-    req</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">send</span><span style="color:#ccc9c2;">(</span><span style="color:#f28779;">build_multipart</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">0</span><span style="color:#ccc9c2;">))</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">and_then</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">req</span><span style="color:#ccc9c2;">| {
-        </span><span style="color:#ffa759;">let </span><span style="color:#ccc9c2;">(sink</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> stream) </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> req</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">sink_stream</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">25</span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">split</span><span style="color:#ccc9c2;">()</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ccc9c2;">        stream
-            </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">zip</span><span style="color:#ccc9c2;">(</span><span style="color:#f28779;">iter_ok</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">1</span><span style="color:#f29e74;">..</span><span style="color:#ffcc66;">10_000</span><span style="color:#ccc9c2;">))
-            </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map</span><span style="color:#ccc9c2;">(|(</span><span style="color:#ffcc66;">multipart</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">i</span><span style="color:#ccc9c2;">)| {
-                </span><span style="color:#ffa759;">for</span><span style="color:#ccc9c2;"> msg </span><span style="color:#f29e74;">in</span><span style="color:#ccc9c2;"> multipart {
-                    </span><span style="color:#ffa759;">if let </span><span style="font-style:italic;color:#5ccfe6;">Some</span><span style="color:#ccc9c2;">(msg) </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> msg</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">as_str</span><span style="color:#ccc9c2;">() {
-                        </span><span style="color:#f28779;">println!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;Received: </span><span style="color:#ffcc66;">{}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> msg)</span><span style="color:#ccc9c2cc;">;
-                    </span><span style="color:#ccc9c2;">}
-                }
-                </span><span style="color:#f28779;">build_multipart</span><span style="color:#ccc9c2;">(i)
-            })
-            </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">forward</span><span style="color:#ccc9c2;">(sink)
-    })
-})</span><span style="color:#ccc9c2cc;">;
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let</span><span> ctx </span><span style="color:#f29e74;">= </span><span>Arc</span><span style="color:#f29e74;">::</span><span>new(zmq</span><span style="color:#f29e74;">::</span><span>Context</span><span style="color:#f29e74;">::</span><span>new())</span><span style="color:#ccc9c2cc;">;
+</span><span style="color:#ffa759;">let</span><span> req_fut </span><span style="color:#f29e74;">= </span><span>Req</span><span style="color:#f29e74;">::</span><span>builder(ctx)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">connect</span><span>(</span><span style="color:#bae67e;">&quot;tcp://localhost:5560&quot;</span><span>)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">build</span><span>()</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span style="color:#ffa759;">let</span><span> runner </span><span style="color:#f29e74;">=</span><span> req_fut</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">and_then</span><span>(|</span><span style="color:#ffcc66;">req</span><span>| {
+</span><span>    req</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">send</span><span>(</span><span style="color:#f28779;">build_multipart</span><span>(</span><span style="color:#ffcc66;">0</span><span>))</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">and_then</span><span>(|</span><span style="color:#ffcc66;">req</span><span>| {
+</span><span>        </span><span style="color:#ffa759;">let </span><span>(sink</span><span style="color:#ccc9c2cc;">,</span><span> stream) </span><span style="color:#f29e74;">=</span><span> req</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">sink_stream</span><span>(</span><span style="color:#ffcc66;">25</span><span>)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">split</span><span>()</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>        stream
+</span><span>            </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">zip</span><span>(</span><span style="color:#f28779;">iter_ok</span><span>(</span><span style="color:#ffcc66;">1</span><span style="color:#f29e74;">..</span><span style="color:#ffcc66;">10_000</span><span>))
+</span><span>            </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map</span><span>(|(</span><span style="color:#ffcc66;">multipart</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">i</span><span>)| {
+</span><span>                </span><span style="color:#ffa759;">for</span><span> msg </span><span style="color:#f29e74;">in</span><span> multipart {
+</span><span>                    </span><span style="color:#ffa759;">if let </span><span style="font-style:italic;color:#5ccfe6;">Some</span><span>(msg) </span><span style="color:#f29e74;">=</span><span> msg</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">as_str</span><span>() {
+</span><span>                        </span><span style="color:#f28779;">println!</span><span>(</span><span style="color:#bae67e;">&quot;Received: </span><span style="color:#ffcc66;">{}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span> msg)</span><span style="color:#ccc9c2cc;">;
+</span><span>                    }
+</span><span>                }
+</span><span>                </span><span style="color:#f28779;">build_multipart</span><span>(i)
+</span><span>            })
+</span><span>            </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">forward</span><span>(sink)
+</span><span>    })
+</span><span>})</span><span style="color:#ccc9c2cc;">;
 </span></code></pre>
 <p>On of the things you will notice is there is a lot of standard <code>futures</code> and <code>tokio</code> types used here: <code>sink</code>, <code>stream</code>, etc..  While this does make it more verbose, you are using constructs that you are familiar with in the futures style.</p>
 <h3 id="tmq">tmq</h3>
 <p>Here's a <a href="https://github.com/cetra3/tmq/blob/master/examples/response.rs">similar example</a> (although not using <code>multipart</code> messages) from <code>tmq</code>:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> responder </span><span style="color:#f29e74;">= </span><span style="color:#f28779;">respond</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">Context</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new())
-    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">bind</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;tcp://127.0.0.1:7899&quot;</span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">?
-    .</span><span style="color:#f28779;">with</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">msg</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> Message| {
-        </span><span style="color:#f28779;">info!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;Request: {}&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> msg</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">as_str</span><span style="color:#ccc9c2;">()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">unwrap_or</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;&quot;</span><span style="color:#ccc9c2;">))</span><span style="color:#ccc9c2cc;">;
-        </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span style="color:#ccc9c2;">(msg)
-    })</span><span style="color:#ccc9c2cc;">;
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let</span><span> responder </span><span style="color:#f29e74;">= </span><span style="color:#f28779;">respond</span><span>(</span><span style="color:#f29e74;">&amp;</span><span>Context</span><span style="color:#f29e74;">::</span><span>new())
+</span><span>    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">bind</span><span>(</span><span style="color:#bae67e;">&quot;tcp://127.0.0.1:7899&quot;</span><span>)</span><span style="color:#f29e74;">?
+</span><span>    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">with</span><span>(|</span><span style="color:#ffcc66;">msg</span><span style="color:#ccc9c2cc;">:</span><span> Message| {
+</span><span>        </span><span style="color:#f28779;">info!</span><span>(</span><span style="color:#bae67e;">&quot;Request: {}&quot;</span><span style="color:#ccc9c2cc;">,</span><span> msg</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">as_str</span><span>()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">unwrap_or</span><span>(</span><span style="color:#bae67e;">&quot;&quot;</span><span>))</span><span style="color:#ccc9c2cc;">;
+</span><span>        </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span>(msg)
+</span><span>    })</span><span style="color:#ccc9c2cc;">;
 </span></code></pre>
 <p>You'll notice that the library has a bit less boilerplate, but is more opinionated on how you structure a response.</p>
 <p>Instead of a <code>sink/stream</code> approach, the responder is a stream but has a <code>with</code> method.  The <code>with</code> method takes anything that implements the <code>Responder</code> trait, of which there is a blanket implemenation for closures and functions that take a message and return a message.</p>

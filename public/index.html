@@ -35,113 +35,126 @@
 
 <h1>Cetra's Thoughts</h1>
 
-<p>Hello! This is my website where I post blogs and investigations mostly about <a href="https://www.rust-lang.org/">Rust</a>.</p>
+<p>Hello! This is my website where I post blogs and investigations mostly about <a
+    href="https://www.rust-lang.org/">Rust</a>.</p>
 
-<p>Currently, I am building things for <a href="https://www.formlogic.com/">Formlogic</a>. <br /> Previously, I was the Technical Director and co-founder of <a href="https://www.parashift.com.au/">Parashift</a>.</p>
+<p>Currently, I am building things for <a href="https://www.formlogic.com/">Formlogic</a>. <br /> Previously, I was the
+  Technical Director and co-founder of <a href="https://www.parashift.com.au/">Parashift</a>.</p>
 
 
 <h3>My Projects</h3>
-<p>Here is a small selection of projects I have been working on. Check out my <a href="https://github.com/cetra3/">GitHub profile</a> for more</p>
+<p>Here is a small selection of projects I have been working on. Check out my <a
+    href="https://github.com/cetra3/">GitHub profile</a> for more</p>
 <article class="card">
- <div class="card-header">
-   <div class="card-title h3">DiveDB</div>
-   <em>Scuba Diving Database with Dive Sites and Dive Photos</em>
- </div>
- <div class="card-body">
-   DiveDB is a website for cataloguing and recording scuba diving related activities.  It currently includes a <a href="https://divedb.net/divesites/map">dive site map</a>, <a href="https://divedb.net/photos">photos</a> & dive log functionality.  The backend is written with <span class="label">Actix-Web</span> and the frontend in <span class="label">React</span>.
- </div>
- <div class="card-footer">
-      <a href="https://divedb.net/">https://divedb.net/</a>
- </div>
+  <div class="card-header">
+    <div class="card-title h3">DiveDB</div>
+    <em>Scuba Diving Database with Dive Sites and Dive Photos</em>
+  </div>
+  <div class="card-body">
+    DiveDB is a website for cataloguing and recording scuba diving related activities. It currently includes a <a
+      href="https://divedb.net/divesites/map">dive site map</a>, <a href="https://divedb.net/photos">photos</a> & dive
+    log functionality. The backend is written with <span class="label"><a href="https://actix.rs/">Actix Web</a></span>
+    and the frontend with <span class="label"><a href="https://kit.svelte.dev/">SvelteKit</a></span>.
+  </div>
+  <div class="card-footer">
+    <a href="https://divedb.net/">https://divedb.net/</a>
+  </div>
 </article>
 <article class="card">
- <div class="card-header">
-   <div class="card-title h3">Lorikeet</div>
-   <em>A Parallel Test Runner for DevOps</em>
- </div>
- <div class="card-body">
-   Lorikeet is a command line tool and a rust library to run tests for smoke testing and integration testing. Lorikeet currently supports bash commands and simple http requests along with system information (ram, cpu)
- </div>
- <div class="card-footer">
-      <a href="https://github.com/cetra3/lorikeet">https://github.com/cetra3/lorikeet</a>
- </div>
+  <div class="card-header">
+    <div class="card-title h3">Lorikeet</div>
+    <em>A Parallel Test Runner for DevOps</em>
+  </div>
+  <div class="card-body">
+    Lorikeet is a command line tool and a rust library to run tests for smoke testing and integration testing. Lorikeet
+    currently supports bash commands and simple http requests along with system information (ram, cpu)
+  </div>
+  <div class="card-footer">
+    <a href="https://github.com/cetra3/lorikeet">https://github.com/cetra3/lorikeet</a>
+  </div>
 </article>
 <article class="card">
- <div class="card-header">
-   <div class="card-title h3">TMQ</div>
-   <em>Rust ZeroMQ bindings for Tokio</em>
- </div>
- <div class="card-body">
-   This crate bridges Tokio and ZeroMQ to allow for ZeroMQ in the async world.
- </div>
- <div class="card-footer">
-      <a href="https://github.com/cetra3/tmq">https://github.com/cetra3/tmq</a>
- </div>
+  <div class="card-header">
+    <div class="card-title h3">TMQ</div>
+    <em>Rust ZeroMQ bindings for Tokio</em>
+  </div>
+  <div class="card-body">
+    This crate bridges Tokio and ZeroMQ to allow for ZeroMQ in the async world.
+  </div>
+  <div class="card-footer">
+    <a href="https://github.com/cetra3/tmq">https://github.com/cetra3/tmq</a>
+  </div>
 </article>
 
 <h3>Recent Blogs</h3>
 
 
-<article id="Implementing a Job queue with SQLx and Postgres" class="card">
+<article id="Publishing Rust types to a TypeScript frontend" class="card">
   <div class="card-header">
-     <div class="card-title h3">Implementing a Job queue with SQLx and Postgres</div>
-     <em>An example of async postgres in rust</em>
-     <br />
-     
-     <div class="card-subtitle">
-     <small class="label label-primary">rust</small> <small class="label label-primary">tmq</small> <small class="label label-primary">sqlx</small> <small class="label">2020-06-26</small>
-     </div>
-     
+    <div class="card-title h3">Publishing Rust types to a TypeScript frontend</div>
+    <em>Common libraries and projects used to share types from a Rust web backend to a TypeScript frontend</em>
+    <br />
+    
+    <div class="card-subtitle">
+      <small class="label label-primary">rust</small> <small class="label label-primary">typescript</small> <small
+        class="label">2022-09-13</small>
+    </div>
+    
   </div>
   <div class="card-body">
-      SQLx is a new async SQL Toolkit for rust that is closer to standard SQL than a more opinionated ORM like Diesel. I wanted to give it a bit of a test run and see how easy it would be to convert usage from tokio-postgres.  So as the next saga in the jobq se…
+    When building in a strongly-typed language such as rust it&#x27;s a shame to have to throw this strictness away, especially when dealing with the wild west of frontend stacks. The bigger the project is, the more you want to keep things cohesive.
+This cohesion …
   </div>
   <div class="card-footer">
-      <a href="https:&#x2F;&#x2F;cetra3.github.io&#x2F;blog&#x2F;implementing-a-jobq-sqlx&#x2F;">Continue Reading</a>
+    <a href="https:&#x2F;&#x2F;cetra3.github.io&#x2F;blog&#x2F;sharing-types-with-the-frontend&#x2F;">Continue Reading</a>
+  </div>
+</article>
+
+
+<article id="Implementing a Job queue with SQLx and Postgres" class="card">
+  <div class="card-header">
+    <div class="card-title h3">Implementing a Job queue with SQLx and Postgres</div>
+    <em>An example of async postgres in rust</em>
+    <br />
+    
+    <div class="card-subtitle">
+      <small class="label label-primary">rust</small> <small class="label label-primary">tmq</small> <small class="label label-primary">sqlx</small> <small
+        class="label">2020-06-26</small>
+    </div>
+    
+  </div>
+  <div class="card-body">
+    SQLx is a new async SQL Toolkit for rust that is closer to standard SQL than a more opinionated ORM like Diesel. I wanted to give it a bit of a test run and see how easy it would be to convert usage from tokio-postgres.  So as the next saga in the jobq se…
+  </div>
+  <div class="card-footer">
+    <a href="https:&#x2F;&#x2F;cetra3.github.io&#x2F;blog&#x2F;implementing-a-jobq-sqlx&#x2F;">Continue Reading</a>
   </div>
 </article>
 
 
 <article id="Drawing SVG Graphs with Rust" class="card">
   <div class="card-header">
-     <div class="card-title h3">Drawing SVG Graphs with Rust</div>
-     <em>Using tera to draw SVG graphs with rust</em>
-     <br />
-     
-     <div class="card-subtitle">
-     <small class="label label-primary">rust</small> <small class="label label-primary">lorikeet</small> <small class="label">2020-05-22</small>
-     </div>
-     
+    <div class="card-title h3">Drawing SVG Graphs with Rust</div>
+    <em>Using tera to draw SVG graphs with rust</em>
+    <br />
+    
+    <div class="card-subtitle">
+      <small class="label label-primary">rust</small> <small class="label label-primary">lorikeet</small> <small
+        class="label">2020-05-22</small>
+    </div>
+    
   </div>
   <div class="card-body">
-      I have just released the first version of lorikeet-dash and part of that exercise was to find out a way to draw SVG graphs using rust.
+    I have just released the first version of lorikeet-dash and part of that exercise was to find out a way to draw SVG graphs using rust.
 I thought my findings &amp;amp; approach may be useful for others looking to do the same thing and so I have documented the …
   </div>
   <div class="card-footer">
-      <a href="https:&#x2F;&#x2F;cetra3.github.io&#x2F;blog&#x2F;drawing-svg-graphs-rust&#x2F;">Continue Reading</a>
+    <a href="https:&#x2F;&#x2F;cetra3.github.io&#x2F;blog&#x2F;drawing-svg-graphs-rust&#x2F;">Continue Reading</a>
   </div>
 </article>
 
 
-<article id="Implementing a Job queue with Tokio-Serde" class="card">
-  <div class="card-header">
-     <div class="card-title h3">Implementing a Job queue with Tokio-Serde</div>
-     <em>An async background job queue written with tokio-serde</em>
-     <br />
-     
-     <div class="card-subtitle">
-     <small class="label label-primary">rust</small> <small class="label label-primary">async</small> <small class="label">2020-05-13</small>
-     </div>
-     
-  </div>
-  <div class="card-body">
-      In the last blog of this series, I implemented job queue with tmq.  I noted back then that tmq is great if you need to interact with other languages, but may be a little overkill if you are just using rust.  I wondered what it&#x27;d take to build the job queu…
-  </div>
-  <div class="card-footer">
-      <a href="https:&#x2F;&#x2F;cetra3.github.io&#x2F;blog&#x2F;implementing-a-jobq-with-tokio&#x2F;">Continue Reading</a>
-  </div>
-</article>
-
+<a href="/blog/">More Blogs</a>
 
 
     </div>

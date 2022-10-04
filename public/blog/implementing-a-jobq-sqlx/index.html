@@ -50,48 +50,45 @@
 <p>Now if you are not familiar with SQL this is definitely a different story, and may find you have a different opinion on how productive you are.  That's fine too, as this is one reason ORMs exist: to make it easier to code.  I would still recommend spending time grokking SQL, as it is quite a great skill to have in your toolbox.</p>
 <h3 id="diesel-orm">Diesel ORM</h3>
 <p>Picking on <a href="http://diesel.rs/">diesel</a> for a second: here is their <em>Complex Queries</em> example:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> versions </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">Version</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">belonging_to(krate)
-  </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">select</span><span style="color:#ccc9c2;">(id)
-  </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">order</span><span style="color:#ccc9c2;">(num</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">desc</span><span style="color:#ccc9c2;">())
-  </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">limit</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">5</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> downloads </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> version_downloads
-  </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">filter</span><span style="color:#ccc9c2;">(date</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">gt</span><span style="color:#ccc9c2;">(now </span><span style="color:#f29e74;">- </span><span style="color:#ffcc66;">90.</span><span style="color:#f28779;">days</span><span style="color:#ccc9c2;">()))
-  </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">filter</span><span style="color:#ccc9c2;">(version_id</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">eq</span><span style="color:#ccc9c2;">(</span><span style="color:#f28779;">any</span><span style="color:#ccc9c2;">(versions)))
-  </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">order</span><span style="color:#ccc9c2;">(date)
-  </span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">load</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">&lt;Download&gt;(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">conn)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let</span><span> versions </span><span style="color:#f29e74;">= </span><span>Version</span><span style="color:#f29e74;">::</span><span>belonging_to(krate)
+</span><span>  </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">select</span><span>(id)
+</span><span>  </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">order</span><span>(num</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">desc</span><span>())
+</span><span>  </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">limit</span><span>(</span><span style="color:#ffcc66;">5</span><span>)</span><span style="color:#ccc9c2cc;">;
+</span><span style="color:#ffa759;">let</span><span> downloads </span><span style="color:#f29e74;">=</span><span> version_downloads
+</span><span>  </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">filter</span><span>(date</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">gt</span><span>(now </span><span style="color:#f29e74;">- </span><span style="color:#ffcc66;">90.</span><span style="color:#f28779;">days</span><span>()))
+</span><span>  </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">filter</span><span>(version_id</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">eq</span><span>(</span><span style="color:#f28779;">any</span><span>(versions)))
+</span><span>  </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">order</span><span>(date)
+</span><span>  </span><span style="color:#f29e74;">.</span><span>load</span><span style="color:#f29e74;">::</span><span>&lt;Download&gt;(</span><span style="color:#f29e74;">&amp;</span><span>conn)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
 </span></code></pre>
 <p>Here is the same query in SQL:</p>
-<pre style="background-color:#212733;">
-<code class="language-sql" data-lang="sql"><span style="color:#ffa759;">SELECT</span><span style="color:#ccc9c2;"> version_downloads.</span><span style="font-style:italic;color:#5ccfe6;">*
-  </span><span style="color:#ffa759;">WHERE date </span><span style="color:#f29e74;">&gt;</span><span style="color:#ccc9c2;"> (NOW() </span><span style="color:#f29e74;">- </span><span style="color:#bae67e;">&#39;90 days&#39;</span><span style="color:#ccc9c2;">)
-    </span><span style="color:#f29e74;">AND</span><span style="color:#ccc9c2;"> version_id </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> ANY(
-      </span><span style="color:#ffa759;">SELECT</span><span style="color:#ccc9c2;"> id </span><span style="color:#ffa759;">FROM</span><span style="color:#ccc9c2;"> versions
-        </span><span style="color:#ffa759;">WHERE</span><span style="color:#ccc9c2;"> crate_id </span><span style="color:#f29e74;">= </span><span style="color:#ffcc66;">1
-        </span><span style="color:#ffa759;">ORDER BY</span><span style="color:#ccc9c2;"> num </span><span style="color:#ffa759;">DESC
-        LIMIT </span><span style="color:#ffcc66;">5
-</span><span style="color:#ccc9c2;">    )
-  </span><span style="color:#ffa759;">ORDER BY date
+<pre data-lang="sql" style="background-color:#212733;color:#ccc9c2;" class="language-sql "><code class="language-sql" data-lang="sql"><span style="color:#ffa759;">SELECT</span><span> version_downloads.</span><span style="font-style:italic;color:#5ccfe6;">*
+</span><span>  </span><span style="color:#ffa759;">WHERE date </span><span style="color:#f29e74;">&gt;</span><span> (NOW() </span><span style="color:#f29e74;">- </span><span style="color:#bae67e;">&#39;90 days&#39;</span><span>)
+</span><span>    </span><span style="color:#f29e74;">AND</span><span> version_id </span><span style="color:#f29e74;">=</span><span> ANY(
+</span><span>      </span><span style="color:#ffa759;">SELECT</span><span> id </span><span style="color:#ffa759;">FROM</span><span> versions
+</span><span>        </span><span style="color:#ffa759;">WHERE</span><span> crate_id </span><span style="color:#f29e74;">= </span><span style="color:#ffcc66;">1
+</span><span>        </span><span style="color:#ffa759;">ORDER BY</span><span> num </span><span style="color:#ffa759;">DESC
+</span><span>        </span><span style="color:#ffa759;">LIMIT </span><span style="color:#ffcc66;">5
+</span><span>    )
+</span><span>  </span><span style="color:#ffa759;">ORDER BY date
 </span></code></pre>
 <p>Which one do you find more readable? I find the SQL easier to read.</p>
 <h3 id="sqlx-orm">SQLx ORM</h3>
 <p>I still consider <code>SQLx</code> an ORM, but with SQL as a first-class citizen.</p>
 <p>Here's how you'd do the same with <strong>SQLx</strong>:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> query </span><span style="color:#f29e74;">= </span><span style="color:#bae67e;">&quot;SELECT version_downloads.*
-  WHERE date &gt; (NOW() - &#39;90 days&#39;)
-    AND version_id = ANY(
-      SELECT id FROM versions
-        WHERE crate_id = $1
-        ORDER BY num DESC
-        LIMIT 5
-    )
-  ORDER BY date&quot;</span><span style="color:#ccc9c2cc;">;
-
-
-</span><span style="color:#ccc9c2;">sqlx</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">query_as(query)
-    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">bind</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">num)
-    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">fetch_all</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;*</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">pool)</span><span style="color:#ccc9c2cc;">;
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let</span><span> query </span><span style="color:#f29e74;">= </span><span style="color:#bae67e;">&quot;SELECT version_downloads.*
+</span><span style="color:#bae67e;">  WHERE date &gt; (NOW() - &#39;90 days&#39;)
+</span><span style="color:#bae67e;">    AND version_id = ANY(
+</span><span style="color:#bae67e;">      SELECT id FROM versions
+</span><span style="color:#bae67e;">        WHERE crate_id = $1
+</span><span style="color:#bae67e;">        ORDER BY num DESC
+</span><span style="color:#bae67e;">        LIMIT 5
+</span><span style="color:#bae67e;">    )
+</span><span style="color:#bae67e;">  ORDER BY date&quot;</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>
+</span><span>sqlx</span><span style="color:#f29e74;">::</span><span>query_as(query)
+</span><span>    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">bind</span><span>(</span><span style="color:#f29e74;">&amp;</span><span>num)
+</span><span>    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">fetch_all</span><span>(</span><span style="color:#f29e74;">&amp;*</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span>pool)</span><span style="color:#ccc9c2cc;">;
 </span></code></pre>
 <p>If your <code>Version</code> struct derived <code>sqlx::FromRow</code>, then this would all work nicely.</p>
 <h2 id="converting-to-sqlx">Converting to SQLx</h2>
@@ -100,75 +97,69 @@
 <h3 id="migrations-and-raw-sql">Migrations and Raw SQL</h3>
 <p>I haven't implemented migrations properly in jobq: it's just a <a href="https://github.com/cetra3/jobq/blob/sqlx/src/setup.sql">simple sql script</a> that is run at startup.  SQLx does have <a href="https://github.com/launchbadge/sqlx/tree/master/sqlx-cli">utilities for this</a>, and is also quite strong on <a href="https://github.com/launchbadge/sqlx#compile-time-verification">compile time verification</a> to make this more type safe.</p>
 <p><strong>However:</strong> I just want to run the script at startup.  It's simple &amp; I can do it from standard postgres cli, so I should be able to it simply from rust as well.  The <code>sqlx::query</code> method will convert the SQL to a prepared statement, which does not play nice with such a query:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ccc9c2;">sqlx</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">query(</span><span style="color:#f28779;">include_str!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;setup.sql&quot;</span><span style="color:#ccc9c2;">))</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">execute</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">pool)</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>sqlx</span><span style="color:#f29e74;">::</span><span>query(</span><span style="color:#f28779;">include_str!</span><span>(</span><span style="color:#bae67e;">&quot;setup.sql&quot;</span><span>))</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">execute</span><span>(</span><span style="color:#f29e74;">&amp;</span><span>pool)</span><span style="color:#f29e74;">.</span><span>await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
 </span></code></pre>
 <p>Here's the error you may get:</p>
-<pre style="background-color:#212733;">
-<code><span style="color:#ccc9c2;">cannot insert multiple commands into a prepared statement
+<pre style="background-color:#212733;color:#ccc9c2;"><code><span>cannot insert multiple commands into a prepared statement
 </span></code></pre>
 <p>Instead, you can use the <a href="https://docs.rs/sqlx/0.3.5/sqlx/trait.Executor.html"><code>Executor</code> trait</a> which is implemented for <code>&amp;PgPool</code>.  This does make it a little awkward to write having to have the extra brackets:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">pool)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">execute</span><span style="color:#ccc9c2;">(</span><span style="color:#f28779;">include_str!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;setup.sql&quot;</span><span style="color:#ccc9c2;">))</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-</span></code></pre><h3 id="mapping-a-postgresql-query-to-rust-structs">Mapping a postgresql query to rust structs</h3>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>(</span><span style="color:#f29e74;">&amp;</span><span>pool)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">execute</span><span>(</span><span style="color:#f28779;">include_str!</span><span>(</span><span style="color:#bae67e;">&quot;setup.sql&quot;</span><span>))</span><span style="color:#f29e74;">.</span><span>await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span></code></pre>
+<h3 id="mapping-a-postgresql-query-to-rust-structs">Mapping a postgresql query to rust structs</h3>
 <p>sqlx has a <code>query_as</code> method which allows you to convert returned result rows into rust structs, a bit like serde is used to serialize/deserialize data.</p>
 <p>This works by deriving <a href="https://docs.rs/sqlx/0.3.5/sqlx/derive.FromRow.html"><code>sqlx::FromRow</code></a> on your structs:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ccc9c2cc;">#</span><span style="color:#ccc9c2;">[</span><span style="color:#ffd580;">derive</span><span style="color:#ccc9c2;">(Serialize</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> Deserialize</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> Debug</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> Clone</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> sqlx::FromRow)]
-</span><span style="color:#ffa759;">pub struct </span><span style="color:#73d0ff;">Job </span><span style="color:#ccc9c2;">{
-    </span><span style="color:#ffa759;">pub </span><span style="color:#ccc9c2;">id</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">i64</span><span style="color:#ccc9c2;">,
-    </span><span style="color:#ffa759;">pub </span><span style="color:#ccc9c2;">username</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> String,
-    </span><span style="color:#ffa759;">pub </span><span style="color:#ccc9c2;">name</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> String,
-    </span><span style="color:#ffa759;">pub </span><span style="color:#ccc9c2;">uuid</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> Uuid,
-    </span><span style="color:#ffa759;">pub </span><span style="color:#ccc9c2;">params</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> Value,
-    </span><span style="color:#ffa759;">pub </span><span style="color:#ccc9c2;">priority</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> Priority,
-    </span><span style="color:#ffa759;">pub </span><span style="color:#ccc9c2;">status</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> Status,
-}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ccc9c2cc;">#</span><span>[</span><span style="color:#ffd580;">derive</span><span>(Serialize</span><span style="color:#ccc9c2cc;">,</span><span> Deserialize</span><span style="color:#ccc9c2cc;">,</span><span> Debug</span><span style="color:#ccc9c2cc;">,</span><span> Clone</span><span style="color:#ccc9c2cc;">,</span><span> sqlx::FromRow)]
+</span><span style="color:#ffa759;">pub struct </span><span style="color:#73d0ff;">Job </span><span>{
+</span><span>    </span><span style="color:#ffa759;">pub </span><span>id</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">i64</span><span>,
+</span><span>    </span><span style="color:#ffa759;">pub </span><span>username</span><span style="color:#ccc9c2cc;">:</span><span> String,
+</span><span>    </span><span style="color:#ffa759;">pub </span><span>name</span><span style="color:#ccc9c2cc;">:</span><span> String,
+</span><span>    </span><span style="color:#ffa759;">pub </span><span>uuid</span><span style="color:#ccc9c2cc;">:</span><span> Uuid,
+</span><span>    </span><span style="color:#ffa759;">pub </span><span>params</span><span style="color:#ccc9c2cc;">:</span><span> Value,
+</span><span>    </span><span style="color:#ffa759;">pub </span><span>priority</span><span style="color:#ccc9c2cc;">:</span><span> Priority,
+</span><span>    </span><span style="color:#ffa759;">pub </span><span>status</span><span style="color:#ccc9c2cc;">:</span><span> Status,
+</span><span>}
 </span></code></pre>
 <p>As I am using <a href="https://github.com/cetra3/jobq/blob/f4441203fd4b4d2d73d5f7a91b228723c7330aa6/src/setup.sql#L2-L9">custom enums</a>, I also need to derive <a href="https://docs.rs/sqlx/0.3.5/sqlx/derive.Type.html"><code>sqlx::Type</code></a> on them:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ccc9c2cc;">#</span><span style="color:#ccc9c2;">[</span><span style="color:#ffd580;">derive</span><span style="color:#ccc9c2;">(Serialize</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> Deserialize</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> Debug</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> Clone</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> sqlx::Type)]
-</span><span style="color:#ffa759;">pub enum </span><span style="color:#73d0ff;">Status </span><span style="color:#ccc9c2;">{
-    Queued</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">    Processing</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">    Completed</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">    Failed</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ccc9c2cc;">#</span><span>[</span><span style="color:#ffd580;">derive</span><span>(Serialize</span><span style="color:#ccc9c2cc;">,</span><span> Deserialize</span><span style="color:#ccc9c2cc;">,</span><span> Debug</span><span style="color:#ccc9c2cc;">,</span><span> Clone</span><span style="color:#ccc9c2cc;">,</span><span> sqlx::Type)]
+</span><span style="color:#ffa759;">pub enum </span><span style="color:#73d0ff;">Status </span><span>{
+</span><span>    Queued</span><span style="color:#ccc9c2cc;">,
+</span><span>    Processing</span><span style="color:#ccc9c2cc;">,
+</span><span>    Completed</span><span style="color:#ccc9c2cc;">,
+</span><span>    Failed</span><span style="color:#ccc9c2cc;">,
+</span><span>}
 </span></code></pre>
 <p>(<em>Side note: custom enums may not be a <a href="https://softwareengineering.stackexchange.com/questions/305148/why-would-you-store-an-enum-in-db">hot idea for maintainability</a></em>)</p>
 <p>With that I can do away with the old <a href="https://github.com/cetra3/jobq/blob/051b2c2a89fbed0a67bc989c4d3bf29a745ab3ce/src/db.rs#L53-L79"><code>get_jobs</code></a> method, as this is handled for me now by SQLx.</p>
 <p>I can then use the <a href="https://docs.rs/sqlx/0.3.5/sqlx/postgres/trait.PgQueryAs.html#tymethod.fetch_all"><code>fetch_all</code></a> method to return is as a <code>Vec</code>:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">pub</span><span style="color:#ccc9c2;">(</span><span style="color:#ffa759;">crate</span><span style="color:#ccc9c2;">) async </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">get_processing_jobs</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffcc66;">self</span><span style="color:#ccc9c2;">) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span style="color:#ccc9c2;">&lt;</span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span style="color:#ccc9c2;">&lt;Job&gt;, Error&gt; {
-    </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> query </span><span style="color:#f29e74;">= </span><span style="color:#bae67e;">&quot;select id, name, username, uuid, params, priority, status from jobq
-                 where status = &#39;Processing&#39; order by priority asc, time asc&quot;</span><span style="color:#ccc9c2cc;">;
-
-    </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span style="color:#ccc9c2;">(sqlx</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">query_as(query)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">fetch_all</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;*</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">pool)</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2;">)
-}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">pub</span><span>(</span><span style="color:#ffa759;">crate</span><span>) async </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">get_processing_jobs</span><span>(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffcc66;">self</span><span>) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span>&lt;</span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span>&lt;Job&gt;, Error&gt; {
+</span><span>    </span><span style="color:#ffa759;">let</span><span> query </span><span style="color:#f29e74;">= </span><span style="color:#bae67e;">&quot;select id, name, username, uuid, params, priority, status from jobq
+</span><span style="color:#bae67e;">                 where status = &#39;Processing&#39; order by priority asc, time asc&quot;</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span>(sqlx</span><span style="color:#f29e74;">::</span><span>query_as(query)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">fetch_all</span><span>(</span><span style="color:#f29e74;">&amp;*</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span>pool)</span><span style="color:#f29e74;">.</span><span>await</span><span style="color:#f29e74;">?</span><span>)
+</span><span>}
 </span></code></pre>
 <p>Worthy of note: the <a href="https://docs.rs/sqlx/0.3.5/sqlx/postgres/trait.PgQueryAs.html#tymethod.fetch"><code>fetch</code></a> method returns a futures <code>Stream</code> to iterate through, making a much tighter integration with async</p>
 <h3 id="binding-parameters">Binding Parameters</h3>
 <p>I didn't need to change SQL statements at all, but did need to adjust some of the binding parameters using the <code>bind</code> builder pattern:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">pub</span><span style="color:#ccc9c2;">(</span><span style="color:#ffa759;">crate</span><span style="color:#ccc9c2;">) async </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">complete_job</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffcc66;">self</span><span style="color:#ccc9c2;">, </span><span style="color:#ffcc66;">id</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">i64</span><span style="color:#ccc9c2;">) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span style="color:#ccc9c2;">&lt;(), Error&gt; {
-    </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> query </span><span style="color:#f29e74;">= </span><span style="color:#bae67e;">&quot;update jobq set status = &#39;Completed&#39;, duration = extract(epoch from now() - </span><span style="color:#95e6cb;">\&quot;</span><span style="color:#bae67e;">time</span><span style="color:#95e6cb;">\&quot;</span><span style="color:#bae67e;">) where id = $1&quot;</span><span style="color:#ccc9c2cc;">;
-
-    </span><span style="color:#ccc9c2;">sqlx</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">query(query)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">bind</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">id)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">execute</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;*</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">pool)</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-
-    </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span style="color:#ccc9c2;">(())
-}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">pub</span><span>(</span><span style="color:#ffa759;">crate</span><span>) async </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">complete_job</span><span>(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffcc66;">self</span><span>, </span><span style="color:#ffcc66;">id</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">i64</span><span>) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span>&lt;(), Error&gt; {
+</span><span>    </span><span style="color:#ffa759;">let</span><span> query </span><span style="color:#f29e74;">= </span><span style="color:#bae67e;">&quot;update jobq set status = &#39;Completed&#39;, duration = extract(epoch from now() - </span><span style="color:#95e6cb;">\&quot;</span><span style="color:#bae67e;">time</span><span style="color:#95e6cb;">\&quot;</span><span style="color:#bae67e;">) where id = $1&quot;</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    sqlx</span><span style="color:#f29e74;">::</span><span>query(query)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">bind</span><span>(</span><span style="color:#f29e74;">&amp;</span><span>id)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">execute</span><span>(</span><span style="color:#f29e74;">&amp;*</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span>pool)</span><span style="color:#f29e74;">.</span><span>await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span>(())
+</span><span>}
 </span></code></pre>
 <p>This is different to <code>tokio-postgres</code> accepting an array of parameters.  I have ran into issues before when trying to pass dynamic arguments and trying to wrangle life times.  Here is how I have worked around this in the past (not exactly pretty):</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">for</span><span style="color:#ccc9c2;"> row </span><span style="color:#f29e74;">in </span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">pool</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">get</span><span style="color:#ccc9c2;">()</span><span style="color:#f29e74;">?.</span><span style="color:#f28779;">query</span><span style="color:#ccc9c2;">(
-    </span><span style="color:#f29e74;">&amp;*</span><span style="color:#ccc9c2;">query</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">    params
-        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">iter</span><span style="color:#ccc9c2;">()
-        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">val</span><span style="color:#ccc9c2;">| </span><span style="color:#f29e74;">&amp;**</span><span style="color:#ccc9c2;">val </span><span style="color:#f29e74;">as &amp;</span><span style="color:#ccc9c2;">(dyn ToSql </span><span style="color:#f29e74;">+ </span><span style="font-style:italic;color:#5ccfe6;">Sync</span><span style="color:#ccc9c2;">))
-        </span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">collect</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">&lt;</span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span style="color:#ccc9c2;">&lt;</span><span style="color:#f29e74;">_</span><span style="color:#ccc9c2;">&gt;&gt;()
-        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">as_slice</span><span style="color:#ccc9c2;">()</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">?
-</span></code></pre><h2 id="conclusions">Conclusions</h2>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">for</span><span> row </span><span style="color:#f29e74;">in </span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span>pool</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">get</span><span>()</span><span style="color:#f29e74;">?.</span><span style="color:#f28779;">query</span><span>(
+</span><span>    </span><span style="color:#f29e74;">&amp;*</span><span>query</span><span style="color:#ccc9c2cc;">,
+</span><span>    params
+</span><span>        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">iter</span><span>()
+</span><span>        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map</span><span>(|</span><span style="color:#ffcc66;">val</span><span>| </span><span style="color:#f29e74;">&amp;**</span><span>val </span><span style="color:#f29e74;">as &amp;</span><span>(dyn ToSql </span><span style="color:#f29e74;">+ </span><span style="font-style:italic;color:#5ccfe6;">Sync</span><span>))
+</span><span>        </span><span style="color:#f29e74;">.</span><span>collect</span><span style="color:#f29e74;">::</span><span>&lt;</span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span>&lt;</span><span style="color:#f29e74;">_</span><span>&gt;&gt;()
+</span><span>        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">as_slice</span><span>()</span><span style="color:#ccc9c2cc;">,
+</span><span>)</span><span style="color:#f29e74;">?
+</span></code></pre>
+<h2 id="conclusions">Conclusions</h2>
 <p>As you can see from the <a href="https://github.com/cetra3/jobq/compare/051b2c2a89fbed0a67bc989c4d3bf29a745ab3ce...sqlx">diff of the commits</a>, the conversion to use SQLx was an easy excercise.  I have found SQLx quite a bit more lightweight and more to my liking than some of the heavier ORMs I've dealt with in the past.  Being async first means that this will be a great fit for the ecosystem: I can see it becoming the defacto async story for databases in the future.</p>
 <p>One area which may need some improvement is the documentation &amp; examples.  As it is a comparitively young library with the <a href="https://github.com/launchbadge/sqlx/commit/d29b24abf0f491d912333f34d7b5187e4c30bb08">first commit a year ago</a>, I assume that this will only get better with time.  The <a href="https://github.com/launchbadge/sqlx">README</a>  and <a href="https://docs.rs/sqlx">api docs</a> were enough for me to get into trouble.</p>
 <p>If you are looking to talk to a database with async rust, make sure you consider SQLx!</p>

@@ -101,269 +101,257 @@
 <p>With serde it's pretty easy to adjust what serialisation is used, so some experimentation could be worthwhile.</p>
 <h2 id="the-job-structs">The Job Structs</h2>
 <p>The <a href="https://github.com/cetra3/jobq/blob/a09ebcaff164c2153cdceba0031dbfb7caa1ea3b/src/lib.rs#L42-L50"><code>Job</code> struct</a> is defined as follows (with the <code>Status</code> &amp; <code>Priority</code> enums listed too):</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">pub struct </span><span style="color:#73d0ff;">Job </span><span style="color:#ccc9c2;">{
-    </span><span style="color:#ffa759;">pub </span><span style="color:#ccc9c2;">id</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">i64</span><span style="color:#ccc9c2;">, </span><span style="font-style:italic;color:#5c6773;">// ID of the Job so it can be tracked
-    </span><span style="color:#ffa759;">pub </span><span style="color:#ccc9c2;">username</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> String, </span><span style="font-style:italic;color:#5c6773;">// Username of who submitted the job
-    </span><span style="color:#ffa759;">pub </span><span style="color:#ccc9c2;">name</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> String, </span><span style="font-style:italic;color:#5c6773;">// Name of the job/worker, `rendition`, etc..
-    </span><span style="color:#ffa759;">pub </span><span style="color:#ccc9c2;">uuid</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> Uuid, </span><span style="font-style:italic;color:#5c6773;">// Unique ID of the asset
-    </span><span style="color:#ffa759;">pub </span><span style="color:#ccc9c2;">params</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> Value,</span><span style="font-style:italic;color:#5c6773;">// Any parameters of the job in question
-    </span><span style="color:#ffa759;">pub </span><span style="color:#ccc9c2;">priority</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> Priority, </span><span style="font-style:italic;color:#5c6773;">// The priority of the job
-    </span><span style="color:#ffa759;">pub </span><span style="color:#ccc9c2;">status</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> Status,</span><span style="font-style:italic;color:#5c6773;">// The status of the job
-</span><span style="color:#ccc9c2;">}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">pub struct </span><span style="color:#73d0ff;">Job </span><span>{
+</span><span>    </span><span style="color:#ffa759;">pub </span><span>id</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">i64</span><span>, </span><span style="font-style:italic;color:#5c6773;">// ID of the Job so it can be tracked
+</span><span>    </span><span style="color:#ffa759;">pub </span><span>username</span><span style="color:#ccc9c2cc;">:</span><span> String, </span><span style="font-style:italic;color:#5c6773;">// Username of who submitted the job
+</span><span>    </span><span style="color:#ffa759;">pub </span><span>name</span><span style="color:#ccc9c2cc;">:</span><span> String, </span><span style="font-style:italic;color:#5c6773;">// Name of the job/worker, `rendition`, etc..
+</span><span>    </span><span style="color:#ffa759;">pub </span><span>uuid</span><span style="color:#ccc9c2cc;">:</span><span> Uuid, </span><span style="font-style:italic;color:#5c6773;">// Unique ID of the asset
+</span><span>    </span><span style="color:#ffa759;">pub </span><span>params</span><span style="color:#ccc9c2cc;">:</span><span> Value,</span><span style="font-style:italic;color:#5c6773;">// Any parameters of the job in question
+</span><span>    </span><span style="color:#ffa759;">pub </span><span>priority</span><span style="color:#ccc9c2cc;">:</span><span> Priority, </span><span style="font-style:italic;color:#5c6773;">// The priority of the job
+</span><span>    </span><span style="color:#ffa759;">pub </span><span>status</span><span style="color:#ccc9c2cc;">:</span><span> Status,</span><span style="font-style:italic;color:#5c6773;">// The status of the job
+</span><span>}
 </span></code></pre>
 <p>The job has a current status which starts with <code>Queued</code>, goes to <code>Processing</code> when it is active and then marked as either <code>Completed</code> or <code>Failed</code>:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">pub enum </span><span style="color:#73d0ff;">Status </span><span style="color:#ccc9c2;">{
-    Queued</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">    Processing</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">    Completed</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">    Failed</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">pub enum </span><span style="color:#73d0ff;">Status </span><span>{
+</span><span>    Queued</span><span style="color:#ccc9c2cc;">,
+</span><span>    Processing</span><span style="color:#ccc9c2cc;">,
+</span><span>    Completed</span><span style="color:#ccc9c2cc;">,
+</span><span>    Failed</span><span style="color:#ccc9c2cc;">,
+</span><span>}
 </span></code></pre>
 <p>The priority is a simple 3-tier system of <code>High</code>, <code>Normal</code> &amp; <code>Low</code>:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">pub enum </span><span style="color:#73d0ff;">Priority </span><span style="color:#ccc9c2;">{
-    High</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">    Normal</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">    Low</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">}
-</span></code></pre><h3 id="message-types">Message types</h3>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">pub enum </span><span style="color:#73d0ff;">Priority </span><span>{
+</span><span>    High</span><span style="color:#ccc9c2cc;">,
+</span><span>    Normal</span><span style="color:#ccc9c2cc;">,
+</span><span>    Low</span><span style="color:#ccc9c2cc;">,
+</span><span>}
+</span></code></pre>
+<h3 id="message-types">Message types</h3>
 <p>Messages are split up based upon who the destination is with a shared <code>Hello</code> message that can be serialised as any enum:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ccc9c2cc;">#</span><span style="color:#ccc9c2;">[</span><span style="color:#ffd580;">derive</span><span style="color:#ccc9c2;">(Serialize</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> Deserialize</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> Debug)]
-</span><span style="color:#ffa759;">pub enum </span><span style="color:#73d0ff;">ServerMessage </span><span style="color:#ccc9c2;">{
-    Hello</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">    Request(JobRequest)</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">    Completed(Job)</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">    Failed(Job</span><span style="color:#ccc9c2cc;">, </span><span style="font-style:italic;color:#5ccfe6;">String</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">}
-
-</span><span style="color:#ccc9c2cc;">#</span><span style="color:#ccc9c2;">[</span><span style="color:#ffd580;">derive</span><span style="color:#ccc9c2;">(Serialize</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> Deserialize</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> Debug)]
-</span><span style="color:#ffa759;">pub enum </span><span style="color:#73d0ff;">ClientMessage </span><span style="color:#ccc9c2;">{
-    Hello</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">    Acknowledged(Job)</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">}
-
-</span><span style="color:#ccc9c2cc;">#</span><span style="color:#ccc9c2;">[</span><span style="color:#ffd580;">derive</span><span style="color:#ccc9c2;">(Serialize</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> Deserialize</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> Debug)]
-</span><span style="color:#ffa759;">pub enum </span><span style="color:#73d0ff;">WorkerMessage </span><span style="color:#ccc9c2;">{
-    Hello</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">    Order(Job)</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ccc9c2cc;">#</span><span>[</span><span style="color:#ffd580;">derive</span><span>(Serialize</span><span style="color:#ccc9c2cc;">,</span><span> Deserialize</span><span style="color:#ccc9c2cc;">,</span><span> Debug)]
+</span><span style="color:#ffa759;">pub enum </span><span style="color:#73d0ff;">ServerMessage </span><span>{
+</span><span>    Hello</span><span style="color:#ccc9c2cc;">,
+</span><span>    Request(JobRequest)</span><span style="color:#ccc9c2cc;">,
+</span><span>    Completed(Job)</span><span style="color:#ccc9c2cc;">,
+</span><span>    Failed(Job</span><span style="color:#ccc9c2cc;">, </span><span style="font-style:italic;color:#5ccfe6;">String</span><span>)</span><span style="color:#ccc9c2cc;">,
+</span><span>}
+</span><span>
+</span><span style="color:#ccc9c2cc;">#</span><span>[</span><span style="color:#ffd580;">derive</span><span>(Serialize</span><span style="color:#ccc9c2cc;">,</span><span> Deserialize</span><span style="color:#ccc9c2cc;">,</span><span> Debug)]
+</span><span style="color:#ffa759;">pub enum </span><span style="color:#73d0ff;">ClientMessage </span><span>{
+</span><span>    Hello</span><span style="color:#ccc9c2cc;">,
+</span><span>    Acknowledged(Job)</span><span style="color:#ccc9c2cc;">,
+</span><span>}
+</span><span>
+</span><span style="color:#ccc9c2cc;">#</span><span>[</span><span style="color:#ffd580;">derive</span><span>(Serialize</span><span style="color:#ccc9c2cc;">,</span><span> Deserialize</span><span style="color:#ccc9c2cc;">,</span><span> Debug)]
+</span><span style="color:#ffa759;">pub enum </span><span style="color:#73d0ff;">WorkerMessage </span><span>{
+</span><span>    Hello</span><span style="color:#ccc9c2cc;">,
+</span><span>    Order(Job)</span><span style="color:#ccc9c2cc;">,
+</span><span>}
 </span></code></pre>
 <p>The  <code>JobRequest</code> is very similar to a <code>Job</code> but does not have an allocated id or status yet:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">pub struct </span><span style="color:#73d0ff;">JobRequest </span><span style="color:#ccc9c2;">{
-    </span><span style="color:#ffa759;">pub </span><span style="color:#ccc9c2;">name</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> String,
-    </span><span style="color:#ffa759;">pub </span><span style="color:#ccc9c2;">username</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> String,
-    </span><span style="color:#ffa759;">pub </span><span style="color:#ccc9c2;">uuid</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> Uuid,
-    </span><span style="color:#ffa759;">pub </span><span style="color:#ccc9c2;">params</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> Value,
-    </span><span style="color:#ffa759;">pub </span><span style="color:#ccc9c2;">priority</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> Priority,
-}
-</span></code></pre><h3 id="the-params-value">The Params Value</h3>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">pub struct </span><span style="color:#73d0ff;">JobRequest </span><span>{
+</span><span>    </span><span style="color:#ffa759;">pub </span><span>name</span><span style="color:#ccc9c2cc;">:</span><span> String,
+</span><span>    </span><span style="color:#ffa759;">pub </span><span>username</span><span style="color:#ccc9c2cc;">:</span><span> String,
+</span><span>    </span><span style="color:#ffa759;">pub </span><span>uuid</span><span style="color:#ccc9c2cc;">:</span><span> Uuid,
+</span><span>    </span><span style="color:#ffa759;">pub </span><span>params</span><span style="color:#ccc9c2cc;">:</span><span> Value,
+</span><span>    </span><span style="color:#ffa759;">pub </span><span>priority</span><span style="color:#ccc9c2cc;">:</span><span> Priority,
+</span><span>}
+</span></code></pre>
+<h3 id="the-params-value">The Params Value</h3>
 <p>One thing to note is the <code>params</code> is of the type <code>serde_json::Value</code>.  This is really to allow the greatest flexibility into what parameters are sent with each job &amp; also to have it persist to PostgreSQL as a <code>jsonb</code> column.</p>
 <p>Alternatively, a tighter <code>enum</code> could be used for different job names if you knew ahead of time the jobs that will be requested.</p>
 <h3 id="serialisation-helpers">Serialisation helpers</h3>
 <p>To reduce some of the repetitiveness, there is a serialisation helper which simply serialises to <code>CBOR</code> for any struct that implements <code>Serialize</code>:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">pub trait </span><span style="color:#73d0ff;">ToMpart </span><span style="color:#ccc9c2;">{
-    </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">to_mpart</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffcc66;">self</span><span style="color:#ccc9c2;">) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span style="color:#ccc9c2;">&lt;Multipart, Error&gt;</span><span style="color:#ccc9c2cc;">;
-
-    </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">to_msg</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffcc66;">self</span><span style="color:#ccc9c2;">) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span style="color:#ccc9c2;">&lt;Message, Error&gt;</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">}
-
-</span><span style="color:#ffa759;">impl</span><span style="color:#ccc9c2;">&lt;T</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ccc9c2;">serde</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">ser</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Serialize&gt; ToMpart </span><span style="color:#ffa759;">for </span><span style="color:#73d0ff;">T </span><span style="color:#ccc9c2;">{
-    </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">to_mpart</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffcc66;">self</span><span style="color:#ccc9c2;">) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span style="color:#ccc9c2;">&lt;Multipart, Error&gt; {
-        </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> bytes </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">serde_cbor</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">to_vec(</span><span style="color:#f29e74;">&amp;</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-
-        </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span style="color:#ccc9c2;">(Multipart</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">from(</span><span style="color:#f28779;">vec!</span><span style="color:#ccc9c2;">[</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">bytes]))
-    }
-
-    </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">to_msg</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffcc66;">self</span><span style="color:#ccc9c2;">) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span style="color:#ccc9c2;">&lt;Message, Error&gt; {
-        </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> bytes </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">serde_cbor</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">to_vec(</span><span style="color:#f29e74;">&amp;</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-
-        </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span style="color:#ccc9c2;">(Message</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">from(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">bytes))
-    }
-}
-</span></code></pre><h2 id="client-requests">Client Requests</h2>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">pub trait </span><span style="color:#73d0ff;">ToMpart </span><span>{
+</span><span>    </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">to_mpart</span><span>(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffcc66;">self</span><span>) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span>&lt;Multipart, Error&gt;</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">to_msg</span><span>(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffcc66;">self</span><span>) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span>&lt;Message, Error&gt;</span><span style="color:#ccc9c2cc;">;
+</span><span>}
+</span><span>
+</span><span style="color:#ffa759;">impl</span><span>&lt;T</span><span style="color:#ccc9c2cc;">: </span><span>serde</span><span style="color:#f29e74;">::</span><span>ser</span><span style="color:#f29e74;">::</span><span>Serialize&gt; ToMpart </span><span style="color:#ffa759;">for </span><span style="color:#73d0ff;">T </span><span>{
+</span><span>    </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">to_mpart</span><span>(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffcc66;">self</span><span>) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span>&lt;Multipart, Error&gt; {
+</span><span>        </span><span style="color:#ffa759;">let</span><span> bytes </span><span style="color:#f29e74;">= </span><span>serde_cbor</span><span style="color:#f29e74;">::</span><span>to_vec(</span><span style="color:#f29e74;">&amp;</span><span style="font-style:italic;color:#5ccfe6;">self</span><span>)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>        </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span>(Multipart</span><span style="color:#f29e74;">::</span><span>from(</span><span style="color:#f28779;">vec!</span><span>[</span><span style="color:#f29e74;">&amp;</span><span>bytes]))
+</span><span>    }
+</span><span>
+</span><span>    </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">to_msg</span><span>(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffcc66;">self</span><span>) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span>&lt;Message, Error&gt; {
+</span><span>        </span><span style="color:#ffa759;">let</span><span> bytes </span><span style="color:#f29e74;">= </span><span>serde_cbor</span><span style="color:#f29e74;">::</span><span>to_vec(</span><span style="color:#f29e74;">&amp;</span><span style="font-style:italic;color:#5ccfe6;">self</span><span>)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>        </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span>(Message</span><span style="color:#f29e74;">::</span><span>from(</span><span style="color:#f29e74;">&amp;</span><span>bytes))
+</span><span>    }
+</span><span>}
+</span></code></pre>
+<h2 id="client-requests">Client Requests</h2>
 <p>Clients can send requests by constructing job requests and sending them to the server.  They just need to construct the <code>Request</code> enum and send it on the wire:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let </span><span style="color:#ccc9c2;">(</span><span style="color:#ffa759;">mut</span><span style="color:#ccc9c2;"> send</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffa759;">mut</span><span style="color:#ccc9c2;"> recv) </span><span style="color:#f29e74;">= </span><span style="color:#f28779;">dealer</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">Context</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new())
-    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">set_identity</span><span style="color:#ccc9c2;">(</span><span style="color:#ffa759;">b</span><span style="color:#bae67e;">&quot;test_client&quot;</span><span style="color:#ccc9c2;">)
-    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">connect</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">config</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">job_address)</span><span style="color:#f29e74;">?
-    .</span><span style="color:#ccc9c2;">split</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">&lt;Multipart&gt;()</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> job </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> JobRequest {
-    name</span><span style="color:#ccc9c2cc;">: </span><span style="color:#bae67e;">&quot;test&quot;</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">into</span><span style="color:#ccc9c2;">()</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">    username</span><span style="color:#ccc9c2cc;">: </span><span style="color:#bae67e;">&quot;test_client&quot;</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">into</span><span style="color:#ccc9c2;">()</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">    params</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ccc9c2;">Value</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Null</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">    uuid</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ccc9c2;">Uuid</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new_v4()</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">    priority</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> PriorityLow</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">}</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ccc9c2;">send</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">send</span><span style="color:#ccc9c2;">(ServerMessage</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Request(job)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">to_mpart</span><span style="color:#ccc9c2;">()</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-</span></code></pre><h2 id="worker-processing">Worker Processing</h2>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let </span><span>(</span><span style="color:#ffa759;">mut</span><span> send</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffa759;">mut</span><span> recv) </span><span style="color:#f29e74;">= </span><span style="color:#f28779;">dealer</span><span>(</span><span style="color:#f29e74;">&amp;</span><span>Context</span><span style="color:#f29e74;">::</span><span>new())
+</span><span>    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">set_identity</span><span>(</span><span style="color:#ffa759;">b</span><span style="color:#bae67e;">&quot;test_client&quot;</span><span>)
+</span><span>    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">connect</span><span>(</span><span style="color:#f29e74;">&amp;</span><span>config</span><span style="color:#f29e74;">.</span><span>job_address)</span><span style="color:#f29e74;">?
+</span><span>    </span><span style="color:#f29e74;">.</span><span>split</span><span style="color:#f29e74;">::</span><span>&lt;Multipart&gt;()</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span style="color:#ffa759;">let</span><span> job </span><span style="color:#f29e74;">=</span><span> JobRequest {
+</span><span>    name</span><span style="color:#ccc9c2cc;">: </span><span style="color:#bae67e;">&quot;test&quot;</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">into</span><span>()</span><span style="color:#ccc9c2cc;">,
+</span><span>    username</span><span style="color:#ccc9c2cc;">: </span><span style="color:#bae67e;">&quot;test_client&quot;</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">into</span><span>()</span><span style="color:#ccc9c2cc;">,
+</span><span>    params</span><span style="color:#ccc9c2cc;">: </span><span>Value</span><span style="color:#f29e74;">::</span><span>Null</span><span style="color:#ccc9c2cc;">,
+</span><span>    uuid</span><span style="color:#ccc9c2cc;">: </span><span>Uuid</span><span style="color:#f29e74;">::</span><span>new_v4()</span><span style="color:#ccc9c2cc;">,
+</span><span>    priority</span><span style="color:#ccc9c2cc;">:</span><span> PriorityLow</span><span style="color:#ccc9c2cc;">,
+</span><span>}</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>send</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">send</span><span>(ServerMessage</span><span style="color:#f29e74;">::</span><span>Request(job)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">to_mpart</span><span>()</span><span style="color:#f29e74;">?</span><span>)</span><span style="color:#f29e74;">.</span><span>await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span></code></pre>
+<h2 id="worker-processing">Worker Processing</h2>
 <p>For workers doing the work, they should do something &amp; then return whether it's failed or completed.</p>
 <p>To make this easier, a <code>Worker</code> trait is implemented.  Since some work will be async &amp; some not, we want our trait to be async-capable.  At the writing of this article you can't have <code>async</code> in trait definitions, but there is the <a href="https://crates.io/crates/async-trait">async_trait</a> crate that allows you to decorate a trait definition and do what we're after.</p>
 <p>For errors we're going to use the <a href="https://crates.io/crates/anyhow">anyhow</a> crate, but a more generic error approach could be used with a bit of a refactor.</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ccc9c2cc;">#</span><span style="color:#ccc9c2;">[</span><span style="color:#ffd580;">async_trait</span><span style="color:#ccc9c2;">]
-</span><span style="color:#ffa759;">pub trait </span><span style="color:#73d0ff;">Worker</span><span style="color:#ccc9c2;">: Sized {
-    </span><span style="color:#ffa759;">const </span><span style="color:#ffcc66;">JOB_NAME</span><span style="color:#ccc9c2cc;">: </span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">&#39;static str</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ccc9c2;">    async </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">process</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffcc66;">self</span><span style="color:#ccc9c2;">, </span><span style="color:#ffcc66;">job</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> Job) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span style="color:#ccc9c2;">&lt;(), Error&gt;
-}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ccc9c2cc;">#</span><span>[</span><span style="color:#ffd580;">async_trait</span><span>]
+</span><span style="color:#ffa759;">pub trait </span><span style="color:#73d0ff;">Worker</span><span>: Sized {
+</span><span>    </span><span style="color:#ffa759;">const </span><span style="color:#ffcc66;">JOB_NAME</span><span style="color:#ccc9c2cc;">: </span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">&#39;static str</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    async </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">process</span><span>(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffcc66;">self</span><span>, </span><span style="color:#ffcc66;">job</span><span style="color:#ccc9c2cc;">:</span><span> Job) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span>&lt;(), Error&gt;
+</span><span>}
 </span></code></pre>
 <p>The implementation of this trait means that you can do lots within the <code>process</code> body and simplifies it.</p>
 <p>An original version had the <code>process</code> method accept <code>&amp;mut self</code>, but that caused some contention when trying to process jobs concurrently.  Instead you'll need some interior mutability if you need to provide any mutable references to <code>&amp;self</code>.</p>
 <p>As an <a href="https://github.com/cetra3/jobq/blob/2028ea12388bd077056d984016ecf46c88e6626c/src/worker.rs#L82-L94">example</a>, the test worker will simply wait for 100 milliseconds and then fail every 12th job based upon the id:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">impl </span><span style="color:#ccc9c2;">Worker </span><span style="color:#ffa759;">for </span><span style="color:#73d0ff;">TestWorker </span><span style="color:#ccc9c2;">{
-    </span><span style="color:#ffa759;">const </span><span style="color:#ffcc66;">JOB_NAME</span><span style="color:#ccc9c2cc;">: </span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">&#39;static str </span><span style="color:#f29e74;">= </span><span style="color:#bae67e;">&quot;test&quot;</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ccc9c2;">    async </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">process</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffcc66;">self</span><span style="color:#ccc9c2;">, </span><span style="color:#ffcc66;">job</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> Job) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span style="color:#ccc9c2;">&lt;(), Error&gt; {
-        </span><span style="color:#f28779;">delay_for</span><span style="color:#ccc9c2;">(Duration</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">from_millis(</span><span style="color:#ffcc66;">100</span><span style="color:#ccc9c2;">))</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await</span><span style="color:#ccc9c2cc;">;
-        </span><span style="color:#ffa759;">if</span><span style="color:#ccc9c2;"> job</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">id </span><span style="color:#f29e74;">% </span><span style="color:#ffcc66;">12 </span><span style="color:#f29e74;">== </span><span style="color:#ffcc66;">0 </span><span style="color:#ccc9c2;">{
-            </span><span style="color:#ffa759;">return </span><span style="font-style:italic;color:#5ccfe6;">Err</span><span style="color:#ccc9c2;">(</span><span style="color:#f28779;">anyhow!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;Simulating failure&quot;</span><span style="color:#ccc9c2;">))</span><span style="color:#ccc9c2cc;">;
-        </span><span style="color:#ccc9c2;">}
-
-        </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span style="color:#ccc9c2;">(())
-    }
-}
-</span></code></pre><h3 id="the-work-method">The Work Method</h3>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">impl </span><span>Worker </span><span style="color:#ffa759;">for </span><span style="color:#73d0ff;">TestWorker </span><span>{
+</span><span>    </span><span style="color:#ffa759;">const </span><span style="color:#ffcc66;">JOB_NAME</span><span style="color:#ccc9c2cc;">: </span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">&#39;static str </span><span style="color:#f29e74;">= </span><span style="color:#bae67e;">&quot;test&quot;</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    async </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">process</span><span>(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffcc66;">self</span><span>, </span><span style="color:#ffcc66;">job</span><span style="color:#ccc9c2cc;">:</span><span> Job) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span>&lt;(), Error&gt; {
+</span><span>        </span><span style="color:#f28779;">delay_for</span><span>(Duration</span><span style="color:#f29e74;">::</span><span>from_millis(</span><span style="color:#ffcc66;">100</span><span>))</span><span style="color:#f29e74;">.</span><span>await</span><span style="color:#ccc9c2cc;">;
+</span><span>        </span><span style="color:#ffa759;">if</span><span> job</span><span style="color:#f29e74;">.</span><span>id </span><span style="color:#f29e74;">% </span><span style="color:#ffcc66;">12 </span><span style="color:#f29e74;">== </span><span style="color:#ffcc66;">0 </span><span>{
+</span><span>            </span><span style="color:#ffa759;">return </span><span style="font-style:italic;color:#5ccfe6;">Err</span><span>(</span><span style="color:#f28779;">anyhow!</span><span>(</span><span style="color:#bae67e;">&quot;Simulating failure&quot;</span><span>))</span><span style="color:#ccc9c2cc;">;
+</span><span>        }
+</span><span>
+</span><span>        </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span>(())
+</span><span>    }
+</span><span>}
+</span></code></pre>
+<h3 id="the-work-method">The Work Method</h3>
 <p>There is another method, <code>work</code>, <a href="https://github.com/cetra3/jobq/blob/2028ea12388bd077056d984016ecf46c88e6626c/src/worker.rs#L16">on the trait</a> which sets up &amp; hides some of the complexity away of getting a worker to listen for requests coming through.   This is plumbing to make it easy to run a <code>Worker</code>.</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ccc9c2;">async </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">work</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffcc66;">self</span><span style="color:#ccc9c2;">, </span><span style="color:#ffcc66;">job_address</span><span style="color:#ccc9c2cc;">: </span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">str</span><span style="color:#ccc9c2;">) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span style="color:#ccc9c2;">&lt;(), Error&gt; {
-    </span><span style="color:#f29e74;">...
-</span><span style="color:#ccc9c2;">} 
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>async </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">work</span><span>(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffcc66;">self</span><span>, </span><span style="color:#ffcc66;">job_address</span><span style="color:#ccc9c2cc;">: </span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">str</span><span>) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span>&lt;(), Error&gt; {
+</span><span>    </span><span style="color:#f29e74;">...
+</span><span>} 
 </span></code></pre>
 <p>You can <code>await</code> this method for anything that implements <code>Worker</code> to have it process incoming requests:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">use </span><span style="color:#ccc9c2;">jobq</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">worker</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">{Worker</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> TestWorker}</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ccc9c2;">tokio</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">spawn(async </span><span style="color:#ffa759;">move </span><span style="color:#ccc9c2;">{
-    </span><span style="color:#ffa759;">if let </span><span style="font-style:italic;color:#5ccfe6;">Err</span><span style="color:#ccc9c2;">(err) </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> TestWorker</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">work</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">worker_config</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">job_address)</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await {
-        </span><span style="color:#f28779;">error!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;{}&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> err)</span><span style="color:#ccc9c2cc;">;
-    </span><span style="color:#ccc9c2;">}
-})</span><span style="color:#ccc9c2cc;">;
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">use </span><span>jobq</span><span style="color:#f29e74;">::</span><span>worker</span><span style="color:#f29e74;">::</span><span>{Worker</span><span style="color:#ccc9c2cc;">,</span><span> TestWorker}</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>tokio</span><span style="color:#f29e74;">::</span><span>spawn(async </span><span style="color:#ffa759;">move </span><span>{
+</span><span>    </span><span style="color:#ffa759;">if let </span><span style="font-style:italic;color:#5ccfe6;">Err</span><span>(err) </span><span style="color:#f29e74;">=</span><span> TestWorker</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">work</span><span>(</span><span style="color:#f29e74;">&amp;</span><span>worker_config</span><span style="color:#f29e74;">.</span><span>job_address)</span><span style="color:#f29e74;">.</span><span>await {
+</span><span>        </span><span style="color:#f28779;">error!</span><span>(</span><span style="color:#bae67e;">&quot;{}&quot;</span><span style="color:#ccc9c2cc;">,</span><span> err)</span><span style="color:#ccc9c2cc;">;
+</span><span>    }
+</span><span>})</span><span style="color:#ccc9c2cc;">;
 </span></code></pre>
 <p>Under the hood it uses the job address to communicate with a Server and glues up some requests</p>
 <p>Firstly, <a href="https://github.com/cetra3/jobq/blob/2028ea12388bd077056d984016ecf46c88e6626c/src/worker.rs#L20-L23">it creates a dealer socket</a>, setting the identity accordingly:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let </span><span style="color:#ccc9c2;">(</span><span style="color:#ffa759;">mut</span><span style="color:#ccc9c2;"> send_skt</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> recv) </span><span style="color:#f29e74;">= </span><span style="color:#f28779;">dealer</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">Context</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new())
-    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">set_identity</span><span style="color:#ccc9c2;">(job_name</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">as_bytes</span><span style="color:#ccc9c2;">())
-    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">connect</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">job_address)</span><span style="color:#f29e74;">?
-    .</span><span style="color:#ccc9c2;">split</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">&lt;Multipart&gt;()</span><span style="color:#ccc9c2cc;">;
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let </span><span>(</span><span style="color:#ffa759;">mut</span><span> send_skt</span><span style="color:#ccc9c2cc;">,</span><span> recv) </span><span style="color:#f29e74;">= </span><span style="color:#f28779;">dealer</span><span>(</span><span style="color:#f29e74;">&amp;</span><span>Context</span><span style="color:#f29e74;">::</span><span>new())
+</span><span>    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">set_identity</span><span>(job_name</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">as_bytes</span><span>())
+</span><span>    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">connect</span><span>(</span><span style="color:#f29e74;">&amp;</span><span>job_address)</span><span style="color:#f29e74;">?
+</span><span>    </span><span style="color:#f29e74;">.</span><span>split</span><span style="color:#f29e74;">::</span><span>&lt;Multipart&gt;()</span><span style="color:#ccc9c2cc;">;
 </span></code></pre>
 <p>As ZeroMQ sockets are <code>Send</code> but not <code>Sync</code>, we spin up a background task connected by an <code>unbounded</code> queue which allows the sender to be cloned.  This allows both heartbeats to be sent every 10 seconds from a background task &amp; also send results of processing:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let </span><span style="color:#ccc9c2;">(send</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffa759;">mut</span><span style="color:#ccc9c2;"> recv_skt) </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">unbounded</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">&lt;ServerMessage&gt;()</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ccc9c2;">tokio</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">spawn(async </span><span style="color:#ffa759;">move </span><span style="color:#ccc9c2;">{
-    </span><span style="color:#ffa759;">while let </span><span style="font-style:italic;color:#5ccfe6;">Some</span><span style="color:#ccc9c2;">(jobq_message) </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> recv_skt</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">next</span><span style="color:#ccc9c2;">()</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await {
-        </span><span style="color:#ffa759;">if let </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span style="color:#ccc9c2;">(msg) </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> jobq_message</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">to_mpart</span><span style="color:#ccc9c2;">() {
-            </span><span style="color:#ffa759;">if let </span><span style="font-style:italic;color:#5ccfe6;">Err</span><span style="color:#ccc9c2;">(err) </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> send_skt</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">send</span><span style="color:#ccc9c2;">(msg)</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await {
-                </span><span style="color:#f28779;">error!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;Error sending message:{}&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> err)</span><span style="color:#ccc9c2cc;">;
-            </span><span style="color:#ccc9c2;">}
-        }
-    }
-})</span><span style="color:#ccc9c2cc;">;
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let </span><span>(send</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffa759;">mut</span><span> recv_skt) </span><span style="color:#f29e74;">= </span><span>unbounded</span><span style="color:#f29e74;">::</span><span>&lt;ServerMessage&gt;()</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>tokio</span><span style="color:#f29e74;">::</span><span>spawn(async </span><span style="color:#ffa759;">move </span><span>{
+</span><span>    </span><span style="color:#ffa759;">while let </span><span style="font-style:italic;color:#5ccfe6;">Some</span><span>(jobq_message) </span><span style="color:#f29e74;">=</span><span> recv_skt</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">next</span><span>()</span><span style="color:#f29e74;">.</span><span>await {
+</span><span>        </span><span style="color:#ffa759;">if let </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span>(msg) </span><span style="color:#f29e74;">=</span><span> jobq_message</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">to_mpart</span><span>() {
+</span><span>            </span><span style="color:#ffa759;">if let </span><span style="font-style:italic;color:#5ccfe6;">Err</span><span>(err) </span><span style="color:#f29e74;">=</span><span> send_skt</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">send</span><span>(msg)</span><span style="color:#f29e74;">.</span><span>await {
+</span><span>                </span><span style="color:#f28779;">error!</span><span>(</span><span style="color:#bae67e;">&quot;Error sending message:{}&quot;</span><span style="color:#ccc9c2cc;">,</span><span> err)</span><span style="color:#ccc9c2cc;">;
+</span><span>            }
+</span><span>        }
+</span><span>    }
+</span><span>})</span><span style="color:#ccc9c2cc;">;
 </span></code></pre>
 <p>The <a href="https://github.com/cetra3/jobq/blob/2028ea12388bd077056d984016ecf46c88e6626c/src/worker.rs#L39-L46">10 second heartbeat</a> is similiarly set up as a separate task:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ccc9c2;">tokio</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">spawn(async </span><span style="color:#ffa759;">move </span><span style="color:#ccc9c2;">{
-    </span><span style="color:#ffa759;">loop </span><span style="color:#ccc9c2;">{
-        </span><span style="color:#ffa759;">if let </span><span style="font-style:italic;color:#5ccfe6;">Err</span><span style="color:#ccc9c2;">(err) </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> ping_sender</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">send</span><span style="color:#ccc9c2;">(ServerMessage</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Hello)</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await {
-            </span><span style="color:#f28779;">error!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;Error:{}&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> err)</span><span style="color:#ccc9c2cc;">;
-        </span><span style="color:#ccc9c2;">}</span><span style="color:#ccc9c2cc;">;
-        </span><span style="color:#f28779;">delay_for</span><span style="color:#ccc9c2;">(Duration</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">from_millis(</span><span style="color:#ffcc66;">10000</span><span style="color:#ccc9c2;">))</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await</span><span style="color:#ccc9c2cc;">;
-    </span><span style="color:#ccc9c2;">}
-})</span><span style="color:#ccc9c2cc;">;
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>tokio</span><span style="color:#f29e74;">::</span><span>spawn(async </span><span style="color:#ffa759;">move </span><span>{
+</span><span>    </span><span style="color:#ffa759;">loop </span><span>{
+</span><span>        </span><span style="color:#ffa759;">if let </span><span style="font-style:italic;color:#5ccfe6;">Err</span><span>(err) </span><span style="color:#f29e74;">=</span><span> ping_sender</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">send</span><span>(ServerMessage</span><span style="color:#f29e74;">::</span><span>Hello)</span><span style="color:#f29e74;">.</span><span>await {
+</span><span>            </span><span style="color:#f28779;">error!</span><span>(</span><span style="color:#bae67e;">&quot;Error:{}&quot;</span><span style="color:#ccc9c2cc;">,</span><span> err)</span><span style="color:#ccc9c2cc;">;
+</span><span>        }</span><span style="color:#ccc9c2cc;">;
+</span><span>        </span><span style="color:#f28779;">delay_for</span><span>(Duration</span><span style="color:#f29e74;">::</span><span>from_millis(</span><span style="color:#ffcc66;">10000</span><span>))</span><span style="color:#f29e74;">.</span><span>await</span><span style="color:#ccc9c2cc;">;
+</span><span>    }
+</span><span>})</span><span style="color:#ccc9c2cc;">;
 </span></code></pre>
 <p>There is then a <a href="https://github.com/cetra3/jobq/blob/2028ea12388bd077056d984016ecf46c88e6626c/src/worker.rs#L48-L75">big combinator statement</a> which in effect listens for job requests &amp; then runs them in parallel:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ccc9c2;">recv</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">filter_map</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">val</span><span style="color:#ccc9c2;">| {
-    </span><span style="color:#ffa759;">match</span><span style="color:#ccc9c2;"> val
-        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map_err</span><span style="color:#ccc9c2;">(Error</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">from)
-        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">and_then</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">msg</span><span style="color:#ccc9c2;">| serde_cbor</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">from_slice(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">msg[</span><span style="color:#ffcc66;">0</span><span style="color:#ccc9c2;">])</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map_err</span><span style="color:#ccc9c2;">(Error</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">from))
-    {
-        </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span style="color:#ccc9c2;">(WorkerMessage</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Order(job)) </span><span style="color:#f29e74;">=&gt; </span><span style="color:#ffa759;">return </span><span style="color:#f28779;">ready</span><span style="color:#ccc9c2;">(</span><span style="font-style:italic;color:#5ccfe6;">Some</span><span style="color:#ccc9c2;">(job))</span><span style="color:#ccc9c2cc;">,
-        </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span style="color:#ccc9c2;">(WorkerMessage</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Hello) </span><span style="color:#f29e74;">=&gt; </span><span style="color:#ccc9c2;">{
-            </span><span style="color:#f28779;">debug!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;Pong: {}&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> job_type)</span><span style="color:#ccc9c2cc;">;
-        </span><span style="color:#ccc9c2;">}
-        </span><span style="font-style:italic;color:#5ccfe6;">Err</span><span style="color:#ccc9c2;">(err) </span><span style="color:#f29e74;">=&gt; </span><span style="color:#ccc9c2;">{
-            </span><span style="color:#f28779;">error!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;Error decoding message:{}&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> err)</span><span style="color:#ccc9c2cc;">;
-        </span><span style="color:#ccc9c2;">}
-    }
-
-    </span><span style="color:#ffa759;">return </span><span style="color:#f28779;">ready</span><span style="color:#ccc9c2;">(</span><span style="font-style:italic;color:#5ccfe6;">None</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">})
-</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">job</span><span style="color:#ccc9c2;">| (</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">process</span><span style="color:#ccc9c2;">(job</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">clone</span><span style="color:#ccc9c2;">())</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> send</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">clone</span><span style="color:#ccc9c2;">()</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> job))
-</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">for_each_concurrent</span><span style="color:#ccc9c2;">(</span><span style="font-style:italic;color:#5ccfe6;">None</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ccc9c2;">|(</span><span style="color:#ffcc66;">status</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">mut send</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">job</span><span style="color:#ccc9c2;">)| async </span><span style="color:#ffa759;">move </span><span style="color:#ccc9c2;">{
-    </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> server_message </span><span style="color:#f29e74;">= </span><span style="color:#ffa759;">match</span><span style="color:#ccc9c2;"> status</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await {
-        </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span style="color:#ccc9c2;">(()) </span><span style="color:#f29e74;">=&gt; </span><span style="color:#ccc9c2;">ServerMessage</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Completed(job)</span><span style="color:#ccc9c2cc;">,
-        </span><span style="font-style:italic;color:#5ccfe6;">Err</span><span style="color:#ccc9c2;">(err) </span><span style="color:#f29e74;">=&gt; </span><span style="color:#ccc9c2;">ServerMessage</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Failed(job</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> err</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">to_string</span><span style="color:#ccc9c2;">())</span><span style="color:#ccc9c2cc;">,
-    </span><span style="color:#ccc9c2;">}</span><span style="color:#ccc9c2cc;">;
-
-    </span><span style="color:#ffa759;">if let </span><span style="font-style:italic;color:#5ccfe6;">Err</span><span style="color:#ccc9c2;">(err) </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> send</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">send</span><span style="color:#ccc9c2;">(server_message)</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await {
-        </span><span style="color:#f28779;">error!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;Error sending server message: {}&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> err)</span><span style="color:#ccc9c2cc;">;
-    </span><span style="color:#ccc9c2;">}
-})
-</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await</span><span style="color:#ccc9c2cc;">;
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>recv</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">filter_map</span><span>(|</span><span style="color:#ffcc66;">val</span><span>| {
+</span><span>    </span><span style="color:#ffa759;">match</span><span> val
+</span><span>        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map_err</span><span>(Error</span><span style="color:#f29e74;">::</span><span>from)
+</span><span>        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">and_then</span><span>(|</span><span style="color:#ffcc66;">msg</span><span>| serde_cbor</span><span style="color:#f29e74;">::</span><span>from_slice(</span><span style="color:#f29e74;">&amp;</span><span>msg[</span><span style="color:#ffcc66;">0</span><span>])</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map_err</span><span>(Error</span><span style="color:#f29e74;">::</span><span>from))
+</span><span>    {
+</span><span>        </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span>(WorkerMessage</span><span style="color:#f29e74;">::</span><span>Order(job)) </span><span style="color:#f29e74;">=&gt; </span><span style="color:#ffa759;">return </span><span style="color:#f28779;">ready</span><span>(</span><span style="font-style:italic;color:#5ccfe6;">Some</span><span>(job))</span><span style="color:#ccc9c2cc;">,
+</span><span>        </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span>(WorkerMessage</span><span style="color:#f29e74;">::</span><span>Hello) </span><span style="color:#f29e74;">=&gt; </span><span>{
+</span><span>            </span><span style="color:#f28779;">debug!</span><span>(</span><span style="color:#bae67e;">&quot;Pong: {}&quot;</span><span style="color:#ccc9c2cc;">,</span><span> job_type)</span><span style="color:#ccc9c2cc;">;
+</span><span>        }
+</span><span>        </span><span style="font-style:italic;color:#5ccfe6;">Err</span><span>(err) </span><span style="color:#f29e74;">=&gt; </span><span>{
+</span><span>            </span><span style="color:#f28779;">error!</span><span>(</span><span style="color:#bae67e;">&quot;Error decoding message:{}&quot;</span><span style="color:#ccc9c2cc;">,</span><span> err)</span><span style="color:#ccc9c2cc;">;
+</span><span>        }
+</span><span>    }
+</span><span>
+</span><span>    </span><span style="color:#ffa759;">return </span><span style="color:#f28779;">ready</span><span>(</span><span style="font-style:italic;color:#5ccfe6;">None</span><span>)</span><span style="color:#ccc9c2cc;">;
+</span><span>})
+</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map</span><span>(|</span><span style="color:#ffcc66;">job</span><span>| (</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">process</span><span>(job</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">clone</span><span>())</span><span style="color:#ccc9c2cc;">,</span><span> send</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">clone</span><span>()</span><span style="color:#ccc9c2cc;">,</span><span> job))
+</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">for_each_concurrent</span><span>(</span><span style="font-style:italic;color:#5ccfe6;">None</span><span style="color:#ccc9c2cc;">, </span><span>|(</span><span style="color:#ffcc66;">status</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">mut send</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">job</span><span>)| async </span><span style="color:#ffa759;">move </span><span>{
+</span><span>    </span><span style="color:#ffa759;">let</span><span> server_message </span><span style="color:#f29e74;">= </span><span style="color:#ffa759;">match</span><span> status</span><span style="color:#f29e74;">.</span><span>await {
+</span><span>        </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span>(()) </span><span style="color:#f29e74;">=&gt; </span><span>ServerMessage</span><span style="color:#f29e74;">::</span><span>Completed(job)</span><span style="color:#ccc9c2cc;">,
+</span><span>        </span><span style="font-style:italic;color:#5ccfe6;">Err</span><span>(err) </span><span style="color:#f29e74;">=&gt; </span><span>ServerMessage</span><span style="color:#f29e74;">::</span><span>Failed(job</span><span style="color:#ccc9c2cc;">,</span><span> err</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">to_string</span><span>())</span><span style="color:#ccc9c2cc;">,
+</span><span>    }</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    </span><span style="color:#ffa759;">if let </span><span style="font-style:italic;color:#5ccfe6;">Err</span><span>(err) </span><span style="color:#f29e74;">=</span><span> send</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">send</span><span>(server_message)</span><span style="color:#f29e74;">.</span><span>await {
+</span><span>        </span><span style="color:#f28779;">error!</span><span>(</span><span style="color:#bae67e;">&quot;Error sending server message: {}&quot;</span><span style="color:#ccc9c2cc;">,</span><span> err)</span><span style="color:#ccc9c2cc;">;
+</span><span>    }
+</span><span>})
+</span><span style="color:#f29e74;">.</span><span>await</span><span style="color:#ccc9c2cc;">;
 </span></code></pre>
 <p>There is a bit of cloning here that could probably be avoided, but the overhead of cloning a job is not that big.</p>
 <p>The <a href="https://docs.rs/futures/0.3.4/futures/stream/trait.StreamExt.html#method.for_each_concurrent"><code>for_each_concurrent</code></a> allows the worker to run concurrently, and is one of the reasons the trait takes <code>&amp;self</code> rather than <code>&amp;mut self</code>.</p>
 <p>All of this is essentially generic on the <code>Worker</code> trait, meaning this plumbing is handled for you when you call <code>work(&amp;address)</code>.</p>
 <h3 id="blocking-tasks">Blocking Tasks</h3>
 <p>Some tasks may be blocking, which is a no-no in the async world.  If one of the async worker threads is blocked then it can't listen for more events &amp; will slow things down.  Luckily tokio does provide the <a href="https://docs.rs/tokio/0.2.18/tokio/task/fn.spawn_blocking.html"><code>spawn_blocking</code></a> helper for executing blocking work on a dedicated threadpool:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> result </span><span style="color:#f29e74;">=
-   </span><span style="color:#ccc9c2;">tokio</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">task</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">spawn_blocking(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|| </span><span style="color:#f28779;">do_blocking_work</span><span style="color:#ccc9c2;">(job))</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ccc9c2;">result</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await</span><span style="color:#f29e74;">??</span><span style="color:#ccc9c2cc;">;
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let</span><span> result </span><span style="color:#f29e74;">=
+</span><span>   tokio</span><span style="color:#f29e74;">::</span><span>task</span><span style="color:#f29e74;">::</span><span>spawn_blocking(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|| </span><span style="color:#f28779;">do_blocking_work</span><span>(job))</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>result</span><span style="color:#f29e74;">.</span><span>await</span><span style="color:#f29e74;">??</span><span style="color:#ccc9c2cc;">;
 </span></code></pre>
 <p>The double <code>.await??</code> is because the <code>JoinHandle</code> returned from <code>spawn_blocking</code> itself could fail and the internal result from the closure could fail.</p>
 <p>To control how many threads are used for blocking operations, you need to manually <a href="https://docs.rs/tokio/0.2.18/tokio/runtime/struct.Builder.html">build your tokio run time</a>, rather than use the <code>tokio::main</code> macro.</p>
 <p>The the number of blocking threads is <code>max_threads - core_threads</code>.  For instance, if you wanted only 2 dedicated blocking threads:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let mut</span><span style="color:#ccc9c2;"> rt </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">tokio</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">runtime</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Builder</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new()
-    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">threaded_scheduler</span><span style="color:#ccc9c2;">()
-    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">enable_all</span><span style="color:#ccc9c2;">()
-    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">core_threads</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">4</span><span style="color:#ccc9c2;">)
-    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">max_threads</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">6</span><span style="color:#ccc9c2;">)
-    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">build</span><span style="color:#ccc9c2;">()</span><span style="color:#f29e74;">?
-</span></code></pre><h2 id="the-server-loop">The Server Loop</h2>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let mut</span><span> rt </span><span style="color:#f29e74;">= </span><span>tokio</span><span style="color:#f29e74;">::</span><span>runtime</span><span style="color:#f29e74;">::</span><span>Builder</span><span style="color:#f29e74;">::</span><span>new()
+</span><span>    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">threaded_scheduler</span><span>()
+</span><span>    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">enable_all</span><span>()
+</span><span>    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">core_threads</span><span>(</span><span style="color:#ffcc66;">4</span><span>)
+</span><span>    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">max_threads</span><span>(</span><span style="color:#ffcc66;">6</span><span>)
+</span><span>    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">build</span><span>()</span><span style="color:#f29e74;">?
+</span></code></pre>
+<h2 id="the-server-loop">The Server Loop</h2>
 <p>The <a href="https://github.com/cetra3/jobq/blob/master/src/server.rs">server loop</a> is the main loop responsible for coordinating tasks &amp; otherwise tasks are finished in the order they are supposed to.  The server here responds to messages from the ZeroMQ socket &amp; acts according to the message received.</p>
 <h3 id="setup-phase">Setup Phase</h3>
 <p>The <a href="https://github.com/cetra3/jobq/blob/2028ea12388bd077056d984016ecf46c88e6626c/src/server.rs#L26-L36">setup phase</a> involves setting up a db handle, then querying the database for any outstanding processing jobs.  This is to ensure that they don't become stuck as part of a server restart, but can mean that there may be duplicate jobs submitted.  If your jobs provide the same outcome based upon the job at hand this isn't a big deal, so the workers should do work that is idempotent if at all possible.</p>
 <p>Once that is done, the server keeps an active count of jobs &amp; increments/decrements them when jobs finish/fail or start.</p>
 <h3 id="main-loop">Main Loop</h3>
 <p>The <a href="https://github.com/cetra3/jobq/blob/2028ea12388bd077056d984016ecf46c88e6626c/src/server.rs#L38-L119">main loop</a> simply waits until a message is received, and acts accordingly:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">while let </span><span style="font-style:italic;color:#5ccfe6;">Some</span><span style="color:#ccc9c2;">(msg) </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> recv</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">try_next</span><span style="color:#ccc9c2;">()</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await</span><span style="color:#f29e74;">? </span><span style="color:#ccc9c2;">{
-
-    </span><span style="font-style:italic;color:#5c6773;">// This is the `ROUTER` socket identity
-    </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> client_name </span><span style="color:#f29e74;">= &amp;</span><span style="color:#ccc9c2;">msg[</span><span style="color:#ffcc66;">0</span><span style="color:#ccc9c2;">]</span><span style="color:#ccc9c2cc;">;
-    </span><span style="font-style:italic;color:#5c6773;">// This is the message
-    </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> server_msg </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">serde_cbor</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">from_slice</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">&lt;ServerMessage&gt;(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">msg[</span><span style="color:#ffcc66;">1</span><span style="color:#ccc9c2;">])</span><span style="color:#ccc9c2cc;">;
-    
-    </span><span style="color:#ffa759;">match</span><span style="color:#ccc9c2;"> server_msg {
-        </span><span style="color:#f29e74;">...
-    </span><span style="color:#ccc9c2;">}
-
-}
-</span></code></pre><h4 id="hello-message">Hello Message</h4>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">while let </span><span style="font-style:italic;color:#5ccfe6;">Some</span><span>(msg) </span><span style="color:#f29e74;">=</span><span> recv</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">try_next</span><span>()</span><span style="color:#f29e74;">.</span><span>await</span><span style="color:#f29e74;">? </span><span>{
+</span><span>
+</span><span>    </span><span style="font-style:italic;color:#5c6773;">// This is the `ROUTER` socket identity
+</span><span>    </span><span style="color:#ffa759;">let</span><span> client_name </span><span style="color:#f29e74;">= &amp;</span><span>msg[</span><span style="color:#ffcc66;">0</span><span>]</span><span style="color:#ccc9c2cc;">;
+</span><span>    </span><span style="font-style:italic;color:#5c6773;">// This is the message
+</span><span>    </span><span style="color:#ffa759;">let</span><span> server_msg </span><span style="color:#f29e74;">= </span><span>serde_cbor</span><span style="color:#f29e74;">::</span><span>from_slice</span><span style="color:#f29e74;">::</span><span>&lt;ServerMessage&gt;(</span><span style="color:#f29e74;">&amp;</span><span>msg[</span><span style="color:#ffcc66;">1</span><span>])</span><span style="color:#ccc9c2cc;">;
+</span><span>    
+</span><span>    </span><span style="color:#ffa759;">match</span><span> server_msg {
+</span><span>        </span><span style="color:#f29e74;">...
+</span><span>    }
+</span><span>
+</span><span>}
+</span></code></pre>
+<h4 id="hello-message">Hello Message</h4>
 <p>If a <code>Hello</code> message is received then the server will send any outstanding processing jobs it knows about:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#5c6773;">//Drain out existing processing jobs
-</span><span style="color:#ffa759;">let </span><span style="color:#ccc9c2;">(jobs</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> outstanding)</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ccc9c2;">(</span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span style="color:#ccc9c2;">&lt;Job&gt;</span><span style="color:#ccc9c2cc;">, </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span style="color:#ccc9c2;">&lt;Job&gt;) </span><span style="color:#f29e74;">=
-</span><span style="color:#ccc9c2;">    processing</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">into_iter</span><span style="color:#ccc9c2;">()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">partition</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">job</span><span style="color:#ccc9c2;">| job</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">name </span><span style="color:#f29e74;">==</span><span style="color:#ccc9c2;"> name)</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ccc9c2;">processing </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> outstanding</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ffa759;">for</span><span style="color:#ccc9c2;"> job </span><span style="color:#f29e74;">in</span><span style="color:#ccc9c2;"> jobs {
-    </span><span style="color:#f28779;">send_job</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">handle</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> job</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span style="color:#ccc9c2;"> send)</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#5c6773;">//Drain out existing processing jobs
+</span><span style="color:#ffa759;">let </span><span>(jobs</span><span style="color:#ccc9c2cc;">,</span><span> outstanding)</span><span style="color:#ccc9c2cc;">: </span><span>(</span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span>&lt;Job&gt;</span><span style="color:#ccc9c2cc;">, </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span>&lt;Job&gt;) </span><span style="color:#f29e74;">=
+</span><span>    processing</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">into_iter</span><span>()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">partition</span><span>(|</span><span style="color:#ffcc66;">job</span><span>| job</span><span style="color:#f29e74;">.</span><span>name </span><span style="color:#f29e74;">==</span><span> name)</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>processing </span><span style="color:#f29e74;">=</span><span> outstanding</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span style="color:#ffa759;">for</span><span> job </span><span style="color:#f29e74;">in</span><span> jobs {
+</span><span>    </span><span style="color:#f28779;">send_job</span><span>(</span><span style="color:#f29e74;">&amp;</span><span>handle</span><span style="color:#ccc9c2cc;">,</span><span> job</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span> send)</span><span style="color:#f29e74;">.</span><span>await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span><span>}
 </span></code></pre>
 <p>The <code>processing</code> vec is only ever populated at <a href="https://github.com/cetra3/jobq/blob/2028ea12388bd077056d984016ecf46c88e6626c/src/server.rs#L34">server start</a>, and so should mostly be empty unless the server was restarted with jobs that were active.</p>
 <p>After checking all this it responds back with a <code>Hello</code></p>
@@ -375,208 +363,200 @@
 <p>If a <code>Failed</code> message comes in the <a href="https://github.com/cetra3/jobq/blob/2028ea12388bd077056d984016ecf46c88e6626c/src/server.rs#L98-L102">server will mark the job as failed</a> and submit the reason with it, decrementing the active job count</p>
 <h4 id="error-deserialising">Error Deserialising</h4>
 <p>There is a possibility that a connected client could send an invalid message, so we just log with a <code>warn</code> level in this case, skipping the message:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">match</span><span style="color:#ccc9c2;"> server_msg {
-    </span><span style="color:#f29e74;">....
-    </span><span style="font-style:italic;color:#5ccfe6;">Err</span><span style="color:#ccc9c2;">(err) </span><span style="color:#f29e74;">=&gt; </span><span style="color:#ccc9c2;">{
-        </span><span style="color:#f28779;">warn!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;Could not deserialize message:{}&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> err)</span><span style="color:#ccc9c2cc;">;
-    </span><span style="color:#ccc9c2;">}
-}
-</span></code></pre><h3 id="submit-tasks">Submit Tasks</h3>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">match</span><span> server_msg {
+</span><span>    </span><span style="color:#f29e74;">....
+</span><span>    </span><span style="font-style:italic;color:#5ccfe6;">Err</span><span>(err) </span><span style="color:#f29e74;">=&gt; </span><span>{
+</span><span>        </span><span style="color:#f28779;">warn!</span><span>(</span><span style="color:#bae67e;">&quot;Could not deserialize message:{}&quot;</span><span style="color:#ccc9c2cc;">,</span><span> err)</span><span style="color:#ccc9c2cc;">;
+</span><span>    }
+</span><span>}
+</span></code></pre>
+<h3 id="submit-tasks">Submit Tasks</h3>
 <p>After the main loop matching against the message types, the server checks to see if there are any active slots &amp; if so, queries the database for any queued jobs:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#5c6773;">// If we have less active tasks lets check the queued stuff
-</span><span style="color:#ffa759;">if</span><span style="color:#ccc9c2;"> active </span><span style="color:#f29e74;">&lt; </span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">num {
-    </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> jobs </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> handle
-        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">get_queued_jobs</span><span style="color:#ccc9c2;">(</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">num </span><span style="color:#f29e74;">as </span><span style="color:#ffa759;">i64 </span><span style="color:#f29e74;">-</span><span style="color:#ccc9c2;"> active </span><span style="color:#f29e74;">as </span><span style="color:#ffa759;">i64</span><span style="color:#ccc9c2;">)
-        </span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-
-    </span><span style="color:#ffa759;">for</span><span style="color:#ccc9c2;"> job </span><span style="color:#f29e74;">in</span><span style="color:#ccc9c2;"> jobs {
-        </span><span style="color:#f28779;">send_job</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">handle</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> job</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span style="color:#ccc9c2;"> send)</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">        active </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> active </span><span style="color:#f29e74;">+ </span><span style="color:#ffcc66;">1</span><span style="color:#ccc9c2cc;">;
-    </span><span style="color:#ccc9c2;">}
-}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#5c6773;">// If we have less active tasks lets check the queued stuff
+</span><span style="color:#ffa759;">if</span><span> active </span><span style="color:#f29e74;">&lt; </span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span>num {
+</span><span>    </span><span style="color:#ffa759;">let</span><span> jobs </span><span style="color:#f29e74;">=</span><span> handle
+</span><span>        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">get_queued_jobs</span><span>(</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span>num </span><span style="color:#f29e74;">as </span><span style="color:#ffa759;">i64 </span><span style="color:#f29e74;">-</span><span> active </span><span style="color:#f29e74;">as </span><span style="color:#ffa759;">i64</span><span>)
+</span><span>        </span><span style="color:#f29e74;">.</span><span>await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    </span><span style="color:#ffa759;">for</span><span> job </span><span style="color:#f29e74;">in</span><span> jobs {
+</span><span>        </span><span style="color:#f28779;">send_job</span><span>(</span><span style="color:#f29e74;">&amp;</span><span>handle</span><span style="color:#ccc9c2cc;">,</span><span> job</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span> send)</span><span style="color:#f29e74;">.</span><span>await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span><span>        active </span><span style="color:#f29e74;">=</span><span> active </span><span style="color:#f29e74;">+ </span><span style="color:#ffcc66;">1</span><span style="color:#ccc9c2cc;">;
+</span><span>    }
+</span><span>}
 </span></code></pre>
 <p>After this processing, the server then waits again for the next message.</p>
 <h2 id="database-persistence">Database Persistence</h2>
 <p>One of the requirements is ensuring that jobs stay around and are persisted somewhere.   The prototype uses <a href="https://www.postgresql.org/">PostgreSQL</a> to do this.</p>
 <p>As this is async, we'll use <a href="https://crates.io/crates/tokio-postgres">tokio-postgres</a> to perform updates.  tokio postgres has some <a href="https://docs.rs/tokio-postgres/0.5.3/tokio_postgres/">nice docs</a> to get us started, so we will use their example to build a <a href="https://github.com/cetra3/jobq/blob/a09ebcaff164c2153cdceba0031dbfb7caa1ea3b/src/db.rs">database handler</a>:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">use </span><span style="color:#ccc9c2;">tokio_postgres</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">{NoTls</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> Error}</span><span style="color:#ccc9c2cc;">;
-
-#</span><span style="color:#ccc9c2;">[</span><span style="color:#ffd580;">tokio</span><span style="color:#ccc9c2;">::</span><span style="color:#ffd580;">main</span><span style="color:#ccc9c2;">] </span><span style="font-style:italic;color:#5c6773;">// By default, tokio_postgres uses the tokio crate as its runtime.
-</span><span style="color:#ccc9c2;">async </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">main</span><span style="color:#ccc9c2;">() </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span style="color:#ccc9c2;">&lt;(), Error&gt; {
-    </span><span style="font-style:italic;color:#5c6773;">// Connect to the database.
-    </span><span style="color:#ffa759;">let </span><span style="color:#ccc9c2;">(client</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> connection) </span><span style="color:#f29e74;">=
-        </span><span style="color:#ccc9c2;">tokio_postgres</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">connect(</span><span style="color:#bae67e;">&quot;host=localhost user=postgres&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> NoTls)</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-
-    </span><span style="font-style:italic;color:#5c6773;">// The connection object performs the actual communication with the database,
-    // so spawn it off to run on its own.
-    </span><span style="color:#ccc9c2;">tokio</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">spawn(async </span><span style="color:#ffa759;">move </span><span style="color:#ccc9c2;">{
-        </span><span style="color:#ffa759;">if let </span><span style="font-style:italic;color:#5ccfe6;">Err</span><span style="color:#ccc9c2;">(e) </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> connection</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await {
-            </span><span style="color:#f28779;">eprintln!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;connection error: </span><span style="color:#ffcc66;">{}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> e)</span><span style="color:#ccc9c2cc;">;
-        </span><span style="color:#ccc9c2;">}
-    })</span><span style="color:#ccc9c2cc;">;
-
-    </span><span style="font-style:italic;color:#5c6773;">// Now we can execute a simple statement that just returns its parameter.
-    </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> rows </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> client
-        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">query</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;SELECT $1::TEXT&quot;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">[</span><span style="color:#f29e74;">&amp;</span><span style="color:#bae67e;">&quot;hello world&quot;</span><span style="color:#ccc9c2;">])
-        </span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-
-    </span><span style="font-style:italic;color:#5c6773;">// And then check that we got back the same string we sent over.
-    </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> value</span><span style="color:#ccc9c2cc;">: </span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">str </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> rows[</span><span style="color:#ffcc66;">0</span><span style="color:#ccc9c2;">]</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">get</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">0</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;
-    </span><span style="color:#f28779;">assert_eq!</span><span style="color:#ccc9c2;">(value</span><span style="color:#ccc9c2cc;">, </span><span style="color:#bae67e;">&quot;hello world&quot;</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;
-
-    </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span style="color:#ccc9c2;">(())
-}
-</span></code></pre><h3 id="enums-and-postgres-types">Enums and Postgres Types</h3>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">use </span><span>tokio_postgres</span><span style="color:#f29e74;">::</span><span>{NoTls</span><span style="color:#ccc9c2cc;">,</span><span> Error}</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span style="color:#ccc9c2cc;">#</span><span>[</span><span style="color:#ffd580;">tokio</span><span>::</span><span style="color:#ffd580;">main</span><span>] </span><span style="font-style:italic;color:#5c6773;">// By default, tokio_postgres uses the tokio crate as its runtime.
+</span><span>async </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">main</span><span>() </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span>&lt;(), Error&gt; {
+</span><span>    </span><span style="font-style:italic;color:#5c6773;">// Connect to the database.
+</span><span>    </span><span style="color:#ffa759;">let </span><span>(client</span><span style="color:#ccc9c2cc;">,</span><span> connection) </span><span style="color:#f29e74;">=
+</span><span>        tokio_postgres</span><span style="color:#f29e74;">::</span><span>connect(</span><span style="color:#bae67e;">&quot;host=localhost user=postgres&quot;</span><span style="color:#ccc9c2cc;">,</span><span> NoTls)</span><span style="color:#f29e74;">.</span><span>await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    </span><span style="font-style:italic;color:#5c6773;">// The connection object performs the actual communication with the database,
+</span><span>    </span><span style="font-style:italic;color:#5c6773;">// so spawn it off to run on its own.
+</span><span>    tokio</span><span style="color:#f29e74;">::</span><span>spawn(async </span><span style="color:#ffa759;">move </span><span>{
+</span><span>        </span><span style="color:#ffa759;">if let </span><span style="font-style:italic;color:#5ccfe6;">Err</span><span>(e) </span><span style="color:#f29e74;">=</span><span> connection</span><span style="color:#f29e74;">.</span><span>await {
+</span><span>            </span><span style="color:#f28779;">eprintln!</span><span>(</span><span style="color:#bae67e;">&quot;connection error: </span><span style="color:#ffcc66;">{}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span> e)</span><span style="color:#ccc9c2cc;">;
+</span><span>        }
+</span><span>    })</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    </span><span style="font-style:italic;color:#5c6773;">// Now we can execute a simple statement that just returns its parameter.
+</span><span>    </span><span style="color:#ffa759;">let</span><span> rows </span><span style="color:#f29e74;">=</span><span> client
+</span><span>        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">query</span><span>(</span><span style="color:#bae67e;">&quot;SELECT $1::TEXT&quot;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span>[</span><span style="color:#f29e74;">&amp;</span><span style="color:#bae67e;">&quot;hello world&quot;</span><span>])
+</span><span>        </span><span style="color:#f29e74;">.</span><span>await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    </span><span style="font-style:italic;color:#5c6773;">// And then check that we got back the same string we sent over.
+</span><span>    </span><span style="color:#ffa759;">let</span><span> value</span><span style="color:#ccc9c2cc;">: </span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">str </span><span style="color:#f29e74;">=</span><span> rows[</span><span style="color:#ffcc66;">0</span><span>]</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">get</span><span>(</span><span style="color:#ffcc66;">0</span><span>)</span><span style="color:#ccc9c2cc;">;
+</span><span>    </span><span style="color:#f28779;">assert_eq!</span><span>(value</span><span style="color:#ccc9c2cc;">, </span><span style="color:#bae67e;">&quot;hello world&quot;</span><span>)</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span>(())
+</span><span>}
+</span></code></pre>
+<h3 id="enums-and-postgres-types">Enums and Postgres Types</h3>
 <p>You can use the <a href="https://crates.io/crates/postgres-types"><code>postgres_types</code></a> crate to save simple enums to a table.</p>
 <p>So the <code>Priority</code> struct can be persisted to the db like so:</p>
-<pre style="background-color:#212733;">
-<code class="language-sql" data-lang="sql"><span style="color:#ffa759;">CREATE TYPE </span><span style="color:#ccc9c2;">&quot;Priority&quot; as </span><span style="color:#ffd580;">enum</span><span style="color:#ccc9c2;"> (</span><span style="color:#bae67e;">&#39;High&#39;</span><span style="color:#ccc9c2;">, </span><span style="color:#bae67e;">&#39;Normal&#39;</span><span style="color:#ccc9c2;">, </span><span style="color:#bae67e;">&#39;Low&#39;</span><span style="color:#ccc9c2;">);
-</span></code></pre><h3 id="a-simple-migration">A Simple Migration</h3>
+<pre data-lang="sql" style="background-color:#212733;color:#ccc9c2;" class="language-sql "><code class="language-sql" data-lang="sql"><span style="color:#ffa759;">CREATE TYPE </span><span>&quot;Priority&quot; as </span><span style="color:#ffd580;">enum</span><span> (</span><span style="color:#bae67e;">&#39;High&#39;</span><span>, </span><span style="color:#bae67e;">&#39;Normal&#39;</span><span>, </span><span style="color:#bae67e;">&#39;Low&#39;</span><span>);
+</span></code></pre>
+<h3 id="a-simple-migration">A Simple Migration</h3>
 <p>Hopefully our schema never changes.. Right?</p>
 <p>Well, in the prototype it won't. So we can simply embed an <a href="https://github.com/cetra3/jobq/blob/master/src/setup.sql">SQL script</a> to run when the a db handler <a href="https://github.com/cetra3/jobq/blob/a09ebcaff164c2153cdceba0031dbfb7caa1ea3b/src/db.rs#L13-L27">starts up</a>:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">pub struct </span><span style="color:#73d0ff;">DbHandle </span><span style="color:#ccc9c2;">{
-    client</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ccc9c2;">Arc&lt;Client&gt;,
-}
-
-</span><span style="color:#ffa759;">impl </span><span style="color:#73d0ff;">DbHandle </span><span style="color:#ccc9c2;">{
-    </span><span style="color:#ffa759;">pub</span><span style="color:#ccc9c2;">(</span><span style="color:#ffa759;">crate</span><span style="color:#ccc9c2;">) async </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">new</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">url</span><span style="color:#ccc9c2cc;">: </span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">str</span><span style="color:#ccc9c2;">) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span style="color:#ccc9c2;">&lt;</span><span style="color:#ffa759;">Self</span><span style="color:#ccc9c2;">, Error&gt; {
-        </span><span style="color:#ffa759;">let </span><span style="color:#ccc9c2;">(client</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> connection) </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">tokio_postgres</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">connect(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">url</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> NoTls)</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-
-        </span><span style="color:#ccc9c2;">tokio</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">spawn(async </span><span style="color:#ffa759;">move </span><span style="color:#ccc9c2;">{
-            </span><span style="color:#ffa759;">if let </span><span style="font-style:italic;color:#5ccfe6;">Err</span><span style="color:#ccc9c2;">(e) </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> connection</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await {
-                </span><span style="color:#f28779;">error!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;connection error: {}&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> e)</span><span style="color:#ccc9c2cc;">;
-            </span><span style="color:#ccc9c2;">}
-        })</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ccc9c2;">        client</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">batch_execute</span><span style="color:#ccc9c2;">(</span><span style="color:#f28779;">include_str!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;setup.sql&quot;</span><span style="color:#ccc9c2;">))</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-
-        </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span style="color:#ccc9c2;">(DbHandle {
-            client</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ccc9c2;">Arc</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new(client)</span><span style="color:#ccc9c2cc;">,
-        </span><span style="color:#ccc9c2;">})
-    }
-    </span><span style="color:#f29e74;">...
-</span><span style="color:#ccc9c2;">}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">pub struct </span><span style="color:#73d0ff;">DbHandle </span><span>{
+</span><span>    client</span><span style="color:#ccc9c2cc;">: </span><span>Arc&lt;Client&gt;,
+</span><span>}
+</span><span>
+</span><span style="color:#ffa759;">impl </span><span style="color:#73d0ff;">DbHandle </span><span>{
+</span><span>    </span><span style="color:#ffa759;">pub</span><span>(</span><span style="color:#ffa759;">crate</span><span>) async </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">new</span><span>(</span><span style="color:#ffcc66;">url</span><span style="color:#ccc9c2cc;">: </span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">str</span><span>) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span>&lt;</span><span style="color:#ffa759;">Self</span><span>, Error&gt; {
+</span><span>        </span><span style="color:#ffa759;">let </span><span>(client</span><span style="color:#ccc9c2cc;">,</span><span> connection) </span><span style="color:#f29e74;">= </span><span>tokio_postgres</span><span style="color:#f29e74;">::</span><span>connect(</span><span style="color:#f29e74;">&amp;</span><span>url</span><span style="color:#ccc9c2cc;">,</span><span> NoTls)</span><span style="color:#f29e74;">.</span><span>await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>        tokio</span><span style="color:#f29e74;">::</span><span>spawn(async </span><span style="color:#ffa759;">move </span><span>{
+</span><span>            </span><span style="color:#ffa759;">if let </span><span style="font-style:italic;color:#5ccfe6;">Err</span><span>(e) </span><span style="color:#f29e74;">=</span><span> connection</span><span style="color:#f29e74;">.</span><span>await {
+</span><span>                </span><span style="color:#f28779;">error!</span><span>(</span><span style="color:#bae67e;">&quot;connection error: {}&quot;</span><span style="color:#ccc9c2cc;">,</span><span> e)</span><span style="color:#ccc9c2cc;">;
+</span><span>            }
+</span><span>        })</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>        client</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">batch_execute</span><span>(</span><span style="color:#f28779;">include_str!</span><span>(</span><span style="color:#bae67e;">&quot;setup.sql&quot;</span><span>))</span><span style="color:#f29e74;">.</span><span>await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>        </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span>(DbHandle {
+</span><span>            client</span><span style="color:#ccc9c2cc;">: </span><span>Arc</span><span style="color:#f29e74;">::</span><span>new(client)</span><span style="color:#ccc9c2cc;">,
+</span><span>        })
+</span><span>    }
+</span><span>    </span><span style="color:#f29e74;">...
+</span><span>}
 </span></code></pre>
 <p>This <code>setup.sql</code> script should be designed to run more than once, but skip the parts that it's already done.  There are a couple tricks to do this, but obviously doesn't work if you are adding/removing columns from a table etc..</p>
 <p>For the enum types, you can just check the <code>pg_type</code> to make sure that they exist &amp; if not add them:</p>
-<pre style="background-color:#212733;">
-<code class="language-sql" data-lang="sql"><span style="color:#ccc9c2;">IF NOT </span><span style="color:#f29e74;">EXISTS</span><span style="color:#ccc9c2;"> (</span><span style="color:#ffa759;">SELECT </span><span style="color:#ffcc66;">1 </span><span style="color:#ffa759;">FROM</span><span style="color:#ccc9c2;"> pg_type </span><span style="color:#ffa759;">WHERE</span><span style="color:#ccc9c2;"> typname </span><span style="color:#f29e74;">= </span><span style="color:#bae67e;">&#39;Status&#39;</span><span style="color:#ccc9c2;">) </span><span style="color:#ffa759;">THEN
-    CREATE TYPE </span><span style="color:#ccc9c2;">&quot;Status&quot; as </span><span style="color:#ffd580;">enum</span><span style="color:#ccc9c2;"> (</span><span style="color:#bae67e;">&#39;Queued&#39;</span><span style="color:#ccc9c2;">, </span><span style="color:#bae67e;">&#39;Processing&#39;</span><span style="color:#ccc9c2;">, </span><span style="color:#bae67e;">&#39;Completed&#39;</span><span style="color:#ccc9c2;">, </span><span style="color:#bae67e;">&#39;Failed&#39;</span><span style="color:#ccc9c2;">);
-</span><span style="color:#ffa759;">END</span><span style="color:#ccc9c2;"> IF
+<pre data-lang="sql" style="background-color:#212733;color:#ccc9c2;" class="language-sql "><code class="language-sql" data-lang="sql"><span>IF NOT </span><span style="color:#f29e74;">EXISTS</span><span> (</span><span style="color:#ffa759;">SELECT </span><span style="color:#ffcc66;">1 </span><span style="color:#ffa759;">FROM</span><span> pg_type </span><span style="color:#ffa759;">WHERE</span><span> typname </span><span style="color:#f29e74;">= </span><span style="color:#bae67e;">&#39;Status&#39;</span><span>) </span><span style="color:#ffa759;">THEN
+</span><span>    </span><span style="color:#ffa759;">CREATE TYPE </span><span>&quot;Status&quot; as </span><span style="color:#ffd580;">enum</span><span> (</span><span style="color:#bae67e;">&#39;Queued&#39;</span><span>, </span><span style="color:#bae67e;">&#39;Processing&#39;</span><span>, </span><span style="color:#bae67e;">&#39;Completed&#39;</span><span>, </span><span style="color:#bae67e;">&#39;Failed&#39;</span><span>);
+</span><span style="color:#ffa759;">END</span><span> IF
 </span></code></pre>
 <p>With the table &amp; indexes you can do a <code>CREATE &lt;blah&gt; IF NOT EXISTS</code>:</p>
-<pre style="background-color:#212733;">
-<code class="language-sql" data-lang="sql"><span style="color:#ffa759;">CREATE INDEX </span><span style="color:#ccc9c2;">IF NOT EXISTS status_idx ON </span><span style="color:#ffd580;">jobq</span><span style="color:#ccc9c2;"> (
-    status
-);
+<pre data-lang="sql" style="background-color:#212733;color:#ccc9c2;" class="language-sql "><code class="language-sql" data-lang="sql"><span style="color:#ffa759;">CREATE INDEX </span><span>IF NOT EXISTS status_idx ON </span><span style="color:#ffd580;">jobq</span><span> (
+</span><span>    status
+</span><span>);
 </span></code></pre>
 <p>This won't error out if the index/table already exists, meaning you're safe to run the <code>setup.sql</code> multiple times!</p>
 <h3 id="getting-jobs-from-the-db">Getting jobs from the DB</h3>
 <p>Querying for jobs is quite simple, you just select the columns you want and do a <code>get()</code> or <code>try_get()</code> on them:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">impl </span><span style="color:#73d0ff;">DbHandle </span><span style="color:#ccc9c2;">{
-    </span><span style="color:#f29e74;">....
-    </span><span style="color:#ffa759;">pub</span><span style="color:#ccc9c2;">(</span><span style="color:#ffa759;">crate</span><span style="color:#ccc9c2;">) async </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">get_queued_jobs</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffcc66;">self</span><span style="color:#ccc9c2;">, </span><span style="color:#ffcc66;">num</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">i64</span><span style="color:#ccc9c2;">) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span style="color:#ccc9c2;">&lt;</span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span style="color:#ccc9c2;">&lt;Job&gt;, Error&gt; {
-        </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> query </span><span style="color:#f29e74;">= </span><span style="color:#bae67e;">&quot;select 
-                        id,
-                        name,
-                        username,
-                        uuid,
-                        params,
-                        priority,
-                        status
-                     from jobq
-                     where 
-                        status = &#39;Queued&#39;
-                     order by
-                     priority asc, time asc
-                     limit $1&quot;</span><span style="color:#ccc9c2cc;">;
-
-        </span><span style="color:#ffa759;">let mut</span><span style="color:#ccc9c2;"> jobs </span><span style="color:#f29e74;">= </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new()</span><span style="color:#ccc9c2cc;">;
-
-        </span><span style="color:#ffa759;">for</span><span style="color:#ccc9c2;"> row </span><span style="color:#f29e74;">in</span><span style="color:#ccc9c2;"> result {
-            </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> id </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> row</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">try_get</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">0</span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-            </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> name </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> row</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">try_get</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">1</span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-            </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> username </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> row</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">try_get</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">2</span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-            </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> uuid </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> row</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">try_get</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">3</span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-            </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> params </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> row</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">try_get</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">4</span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-            </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> priority </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> row</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">try_get</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">5</span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-            </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> status </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> row</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">try_get</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">6</span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ccc9c2;">            jobs</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">push</span><span style="color:#ccc9c2;">({
-                Job {
-                    id</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">                    username</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">                    name</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">                    uuid</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">                    params</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">                    priority</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">                    status</span><span style="color:#ccc9c2cc;">,
-                </span><span style="color:#ccc9c2;">}
-            })</span><span style="color:#ccc9c2cc;">;
-        </span><span style="color:#ccc9c2;">}
-
-        </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span style="color:#ccc9c2;">(jobs)
-    }
-    </span><span style="color:#f29e74;">...
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">impl </span><span style="color:#73d0ff;">DbHandle </span><span>{
+</span><span>    </span><span style="color:#f29e74;">....
+</span><span>    </span><span style="color:#ffa759;">pub</span><span>(</span><span style="color:#ffa759;">crate</span><span>) async </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">get_queued_jobs</span><span>(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffcc66;">self</span><span>, </span><span style="color:#ffcc66;">num</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">i64</span><span>) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span>&lt;</span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span>&lt;Job&gt;, Error&gt; {
+</span><span>        </span><span style="color:#ffa759;">let</span><span> query </span><span style="color:#f29e74;">= </span><span style="color:#bae67e;">&quot;select 
+</span><span style="color:#bae67e;">                        id,
+</span><span style="color:#bae67e;">                        name,
+</span><span style="color:#bae67e;">                        username,
+</span><span style="color:#bae67e;">                        uuid,
+</span><span style="color:#bae67e;">                        params,
+</span><span style="color:#bae67e;">                        priority,
+</span><span style="color:#bae67e;">                        status
+</span><span style="color:#bae67e;">                     from jobq
+</span><span style="color:#bae67e;">                     where 
+</span><span style="color:#bae67e;">                        status = &#39;Queued&#39;
+</span><span style="color:#bae67e;">                     order by
+</span><span style="color:#bae67e;">                     priority asc, time asc
+</span><span style="color:#bae67e;">                     limit $1&quot;</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>        </span><span style="color:#ffa759;">let mut</span><span> jobs </span><span style="color:#f29e74;">= </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span style="color:#f29e74;">::</span><span>new()</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>        </span><span style="color:#ffa759;">for</span><span> row </span><span style="color:#f29e74;">in</span><span> result {
+</span><span>            </span><span style="color:#ffa759;">let</span><span> id </span><span style="color:#f29e74;">=</span><span> row</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">try_get</span><span>(</span><span style="color:#ffcc66;">0</span><span>)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span><span>            </span><span style="color:#ffa759;">let</span><span> name </span><span style="color:#f29e74;">=</span><span> row</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">try_get</span><span>(</span><span style="color:#ffcc66;">1</span><span>)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span><span>            </span><span style="color:#ffa759;">let</span><span> username </span><span style="color:#f29e74;">=</span><span> row</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">try_get</span><span>(</span><span style="color:#ffcc66;">2</span><span>)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span><span>            </span><span style="color:#ffa759;">let</span><span> uuid </span><span style="color:#f29e74;">=</span><span> row</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">try_get</span><span>(</span><span style="color:#ffcc66;">3</span><span>)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span><span>            </span><span style="color:#ffa759;">let</span><span> params </span><span style="color:#f29e74;">=</span><span> row</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">try_get</span><span>(</span><span style="color:#ffcc66;">4</span><span>)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span><span>            </span><span style="color:#ffa759;">let</span><span> priority </span><span style="color:#f29e74;">=</span><span> row</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">try_get</span><span>(</span><span style="color:#ffcc66;">5</span><span>)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span><span>            </span><span style="color:#ffa759;">let</span><span> status </span><span style="color:#f29e74;">=</span><span> row</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">try_get</span><span>(</span><span style="color:#ffcc66;">6</span><span>)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>            jobs</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">push</span><span>({
+</span><span>                Job {
+</span><span>                    id</span><span style="color:#ccc9c2cc;">,
+</span><span>                    username</span><span style="color:#ccc9c2cc;">,
+</span><span>                    name</span><span style="color:#ccc9c2cc;">,
+</span><span>                    uuid</span><span style="color:#ccc9c2cc;">,
+</span><span>                    params</span><span style="color:#ccc9c2cc;">,
+</span><span>                    priority</span><span style="color:#ccc9c2cc;">,
+</span><span>                    status</span><span style="color:#ccc9c2cc;">,
+</span><span>                }
+</span><span>            })</span><span style="color:#ccc9c2cc;">;
+</span><span>        }
+</span><span>
+</span><span>        </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span>(jobs)
+</span><span>    }
+</span><span>    </span><span style="color:#f29e74;">...
 </span></code></pre>
 <p>There are a number of other methods as <a href="https://github.com/cetra3/jobq/blob/2028ea12388bd077056d984016ecf46c88e6626c/src/db.rs#L29">complete_job</a>, <a href="https://github.com/cetra3/jobq/blob/2028ea12388bd077056d984016ecf46c88e6626c/src/db.rs#L37">fail_job</a> that handle the SQL stuff &amp; make it simple for the Server to use.</p>
 <p>Keeping things persisted in the database means we can use standard SQL tools to introspect the job queue and see where it's at.</p>
 <h3 id="recording-the-job-duration">Recording the job duration</h3>
 <p>The duration of the job is recorded when the <a href="https://github.com/cetra3/jobq/blob/2028ea12388bd077056d984016ecf46c88e6626c/src/db.rs#L29-L35">job is finished/failed</a>:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">pub</span><span style="color:#ccc9c2;">(</span><span style="color:#ffa759;">crate</span><span style="color:#ccc9c2;">) async </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">complete_job</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffcc66;">self</span><span style="color:#ccc9c2;">, </span><span style="color:#ffcc66;">id</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">i64</span><span style="color:#ccc9c2;">) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span style="color:#ccc9c2;">&lt;(), Error&gt; {
-    </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> query </span><span style="color:#f29e74;">= </span><span style="color:#bae67e;">&quot;update jobq set status = &#39;Completed&#39;, duration = extract(epoch from now() - </span><span style="color:#95e6cb;">\&quot;</span><span style="color:#bae67e;">time</span><span style="color:#95e6cb;">\&quot;</span><span style="color:#bae67e;">) where id = $1&quot;</span><span style="color:#ccc9c2cc;">;
-
-    </span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">client</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">query</span><span style="color:#ccc9c2;">(query</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">[</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">id])</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-
-    </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span style="color:#ccc9c2;">(())
-}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">pub</span><span>(</span><span style="color:#ffa759;">crate</span><span>) async </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">complete_job</span><span>(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffcc66;">self</span><span>, </span><span style="color:#ffcc66;">id</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">i64</span><span>) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span>&lt;(), Error&gt; {
+</span><span>    </span><span style="color:#ffa759;">let</span><span> query </span><span style="color:#f29e74;">= </span><span style="color:#bae67e;">&quot;update jobq set status = &#39;Completed&#39;, duration = extract(epoch from now() - </span><span style="color:#95e6cb;">\&quot;</span><span style="color:#bae67e;">time</span><span style="color:#95e6cb;">\&quot;</span><span style="color:#bae67e;">) where id = $1&quot;</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    </span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span>client</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">query</span><span>(query</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span>[</span><span style="color:#f29e74;">&amp;</span><span>id])</span><span style="color:#f29e74;">.</span><span>await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span>(())
+</span><span>}
 </span></code></pre>
 <p>This could've been done inside rust as well using <code>Instant</code> but would require a bit more state to be handled in the Server.  I've elected here to use a PostgreSQL solution instead to lean on the db.</p>
 <h2 id="running-the-example">Running the example</h2>
 <p>The example starts the test worker, a server and a client to submit 500 simple jobs:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">for</span><span style="color:#ccc9c2;"> i </span><span style="color:#f29e74;">in </span><span style="color:#ffcc66;">0</span><span style="color:#f29e74;">..</span><span style="color:#ffcc66;">500 </span><span style="color:#ccc9c2;">{
-    </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> priority </span><span style="color:#f29e74;">= </span><span style="color:#ffa759;">if</span><span style="color:#ccc9c2;"> i </span><span style="color:#f29e74;">% </span><span style="color:#ffcc66;">2 </span><span style="color:#f29e74;">== </span><span style="color:#ffcc66;">0 </span><span style="color:#ccc9c2;">{
-        Priority</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">High
-    } </span><span style="color:#ffa759;">else </span><span style="color:#ccc9c2;">{
-        Priority</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Normal
-    }</span><span style="color:#ccc9c2cc;">;
-
-    </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> job </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> JobRequest {
-        name</span><span style="color:#ccc9c2cc;">: </span><span style="color:#bae67e;">&quot;test&quot;</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">into</span><span style="color:#ccc9c2;">()</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">        username</span><span style="color:#ccc9c2cc;">: </span><span style="color:#bae67e;">&quot;test_client&quot;</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">into</span><span style="color:#ccc9c2;">()</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">        params</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ccc9c2;">Value</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Null</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">        uuid</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ccc9c2;">Uuid</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new_v4()</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">        priority</span><span style="color:#ccc9c2cc;">,
-    </span><span style="color:#ccc9c2;">}</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ccc9c2;">    send</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">send</span><span style="color:#ccc9c2;">(ServerMessage</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Request(job)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">to_mpart</span><span style="color:#ccc9c2;">()</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">for</span><span> i </span><span style="color:#f29e74;">in </span><span style="color:#ffcc66;">0</span><span style="color:#f29e74;">..</span><span style="color:#ffcc66;">500 </span><span>{
+</span><span>    </span><span style="color:#ffa759;">let</span><span> priority </span><span style="color:#f29e74;">= </span><span style="color:#ffa759;">if</span><span> i </span><span style="color:#f29e74;">% </span><span style="color:#ffcc66;">2 </span><span style="color:#f29e74;">== </span><span style="color:#ffcc66;">0 </span><span>{
+</span><span>        Priority</span><span style="color:#f29e74;">::</span><span>High
+</span><span>    } </span><span style="color:#ffa759;">else </span><span>{
+</span><span>        Priority</span><span style="color:#f29e74;">::</span><span>Normal
+</span><span>    }</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    </span><span style="color:#ffa759;">let</span><span> job </span><span style="color:#f29e74;">=</span><span> JobRequest {
+</span><span>        name</span><span style="color:#ccc9c2cc;">: </span><span style="color:#bae67e;">&quot;test&quot;</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">into</span><span>()</span><span style="color:#ccc9c2cc;">,
+</span><span>        username</span><span style="color:#ccc9c2cc;">: </span><span style="color:#bae67e;">&quot;test_client&quot;</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">into</span><span>()</span><span style="color:#ccc9c2cc;">,
+</span><span>        params</span><span style="color:#ccc9c2cc;">: </span><span>Value</span><span style="color:#f29e74;">::</span><span>Null</span><span style="color:#ccc9c2cc;">,
+</span><span>        uuid</span><span style="color:#ccc9c2cc;">: </span><span>Uuid</span><span style="color:#f29e74;">::</span><span>new_v4()</span><span style="color:#ccc9c2cc;">,
+</span><span>        priority</span><span style="color:#ccc9c2cc;">,
+</span><span>    }</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    send</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">send</span><span>(ServerMessage</span><span style="color:#f29e74;">::</span><span>Request(job)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">to_mpart</span><span>()</span><span style="color:#f29e74;">?</span><span>)</span><span style="color:#f29e74;">.</span><span>await</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span><span>}
 </span></code></pre>
 <p>Running with <code>cargo run</code> you will see the output after some time, with the simulated failures:</p>
-<pre style="background-color:#212733;">
-<code class="language-log" data-lang="log"><span style="color:#ccc9c2;">2020-04-14 16:04:33 DEBUG jobq         &gt; Message:Acknowledged(Job { id: 2999, username: &quot;test_client&quot;, name: &quot;test&quot;, uuid: fe6e21fc-8064-4c9a-965d-b1d124f2416d, params: Null, priority: High, status: Queued })
-2020-04-14 16:04:33 DEBUG jobq::server &gt; New: Job { id: 3000, username: &quot;test_client&quot;, name: &quot;test&quot;, uuid: d20b4e9b-477b-45ca-9a6a-1f6423378779, params: Null, priority: Normal, status: Queued }
-2020-04-14 16:04:33 DEBUG jobq         &gt; Message:Acknowledged(Job { id: 3000, username: &quot;test_client&quot;, name: &quot;test&quot;, uuid: d20b4e9b-477b-45ca-9a6a-1f6423378779, params: Null, priority: Normal, status: Queued })
-2020-04-14 16:04:39 WARN  jobq::server &gt; Job failed: 3000, Reason: Simulating failure
-2020-04-14 16:04:39 WARN  jobq::server &gt; Job failed: 2988, Reason: Simulating failure
-2020-04-14 16:04:39 WARN  jobq::server &gt; Job failed: 2976, Reason: Simulating failure
+<pre data-lang="log" style="background-color:#212733;color:#ccc9c2;" class="language-log "><code class="language-log" data-lang="log"><span>2020-04-14 16:04:33 DEBUG jobq         &gt; Message:Acknowledged(Job { id: 2999, username: &quot;test_client&quot;, name: &quot;test&quot;, uuid: fe6e21fc-8064-4c9a-965d-b1d124f2416d, params: Null, priority: High, status: Queued })
+</span><span>2020-04-14 16:04:33 DEBUG jobq::server &gt; New: Job { id: 3000, username: &quot;test_client&quot;, name: &quot;test&quot;, uuid: d20b4e9b-477b-45ca-9a6a-1f6423378779, params: Null, priority: Normal, status: Queued }
+</span><span>2020-04-14 16:04:33 DEBUG jobq         &gt; Message:Acknowledged(Job { id: 3000, username: &quot;test_client&quot;, name: &quot;test&quot;, uuid: d20b4e9b-477b-45ca-9a6a-1f6423378779, params: Null, priority: Normal, status: Queued })
+</span><span>2020-04-14 16:04:39 WARN  jobq::server &gt; Job failed: 3000, Reason: Simulating failure
+</span><span>2020-04-14 16:04:39 WARN  jobq::server &gt; Job failed: 2988, Reason: Simulating failure
+</span><span>2020-04-14 16:04:39 WARN  jobq::server &gt; Job failed: 2976, Reason: Simulating failure
 </span></code></pre>
 <p>You can also run some simple stats directly against the db to see how long things have taken (hopefully ~100ms):</p>
-<pre style="background-color:#212733;">
-<code class="language-sql" data-lang="sql"><span style="color:#ffa759;">select </span><span style="color:#f28779;">avg</span><span style="color:#ccc9c2;">(duration) </span><span style="color:#ffa759;">from</span><span style="color:#ccc9c2;"> jobq;
-
-    avg     
+<pre data-lang="sql" style="background-color:#212733;color:#ccc9c2;" class="language-sql "><code class="language-sql" data-lang="sql"><span style="color:#ffa759;">select </span><span style="color:#f28779;">avg</span><span>(duration) </span><span style="color:#ffa759;">from</span><span> jobq;
+</span><span>
+</span><span>    avg     
 </span><span style="font-style:italic;color:#5c6773;">------------
- </span><span style="color:#ffcc66;">0</span><span style="color:#ccc9c2;">.</span><span style="color:#ffcc66;">10634147
-</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">1</span><span style="color:#ccc9c2;"> row)
-</span></code></pre><h2 id="conclusions">Conclusions</h2>
+</span><span> </span><span style="color:#ffcc66;">0</span><span>.</span><span style="color:#ffcc66;">10634147
+</span><span>(</span><span style="color:#ffcc66;">1</span><span> row)
+</span></code></pre>
+<h2 id="conclusions">Conclusions</h2>
 <p>I hope for anyone new that this article will help dip their feet into the waters of rust and async to see what can be built.</p>
 <p>Taking a few libraries and gluing them together we can get a pretty decent, albeit rough, outline of a background job queue.  The new <code>async/await</code> ecosystem while embryonic already has the tools there to build some cool stuff.</p>
 <p>There will be a separate article around the release of <code>tmq</code> version <code>0.2.0</code> and some of the changes that have been made, but thought it might be great to provide a good example of working code before getting aroudn to that.</p>

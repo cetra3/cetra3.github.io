@@ -60,7 +60,38 @@
         <lastmod>2019-10-30</lastmod>
     </url>
     <url>
+        <loc>https://cetra3.github.io/blog/sharing-types-with-the-frontend/</loc>
+        <lastmod>2022-09-13</lastmod>
+    </url>
+    <url>
         <loc>https://cetra3.github.io/blog/tmq-0-1-0/</loc>
         <lastmod>2019-02-07</lastmod>
+    </url>
+    <url>
+        <loc>https://cetra3.github.io/tags/</loc>
+    </url>
+    <url>
+        <loc>https://cetra3.github.io/tags/async/</loc>
+    </url>
+    <url>
+        <loc>https://cetra3.github.io/tags/lorikeet/</loc>
+    </url>
+    <url>
+        <loc>https://cetra3.github.io/tags/mpart-async/</loc>
+    </url>
+    <url>
+        <loc>https://cetra3.github.io/tags/rust/</loc>
+    </url>
+    <url>
+        <loc>https://cetra3.github.io/tags/semver/</loc>
+    </url>
+    <url>
+        <loc>https://cetra3.github.io/tags/sqlx/</loc>
+    </url>
+    <url>
+        <loc>https://cetra3.github.io/tags/tmq/</loc>
+    </url>
+    <url>
+        <loc>https://cetra3.github.io/tags/typescript/</loc>
     </url>
 </urlset>

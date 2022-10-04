@@ -72,105 +72,99 @@
 <li>Some of the <code>Tensor</code> input params that don't change from request to request.</li>
 </ul>
 <p>We'll start by creating a new file <code>mtcnn.rs</code> and adding in the struct definition.</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">use </span><span style="color:#ccc9c2;">tensorflow</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">{Graph</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> Session</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> Tensor}</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ffa759;">pub struct </span><span style="color:#73d0ff;">Mtcnn </span><span style="color:#ccc9c2;">{
-    graph</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> Graph,
-    session</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> Session,
-    min_size</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ccc9c2;">Tensor&lt;</span><span style="color:#ffa759;">f32</span><span style="color:#ccc9c2;">&gt;,
-    thresholds</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ccc9c2;">Tensor&lt;</span><span style="color:#ffa759;">f32</span><span style="color:#ccc9c2;">&gt;,
-    factor</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ccc9c2;">Tensor&lt;</span><span style="color:#ffa759;">f32</span><span style="color:#ccc9c2;">&gt;
-}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">use </span><span>tensorflow</span><span style="color:#f29e74;">::</span><span>{Graph</span><span style="color:#ccc9c2cc;">,</span><span> Session</span><span style="color:#ccc9c2cc;">,</span><span> Tensor}</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span style="color:#ffa759;">pub struct </span><span style="color:#73d0ff;">Mtcnn </span><span>{
+</span><span>    graph</span><span style="color:#ccc9c2cc;">:</span><span> Graph,
+</span><span>    session</span><span style="color:#ccc9c2cc;">:</span><span> Session,
+</span><span>    min_size</span><span style="color:#ccc9c2cc;">: </span><span>Tensor&lt;</span><span style="color:#ffa759;">f32</span><span>&gt;,
+</span><span>    thresholds</span><span style="color:#ccc9c2cc;">: </span><span>Tensor&lt;</span><span style="color:#ffa759;">f32</span><span>&gt;,
+</span><span>    factor</span><span style="color:#ccc9c2cc;">: </span><span>Tensor&lt;</span><span style="color:#ffa759;">f32</span><span>&gt;
+</span><span>}
 </span></code></pre>
 <p>Ok, now we're just going to plop in the initiation stuff in a <code>new()</code> method.  As the creation of some of these values is not infallible, we'll return a <code>Result</code>:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">pub fn </span><span style="color:#ffd580;">new</span><span style="color:#ccc9c2;">() </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span style="color:#ccc9c2;">&lt;</span><span style="color:#ffa759;">Self</span><span style="color:#ccc9c2;">, </span><span style="font-style:italic;color:#5ccfe6;">Box</span><span style="color:#ccc9c2;">&lt;dyn Error&gt;&gt; {
-
-    </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> model </span><span style="color:#f29e74;">= </span><span style="color:#f28779;">include_bytes!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;mtcnn.pb&quot;</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;
-
-    </span><span style="color:#ffa759;">let mut</span><span style="color:#ccc9c2;"> graph </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">Graph</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new()</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">    graph</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">import_graph_def</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;*</span><span style="color:#ccc9c2;">model</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">ImportGraphDefOptions</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new())</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-
-    </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> session </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">Session</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">SessionOptions</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new()</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">graph)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-
-    </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> min_size </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">Tensor</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">[])</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">with_values</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">[</span><span style="color:#ffcc66;">40</span><span style="color:#ffa759;">f32</span><span style="color:#ccc9c2;">])</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-    </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> thresholds </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">Tensor</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">[</span><span style="color:#ffcc66;">3</span><span style="color:#ccc9c2;">])</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">with_values</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">[</span><span style="color:#ffcc66;">0.6</span><span style="color:#ffa759;">f32</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">0.7</span><span style="color:#ffa759;">f32</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">0.7</span><span style="color:#ffa759;">f32</span><span style="color:#ccc9c2;">])</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-    </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> factor </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">Tensor</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">[])</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">with_values</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">[</span><span style="color:#ffcc66;">0.709</span><span style="color:#ffa759;">f32</span><span style="color:#ccc9c2;">])</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-
-    </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span style="color:#ccc9c2;">(</span><span style="color:#ffa759;">Self </span><span style="color:#ccc9c2;">{
-        graph</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">        session</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">        min_size</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">        thresholds</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">        factor
-    })
-
-}
-</span></code></pre><h3 id="the-run-function">The Run Function</h3>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">pub fn </span><span style="color:#ffd580;">new</span><span>() </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span>&lt;</span><span style="color:#ffa759;">Self</span><span>, </span><span style="font-style:italic;color:#5ccfe6;">Box</span><span>&lt;dyn Error&gt;&gt; {
+</span><span>
+</span><span>    </span><span style="color:#ffa759;">let</span><span> model </span><span style="color:#f29e74;">= </span><span style="color:#f28779;">include_bytes!</span><span>(</span><span style="color:#bae67e;">&quot;mtcnn.pb&quot;</span><span>)</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    </span><span style="color:#ffa759;">let mut</span><span> graph </span><span style="color:#f29e74;">= </span><span>Graph</span><span style="color:#f29e74;">::</span><span>new()</span><span style="color:#ccc9c2cc;">;
+</span><span>    graph</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">import_graph_def</span><span>(</span><span style="color:#f29e74;">&amp;*</span><span>model</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span>ImportGraphDefOptions</span><span style="color:#f29e74;">::</span><span>new())</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    </span><span style="color:#ffa759;">let</span><span> session </span><span style="color:#f29e74;">= </span><span>Session</span><span style="color:#f29e74;">::</span><span>new(</span><span style="color:#f29e74;">&amp;</span><span>SessionOptions</span><span style="color:#f29e74;">::</span><span>new()</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span>graph)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    </span><span style="color:#ffa759;">let</span><span> min_size </span><span style="color:#f29e74;">= </span><span>Tensor</span><span style="color:#f29e74;">::</span><span>new(</span><span style="color:#f29e74;">&amp;</span><span>[])</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">with_values</span><span>(</span><span style="color:#f29e74;">&amp;</span><span>[</span><span style="color:#ffcc66;">40</span><span style="color:#ffa759;">f32</span><span>])</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span><span>    </span><span style="color:#ffa759;">let</span><span> thresholds </span><span style="color:#f29e74;">= </span><span>Tensor</span><span style="color:#f29e74;">::</span><span>new(</span><span style="color:#f29e74;">&amp;</span><span>[</span><span style="color:#ffcc66;">3</span><span>])</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">with_values</span><span>(</span><span style="color:#f29e74;">&amp;</span><span>[</span><span style="color:#ffcc66;">0.6</span><span style="color:#ffa759;">f32</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">0.7</span><span style="color:#ffa759;">f32</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">0.7</span><span style="color:#ffa759;">f32</span><span>])</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span><span>    </span><span style="color:#ffa759;">let</span><span> factor </span><span style="color:#f29e74;">= </span><span>Tensor</span><span style="color:#f29e74;">::</span><span>new(</span><span style="color:#f29e74;">&amp;</span><span>[])</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">with_values</span><span>(</span><span style="color:#f29e74;">&amp;</span><span>[</span><span style="color:#ffcc66;">0.709</span><span style="color:#ffa759;">f32</span><span>])</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span>(</span><span style="color:#ffa759;">Self </span><span>{
+</span><span>        graph</span><span style="color:#ccc9c2cc;">,
+</span><span>        session</span><span style="color:#ccc9c2cc;">,
+</span><span>        min_size</span><span style="color:#ccc9c2cc;">,
+</span><span>        thresholds</span><span style="color:#ccc9c2cc;">,
+</span><span>        factor
+</span><span>    })
+</span><span>
+</span><span>}
+</span></code></pre>
+<h3 id="the-run-function">The Run Function</h3>
 <p><em>(I'm going to race along here to get to the good parts, so if you get stuck or are unsure about what's going on, have a look at the <a href="https://cetra3.github.io/blog/face-detection-with-tensorflow-rust/">original article</a> for an explanation of what's happening here.)</em></p>
 <p>We've added all the bits we need to run our session Let's create a method that does what we're asking the API to do: submit an image, return some bounding boxes:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">pub fn </span><span style="color:#ffd580;">run</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffcc66;">self</span><span style="color:#ccc9c2;">, </span><span style="color:#ffcc66;">img</span><span style="color:#ccc9c2cc;">: </span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">DynamicImage) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span style="color:#ccc9c2;">&lt;</span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span style="color:#ccc9c2;">&lt;BBoxes&gt;, Status&gt; {
-    </span><span style="color:#f29e74;">...
-</span><span style="color:#ccc9c2;">}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">pub fn </span><span style="color:#ffd580;">run</span><span>(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffcc66;">self</span><span>, </span><span style="color:#ffcc66;">img</span><span style="color:#ccc9c2cc;">: </span><span style="color:#f29e74;">&amp;</span><span>DynamicImage) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span>&lt;</span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span>&lt;BBoxes&gt;, Status&gt; {
+</span><span>    </span><span style="color:#f29e74;">...
+</span><span>}
 </span></code></pre>
 <p>Once again, we are returning a <code>Result</code> as the type, as there are some parts of the <code>run</code> that can fail.  We're going to use the <code>Status</code> type as that is normally the error type returned</p>
 <p>Like our previous main function, we'll need to flatten the image input:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> input </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">{
-    </span><span style="color:#ffa759;">let mut</span><span style="color:#ccc9c2;"> flattened</span><span style="color:#ccc9c2cc;">: </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span style="color:#ccc9c2;">&lt;</span><span style="color:#ffa759;">f32</span><span style="color:#ccc9c2;">&gt; </span><span style="color:#f29e74;">= </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new()</span><span style="color:#ccc9c2cc;">;
-
-    </span><span style="color:#ffa759;">for </span><span style="color:#ccc9c2;">(_x</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> _y</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> rgb) </span><span style="color:#f29e74;">in</span><span style="color:#ccc9c2;"> img</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">pixels</span><span style="color:#ccc9c2;">() {
-        flattened</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">push</span><span style="color:#ccc9c2;">(rgb[</span><span style="color:#ffcc66;">2</span><span style="color:#ccc9c2;">] </span><span style="color:#f29e74;">as </span><span style="color:#ffa759;">f32</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">        flattened</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">push</span><span style="color:#ccc9c2;">(rgb[</span><span style="color:#ffcc66;">1</span><span style="color:#ccc9c2;">] </span><span style="color:#f29e74;">as </span><span style="color:#ffa759;">f32</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">        flattened</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">push</span><span style="color:#ccc9c2;">(rgb[</span><span style="color:#ffcc66;">0</span><span style="color:#ccc9c2;">] </span><span style="color:#f29e74;">as </span><span style="color:#ffa759;">f32</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;
-    </span><span style="color:#ccc9c2;">}
-
-    Tensor</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">[img</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">height</span><span style="color:#ccc9c2;">() </span><span style="color:#f29e74;">as </span><span style="color:#ffa759;">u64</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> img</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">width</span><span style="color:#ccc9c2;">() </span><span style="color:#f29e74;">as </span><span style="color:#ffa759;">u64</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">3</span><span style="color:#ccc9c2;">])
-        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">with_values</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">flattened)</span><span style="color:#f29e74;">?
-</span><span style="color:#ccc9c2;">}</span><span style="color:#ccc9c2cc;">;
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let</span><span> input </span><span style="color:#f29e74;">= </span><span>{
+</span><span>    </span><span style="color:#ffa759;">let mut</span><span> flattened</span><span style="color:#ccc9c2cc;">: </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span>&lt;</span><span style="color:#ffa759;">f32</span><span>&gt; </span><span style="color:#f29e74;">= </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span style="color:#f29e74;">::</span><span>new()</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    </span><span style="color:#ffa759;">for </span><span>(_x</span><span style="color:#ccc9c2cc;">,</span><span> _y</span><span style="color:#ccc9c2cc;">,</span><span> rgb) </span><span style="color:#f29e74;">in</span><span> img</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">pixels</span><span>() {
+</span><span>        flattened</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">push</span><span>(rgb[</span><span style="color:#ffcc66;">2</span><span>] </span><span style="color:#f29e74;">as </span><span style="color:#ffa759;">f32</span><span>)</span><span style="color:#ccc9c2cc;">;
+</span><span>        flattened</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">push</span><span>(rgb[</span><span style="color:#ffcc66;">1</span><span>] </span><span style="color:#f29e74;">as </span><span style="color:#ffa759;">f32</span><span>)</span><span style="color:#ccc9c2cc;">;
+</span><span>        flattened</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">push</span><span>(rgb[</span><span style="color:#ffcc66;">0</span><span>] </span><span style="color:#f29e74;">as </span><span style="color:#ffa759;">f32</span><span>)</span><span style="color:#ccc9c2cc;">;
+</span><span>    }
+</span><span>
+</span><span>    Tensor</span><span style="color:#f29e74;">::</span><span>new(</span><span style="color:#f29e74;">&amp;</span><span>[img</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">height</span><span>() </span><span style="color:#f29e74;">as </span><span style="color:#ffa759;">u64</span><span style="color:#ccc9c2cc;">,</span><span> img</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">width</span><span>() </span><span style="color:#f29e74;">as </span><span style="color:#ffa759;">u64</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">3</span><span>])
+</span><span>        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">with_values</span><span>(</span><span style="color:#f29e74;">&amp;</span><span>flattened)</span><span style="color:#f29e74;">?
+</span><span>}</span><span style="color:#ccc9c2cc;">;
 </span></code></pre>
 <p>Then we'll feed in all the relevant inputs.  This is just the same as our previous <code>main</code> function, but we're going to just borrow values from <code>self</code> rather than create them for each run:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let mut</span><span style="color:#ccc9c2;"> args </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">SessionRunArgs</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new()</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ccc9c2;">args</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">add_feed</span><span style="color:#ccc9c2;">(
-    </span><span style="color:#f29e74;">&amp;</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">graph</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">operation_by_name_required</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;min_size&quot;</span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">,
-    </span><span style="color:#ffcc66;">0</span><span style="color:#ccc9c2cc;">,
-    </span><span style="color:#f29e74;">&amp;</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">min_size</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">args</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">add_feed</span><span style="color:#ccc9c2;">(
-    </span><span style="color:#f29e74;">&amp;</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">graph</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">operation_by_name_required</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;thresholds&quot;</span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">,
-    </span><span style="color:#ffcc66;">0</span><span style="color:#ccc9c2cc;">,
-    </span><span style="color:#f29e74;">&amp;</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">thresholds</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">args</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">add_feed</span><span style="color:#ccc9c2;">(
-    </span><span style="color:#f29e74;">&amp;</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">graph</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">operation_by_name_required</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;factor&quot;</span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">,
-    </span><span style="color:#ffcc66;">0</span><span style="color:#ccc9c2cc;">,
-    </span><span style="color:#f29e74;">&amp;</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">factor</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">args</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">add_feed</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">graph</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">operation_by_name_required</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;input&quot;</span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">0</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">input)</span><span style="color:#ccc9c2cc;">;
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let mut</span><span> args </span><span style="color:#f29e74;">= </span><span>SessionRunArgs</span><span style="color:#f29e74;">::</span><span>new()</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>args</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">add_feed</span><span>(
+</span><span>    </span><span style="color:#f29e74;">&amp;</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span>graph</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">operation_by_name_required</span><span>(</span><span style="color:#bae67e;">&quot;min_size&quot;</span><span>)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">,
+</span><span>    </span><span style="color:#ffcc66;">0</span><span style="color:#ccc9c2cc;">,
+</span><span>    </span><span style="color:#f29e74;">&amp;</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span>min_size</span><span style="color:#ccc9c2cc;">,
+</span><span>)</span><span style="color:#ccc9c2cc;">;
+</span><span>args</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">add_feed</span><span>(
+</span><span>    </span><span style="color:#f29e74;">&amp;</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span>graph</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">operation_by_name_required</span><span>(</span><span style="color:#bae67e;">&quot;thresholds&quot;</span><span>)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">,
+</span><span>    </span><span style="color:#ffcc66;">0</span><span style="color:#ccc9c2cc;">,
+</span><span>    </span><span style="color:#f29e74;">&amp;</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span>thresholds</span><span style="color:#ccc9c2cc;">,
+</span><span>)</span><span style="color:#ccc9c2cc;">;
+</span><span>args</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">add_feed</span><span>(
+</span><span>    </span><span style="color:#f29e74;">&amp;</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span>graph</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">operation_by_name_required</span><span>(</span><span style="color:#bae67e;">&quot;factor&quot;</span><span>)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">,
+</span><span>    </span><span style="color:#ffcc66;">0</span><span style="color:#ccc9c2cc;">,
+</span><span>    </span><span style="color:#f29e74;">&amp;</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span>factor</span><span style="color:#ccc9c2cc;">,
+</span><span>)</span><span style="color:#ccc9c2cc;">;
+</span><span>args</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">add_feed</span><span>(</span><span style="color:#f29e74;">&amp;</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span>graph</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">operation_by_name_required</span><span>(</span><span style="color:#bae67e;">&quot;input&quot;</span><span>)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">0</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span>input)</span><span style="color:#ccc9c2cc;">;
 </span></code></pre>
 <p>Next, let's grab the outputs we want:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> bbox </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> args</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">request_fetch</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">graph</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">operation_by_name_required</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;box&quot;</span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">0</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> prob </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> args</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">request_fetch</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">graph</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">operation_by_name_required</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;prob&quot;</span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">0</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;
-</span></code></pre><h3 id="running-the-session">Running The Session</h3>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let</span><span> bbox </span><span style="color:#f29e74;">=</span><span> args</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">request_fetch</span><span>(</span><span style="color:#f29e74;">&amp;</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span>graph</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">operation_by_name_required</span><span>(</span><span style="color:#bae67e;">&quot;box&quot;</span><span>)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">0</span><span>)</span><span style="color:#ccc9c2cc;">;
+</span><span style="color:#ffa759;">let</span><span> prob </span><span style="color:#f29e74;">=</span><span> args</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">request_fetch</span><span>(</span><span style="color:#f29e74;">&amp;</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span>graph</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">operation_by_name_required</span><span>(</span><span style="color:#bae67e;">&quot;prob&quot;</span><span>)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">0</span><span>)</span><span style="color:#ccc9c2cc;">;
+</span></code></pre>
+<h3 id="running-the-session">Running The Session</h3>
 <p>Now we have all our args set up, we can run the session:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#f29e74;">&amp;</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">session</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">run</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span style="color:#ccc9c2;"> args)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f29e74;">&amp;</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span>session</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">run</span><span>(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span> args)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
 </span></code></pre>
 <p>Uh oh.  We're getting a compiler error here... </p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ccc9c2;">error[</span><span style="color:#ffcc66;">E0596</span><span style="color:#ccc9c2;">]</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> cannot borrow `</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">session` </span><span style="color:#f29e74;">as</span><span style="color:#ccc9c2;"> mutable</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">as</span><span style="color:#ccc9c2;"> it is behind a `</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">` reference
-  </span><span style="color:#f29e74;">-</span><span style="color:#ccc9c2cc;">-&gt;</span><span style="color:#ccc9c2;"> src</span><span style="color:#f29e74;">/</span><span style="color:#ccc9c2;">mtcnn</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">rs</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ffcc66;">68</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ffcc66;">10
-   </span><span style="color:#f29e74;">|
-</span><span style="color:#ffcc66;">36 </span><span style="color:#f29e74;">|     </span><span style="color:#ffa759;">pub fn </span><span style="color:#ffd580;">run</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffcc66;">self</span><span style="color:#ccc9c2;">, </span><span style="color:#ffcc66;">img</span><span style="color:#ccc9c2cc;">: </span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">DynamicImage) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span style="color:#ccc9c2;">&lt;DynamicImage, </span><span style="font-style:italic;color:#5ccfe6;">Box</span><span style="color:#ccc9c2;">&lt;dyn Error&gt;&gt; {
-   </span><span style="color:#f29e74;">|                -----</span><span style="color:#ccc9c2;"> help</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> consider changing this to be a mutable reference</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> `</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut </span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#ccc9c2;">`
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>error[</span><span style="color:#ffcc66;">E0596</span><span>]</span><span style="color:#ccc9c2cc;">:</span><span> cannot borrow `</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span>session` </span><span style="color:#f29e74;">as</span><span> mutable</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">as</span><span> it is behind a `</span><span style="color:#f29e74;">&amp;</span><span>` reference
+</span><span>  </span><span style="color:#f29e74;">-</span><span style="color:#ccc9c2cc;">-&gt;</span><span> src</span><span style="color:#f29e74;">/</span><span>mtcnn</span><span style="color:#f29e74;">.</span><span>rs</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ffcc66;">68</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ffcc66;">10
+</span><span>   </span><span style="color:#f29e74;">|
+</span><span style="color:#ffcc66;">36 </span><span style="color:#f29e74;">|     </span><span style="color:#ffa759;">pub fn </span><span style="color:#ffd580;">run</span><span>(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffcc66;">self</span><span>, </span><span style="color:#ffcc66;">img</span><span style="color:#ccc9c2cc;">: </span><span style="color:#f29e74;">&amp;</span><span>DynamicImage) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span>&lt;DynamicImage, </span><span style="font-style:italic;color:#5ccfe6;">Box</span><span>&lt;dyn Error&gt;&gt; {
+</span><span>   </span><span style="color:#f29e74;">|                -----</span><span> help</span><span style="color:#ccc9c2cc;">:</span><span> consider changing this to be a mutable reference</span><span style="color:#ccc9c2cc;">:</span><span> `</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut </span><span style="font-style:italic;color:#5ccfe6;">self</span><span>`
 </span><span style="color:#f29e74;">...
-</span><span style="color:#ffcc66;">68 </span><span style="color:#f29e74;">|         &amp;</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">session</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">run</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span style="color:#ccc9c2;"> args)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-   </span><span style="color:#ccc9c2;">|          ^^^^^^^^^^^^ `</span><span style="color:#ffcc66;">self</span><span style="color:#ccc9c2;">` is a `</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">` </span><span style="color:#ffcc66;">reference</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> so the data it refers to cannot be borrowed as mutable
+</span><span style="color:#ffcc66;">68 </span><span style="color:#f29e74;">|         &amp;</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span>session</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">run</span><span>(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span> args)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span><span>   |          ^^^^^^^^^^^^ `</span><span style="color:#ffcc66;">self</span><span>` is a `</span><span style="color:#f29e74;">&amp;</span><span>` </span><span style="color:#ffcc66;">reference</span><span style="color:#ccc9c2cc;">,</span><span> so the data it refers to cannot be borrowed as mutable
 </span></code></pre>
 <p>Turns out that the <code>Session::run()</code> function takes <code>&amp;mut self</code>.</p>
 <p>What can we do to resolve this:</p>
@@ -181,131 +175,125 @@
 </ul>
 <p>We'll go with option 3!</p>
 <p>Update your <code>Cargo.toml</code> to point to the git master, rather than the cargo version:</p>
-<pre style="background-color:#212733;">
-<code><span style="color:#ccc9c2;">tensorflow = { git = &quot;https://github.com/tensorflow/rust&quot;}
-</span></code></pre><h3 id="getting-the-bounding-boxes">Getting the Bounding Boxes</h3>
+<pre style="background-color:#212733;color:#ccc9c2;"><code><span>tensorflow = { git = &quot;https://github.com/tensorflow/rust&quot;}
+</span></code></pre>
+<h3 id="getting-the-bounding-boxes">Getting the Bounding Boxes</h3>
 <p>This has not changed at all since our <code>main</code> method.  We grab the bounding boxes, put them in our handy dandy <code>BBox</code> struct:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#5c6773;">//Our bounding box extents
-</span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> bbox_res</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ccc9c2;">Tensor&lt;</span><span style="color:#ffa759;">f32</span><span style="color:#ccc9c2;">&gt; </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> args</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">fetch</span><span style="color:#ccc9c2;">(bbox)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#5c6773;">//Our bounding box extents
+</span><span style="color:#ffa759;">let</span><span> bbox_res</span><span style="color:#ccc9c2cc;">: </span><span>Tensor&lt;</span><span style="color:#ffa759;">f32</span><span>&gt; </span><span style="color:#f29e74;">=</span><span> args</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">fetch</span><span>(bbox)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
 </span><span style="font-style:italic;color:#5c6773;">//Our facial probability
-</span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> prob_res</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ccc9c2;">Tensor&lt;</span><span style="color:#ffa759;">f32</span><span style="color:#ccc9c2;">&gt; </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> args</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">fetch</span><span style="color:#ccc9c2;">(prob)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-
+</span><span style="color:#ffa759;">let</span><span> prob_res</span><span style="color:#ccc9c2cc;">: </span><span>Tensor&lt;</span><span style="color:#ffa759;">f32</span><span>&gt; </span><span style="color:#f29e74;">=</span><span> args</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">fetch</span><span>(prob)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span><span>
 </span><span style="font-style:italic;color:#5c6773;">//Let&#39;s store the results as a Vec&lt;BBox&gt;
-</span><span style="color:#ffa759;">let mut</span><span style="color:#ccc9c2;"> bboxes </span><span style="color:#f29e74;">= </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new()</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ffa759;">let mut</span><span style="color:#ccc9c2;"> i </span><span style="color:#f29e74;">= </span><span style="color:#ffcc66;">0</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ffa759;">let mut</span><span style="color:#ccc9c2;"> j </span><span style="color:#f29e74;">= </span><span style="color:#ffcc66;">0</span><span style="color:#ccc9c2cc;">;
-
+</span><span style="color:#ffa759;">let mut</span><span> bboxes </span><span style="color:#f29e74;">= </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span style="color:#f29e74;">::</span><span>new()</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span style="color:#ffa759;">let mut</span><span> i </span><span style="color:#f29e74;">= </span><span style="color:#ffcc66;">0</span><span style="color:#ccc9c2cc;">;
+</span><span style="color:#ffa759;">let mut</span><span> j </span><span style="color:#f29e74;">= </span><span style="color:#ffcc66;">0</span><span style="color:#ccc9c2cc;">;
+</span><span>
 </span><span style="font-style:italic;color:#5c6773;">//While we have responses, iterate through
-</span><span style="color:#ffa759;">while</span><span style="color:#ccc9c2;"> i </span><span style="color:#f29e74;">&lt;</span><span style="color:#ccc9c2;"> bbox_res</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">len</span><span style="color:#ccc9c2;">() {
-    </span><span style="font-style:italic;color:#5c6773;">//Add in the 4 floats from the `bbox_res` array.
-    //Notice the y1, x1, etc.. is ordered differently to our struct definition.
-</span><span style="color:#ccc9c2;">    bboxes</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">push</span><span style="color:#ccc9c2;">(BBox {
-        y1</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> bbox_res[i]</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">        x1</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> bbox_res[i </span><span style="color:#f29e74;">+ </span><span style="color:#ffcc66;">1</span><span style="color:#ccc9c2;">]</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">        y2</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> bbox_res[i </span><span style="color:#f29e74;">+ </span><span style="color:#ffcc66;">2</span><span style="color:#ccc9c2;">]</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">        x2</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> bbox_res[i </span><span style="color:#f29e74;">+ </span><span style="color:#ffcc66;">3</span><span style="color:#ccc9c2;">]</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">        prob</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> prob_res[j]</span><span style="color:#ccc9c2cc;">, </span><span style="font-style:italic;color:#5c6773;">// Add in the facial probability
-    </span><span style="color:#ccc9c2;">})</span><span style="color:#ccc9c2cc;">;
-
-    </span><span style="font-style:italic;color:#5c6773;">//Step `i` ahead by 4.
-</span><span style="color:#ccc9c2;">    i </span><span style="color:#f29e74;">+= </span><span style="color:#ffcc66;">4</span><span style="color:#ccc9c2cc;">;
-    </span><span style="font-style:italic;color:#5c6773;">//Step `i` ahead by 1.
-</span><span style="color:#ccc9c2;">    j </span><span style="color:#f29e74;">+= </span><span style="color:#ffcc66;">1</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">}
-
-</span><span style="color:#f28779;">debug!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;BBox Length: {}, BBoxes:{:#?}&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> bboxes</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">len</span><span style="color:#ccc9c2;">()</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> bboxes)</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span style="color:#ccc9c2;">(bboxes)
+</span><span style="color:#ffa759;">while</span><span> i </span><span style="color:#f29e74;">&lt;</span><span> bbox_res</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">len</span><span>() {
+</span><span>    </span><span style="font-style:italic;color:#5c6773;">//Add in the 4 floats from the `bbox_res` array.
+</span><span>    </span><span style="font-style:italic;color:#5c6773;">//Notice the y1, x1, etc.. is ordered differently to our struct definition.
+</span><span>    bboxes</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">push</span><span>(BBox {
+</span><span>        y1</span><span style="color:#ccc9c2cc;">:</span><span> bbox_res[i]</span><span style="color:#ccc9c2cc;">,
+</span><span>        x1</span><span style="color:#ccc9c2cc;">:</span><span> bbox_res[i </span><span style="color:#f29e74;">+ </span><span style="color:#ffcc66;">1</span><span>]</span><span style="color:#ccc9c2cc;">,
+</span><span>        y2</span><span style="color:#ccc9c2cc;">:</span><span> bbox_res[i </span><span style="color:#f29e74;">+ </span><span style="color:#ffcc66;">2</span><span>]</span><span style="color:#ccc9c2cc;">,
+</span><span>        x2</span><span style="color:#ccc9c2cc;">:</span><span> bbox_res[i </span><span style="color:#f29e74;">+ </span><span style="color:#ffcc66;">3</span><span>]</span><span style="color:#ccc9c2cc;">,
+</span><span>        prob</span><span style="color:#ccc9c2cc;">:</span><span> prob_res[j]</span><span style="color:#ccc9c2cc;">, </span><span style="font-style:italic;color:#5c6773;">// Add in the facial probability
+</span><span>    })</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    </span><span style="font-style:italic;color:#5c6773;">//Step `i` ahead by 4.
+</span><span>    i </span><span style="color:#f29e74;">+= </span><span style="color:#ffcc66;">4</span><span style="color:#ccc9c2cc;">;
+</span><span>    </span><span style="font-style:italic;color:#5c6773;">//Step `i` ahead by 1.
+</span><span>    j </span><span style="color:#f29e74;">+= </span><span style="color:#ffcc66;">1</span><span style="color:#ccc9c2cc;">;
+</span><span>}
+</span><span>
+</span><span style="color:#f28779;">debug!</span><span>(</span><span style="color:#bae67e;">&quot;BBox Length: {}, BBoxes:{:#?}&quot;</span><span style="color:#ccc9c2cc;">,</span><span> bboxes</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">len</span><span>()</span><span style="color:#ccc9c2cc;">,</span><span> bboxes)</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span>(bboxes)
 </span></code></pre>
 <p>And that's our <code>run</code> function finished.</p>
 <h3 id="bbox-struct-as-json">BBox Struct as JSON</h3>
 <p>We're gonna want to return a JSON representation of the BBox struct.  So let's add in <code>serde_derive</code>:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">use </span><span style="color:#ccc9c2;">serde_derive</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Serialize</span><span style="color:#ccc9c2cc;">;
-
-#</span><span style="color:#ccc9c2;">[</span><span style="color:#ffd580;">derive</span><span style="color:#ccc9c2;">(Copy</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> Clone</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> Debug</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> Serialize)]
-</span><span style="color:#ffa759;">pub struct </span><span style="color:#73d0ff;">BBox </span><span style="color:#ccc9c2;">{
-    </span><span style="color:#ffa759;">pub </span><span style="color:#ccc9c2;">x1</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">f32</span><span style="color:#ccc9c2;">,
-    </span><span style="color:#ffa759;">pub </span><span style="color:#ccc9c2;">y1</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">f32</span><span style="color:#ccc9c2;">,
-    </span><span style="color:#ffa759;">pub </span><span style="color:#ccc9c2;">x2</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">f32</span><span style="color:#ccc9c2;">,
-    </span><span style="color:#ffa759;">pub </span><span style="color:#ccc9c2;">y2</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">f32</span><span style="color:#ccc9c2;">,
-    </span><span style="color:#ffa759;">pub </span><span style="color:#ccc9c2;">prob</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">f32</span><span style="color:#ccc9c2;">,
-}
-</span></code></pre><h3 id="drawing-the-output-image">Drawing the Output Image</h3>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">use </span><span>serde_derive</span><span style="color:#f29e74;">::</span><span>Serialize</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span style="color:#ccc9c2cc;">#</span><span>[</span><span style="color:#ffd580;">derive</span><span>(Copy</span><span style="color:#ccc9c2cc;">,</span><span> Clone</span><span style="color:#ccc9c2cc;">,</span><span> Debug</span><span style="color:#ccc9c2cc;">,</span><span> Serialize)]
+</span><span style="color:#ffa759;">pub struct </span><span style="color:#73d0ff;">BBox </span><span>{
+</span><span>    </span><span style="color:#ffa759;">pub </span><span>x1</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">f32</span><span>,
+</span><span>    </span><span style="color:#ffa759;">pub </span><span>y1</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">f32</span><span>,
+</span><span>    </span><span style="color:#ffa759;">pub </span><span>x2</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">f32</span><span>,
+</span><span>    </span><span style="color:#ffa759;">pub </span><span>y2</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">f32</span><span>,
+</span><span>    </span><span style="color:#ffa759;">pub </span><span>prob</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">f32</span><span>,
+</span><span>}
+</span></code></pre>
+<h3 id="drawing-the-output-image">Drawing the Output Image</h3>
 <p>We'll create a function that will take a list of bounding boxes and an input image, returning the output image:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">pub fn </span><span style="color:#ffd580;">overlay</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">img</span><span style="color:#ccc9c2cc;">: </span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">DynamicImage, </span><span style="color:#ffcc66;">bboxes</span><span style="color:#ccc9c2cc;">: </span><span style="color:#f29e74;">&amp;</span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span style="color:#ccc9c2;">&lt;BBox&gt;) </span><span style="color:#ccc9c2cc;">-&gt;</span><span style="color:#ccc9c2;"> DynamicImage
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">pub fn </span><span style="color:#ffd580;">overlay</span><span>(</span><span style="color:#ffcc66;">img</span><span style="color:#ccc9c2cc;">: </span><span style="color:#f29e74;">&amp;</span><span>DynamicImage, </span><span style="color:#ffcc66;">bboxes</span><span style="color:#ccc9c2cc;">: </span><span style="color:#f29e74;">&amp;</span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span>&lt;BBox&gt;) </span><span style="color:#ccc9c2cc;">-&gt;</span><span> DynamicImage
 </span></code></pre>
 <p>This hasn't changed much either, but we are returning the image, rather than saving it to a file:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#5c6773;">//Let&#39;s clone the input image
-</span><span style="color:#ffa759;">let mut</span><span style="color:#ccc9c2;"> output_image </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> img</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">clone</span><span style="color:#ccc9c2;">()</span><span style="color:#ccc9c2cc;">;
-
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#5c6773;">//Let&#39;s clone the input image
+</span><span style="color:#ffa759;">let mut</span><span> output_image </span><span style="color:#f29e74;">=</span><span> img</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">clone</span><span>()</span><span style="color:#ccc9c2cc;">;
+</span><span>
 </span><span style="font-style:italic;color:#5c6773;">//Iterate through all bounding boxes
-</span><span style="color:#ffa759;">for</span><span style="color:#ccc9c2;"> bbox </span><span style="color:#f29e74;">in</span><span style="color:#ccc9c2;"> bboxes {
-    </span><span style="font-style:italic;color:#5c6773;">//Create a `Rect` from the bounding box.
-    </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> rect </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">Rect</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">at(bbox</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">x1 </span><span style="color:#f29e74;">as </span><span style="color:#ffa759;">i32</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> bbox</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">y1 </span><span style="color:#f29e74;">as </span><span style="color:#ffa759;">i32</span><span style="color:#ccc9c2;">)
-        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">of_size</span><span style="color:#ccc9c2;">((bbox</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">x2 </span><span style="color:#f29e74;">-</span><span style="color:#ccc9c2;"> bbox</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">x1) </span><span style="color:#f29e74;">as </span><span style="color:#ffa759;">u32</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ccc9c2;">(bbox</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">y2 </span><span style="color:#f29e74;">-</span><span style="color:#ccc9c2;"> bbox</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">y1) </span><span style="color:#f29e74;">as </span><span style="color:#ffa759;">u32</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;
-
-    </span><span style="font-style:italic;color:#5c6773;">//Draw a green line around the bounding box
-    </span><span style="color:#f28779;">draw_hollow_rect_mut</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span style="color:#ccc9c2;"> output_image</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> rect</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">LINE_COLOUR</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">}
-
-output_image
+</span><span style="color:#ffa759;">for</span><span> bbox </span><span style="color:#f29e74;">in</span><span> bboxes {
+</span><span>    </span><span style="font-style:italic;color:#5c6773;">//Create a `Rect` from the bounding box.
+</span><span>    </span><span style="color:#ffa759;">let</span><span> rect </span><span style="color:#f29e74;">= </span><span>Rect</span><span style="color:#f29e74;">::</span><span>at(bbox</span><span style="color:#f29e74;">.</span><span>x1 </span><span style="color:#f29e74;">as </span><span style="color:#ffa759;">i32</span><span style="color:#ccc9c2cc;">,</span><span> bbox</span><span style="color:#f29e74;">.</span><span>y1 </span><span style="color:#f29e74;">as </span><span style="color:#ffa759;">i32</span><span>)
+</span><span>        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">of_size</span><span>((bbox</span><span style="color:#f29e74;">.</span><span>x2 </span><span style="color:#f29e74;">-</span><span> bbox</span><span style="color:#f29e74;">.</span><span>x1) </span><span style="color:#f29e74;">as </span><span style="color:#ffa759;">u32</span><span style="color:#ccc9c2cc;">, </span><span>(bbox</span><span style="color:#f29e74;">.</span><span>y2 </span><span style="color:#f29e74;">-</span><span> bbox</span><span style="color:#f29e74;">.</span><span>y1) </span><span style="color:#f29e74;">as </span><span style="color:#ffa759;">u32</span><span>)</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    </span><span style="font-style:italic;color:#5c6773;">//Draw a green line around the bounding box
+</span><span>    </span><span style="color:#f28779;">draw_hollow_rect_mut</span><span>(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span> output_image</span><span style="color:#ccc9c2cc;">,</span><span> rect</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">LINE_COLOUR</span><span>)</span><span style="color:#ccc9c2cc;">;
+</span><span>}
+</span><span>
+</span><span>output_image
 </span></code></pre>
 <p>Ok, we're pretty much done with our <code>Mtcnn</code> struct and functions! Could we break this down even further? Yeah definitely! But for now, I think this is all we need.  We've encapsulated the behaviour and created a nice to use couple of functions.</p>
 <h2 id="our-new-main-function">Our New Main Function</h2>
 <p>Ok, so we're no longer using it as a CLI, but as a self-hosted web app.  We're going to need to change the arguments our application takes since we no longer have input and output files.</p>
 <p>I think the only argument we should be taking initially is the listen address, and even then we should use a sensible default. So let's use the help of <a href="https://github.com/TeXitoi/structopt">structopt</a> to make this pretty minimal boilerplate:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ccc9c2cc;">#</span><span style="color:#ccc9c2;">[</span><span style="color:#ffd580;">derive</span><span style="color:#ccc9c2;">(StructOpt)]
-</span><span style="color:#ffa759;">struct </span><span style="color:#73d0ff;">Opt </span><span style="color:#ccc9c2;">{
-    </span><span style="color:#ccc9c2cc;">#</span><span style="color:#ccc9c2;">[</span><span style="color:#ffd580;">structopt</span><span style="color:#ccc9c2;">(
-        short </span><span style="color:#f29e74;">= </span><span style="color:#bae67e;">&quot;l&quot;</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">        long </span><span style="color:#f29e74;">= </span><span style="color:#bae67e;">&quot;listen&quot;</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">        help </span><span style="color:#f29e74;">= </span><span style="color:#bae67e;">&quot;Listen Address&quot;</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">        default_value </span><span style="color:#f29e74;">= </span><span style="color:#bae67e;">&quot;127.0.0.1:8000&quot;
-    </span><span style="color:#ccc9c2;">)]
-    listen</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> String,
-}
-</span></code></pre><h3 id="logging-framework">Logging Framework</h3>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ccc9c2cc;">#</span><span>[</span><span style="color:#ffd580;">derive</span><span>(StructOpt)]
+</span><span style="color:#ffa759;">struct </span><span style="color:#73d0ff;">Opt </span><span>{
+</span><span>    </span><span style="color:#ccc9c2cc;">#</span><span>[</span><span style="color:#ffd580;">structopt</span><span>(
+</span><span>        short </span><span style="color:#f29e74;">= </span><span style="color:#bae67e;">&quot;l&quot;</span><span style="color:#ccc9c2cc;">,
+</span><span>        long </span><span style="color:#f29e74;">= </span><span style="color:#bae67e;">&quot;listen&quot;</span><span style="color:#ccc9c2cc;">,
+</span><span>        help </span><span style="color:#f29e74;">= </span><span style="color:#bae67e;">&quot;Listen Address&quot;</span><span style="color:#ccc9c2cc;">,
+</span><span>        default_value </span><span style="color:#f29e74;">= </span><span style="color:#bae67e;">&quot;127.0.0.1:8000&quot;
+</span><span>    )]
+</span><span>    listen</span><span style="color:#ccc9c2cc;">:</span><span> String,
+</span><span>}
+</span></code></pre>
+<h3 id="logging-framework">Logging Framework</h3>
 <p>Actix Web uses the <a href="https://github.com/rust-lang-nursery/log">log</a> crate to display errors and debug messages.</p>
 <p>Let's move on from using <code>println!</code> and instead use log.  I like using <a href="https://github.com/seanmonstar/pretty-env-logger">pretty_env_logger</a> as it prints different levels as a different colour, and we can have timestamps which is useful.</p>
 <p><code>pretty_env_logger</code> still uses environment vars.  Let's cheat and set our <code>RUST_LOG</code> var if none is provided then initiate our logger</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#5c6773;">//Set the `RUST_LOG` var if none is provided
-</span><span style="color:#ffa759;">if </span><span style="color:#ccc9c2;">env</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">var(</span><span style="color:#bae67e;">&quot;RUST_LOG&quot;</span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">is_err</span><span style="color:#ccc9c2;">() {
-    env</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">set_var(</span><span style="color:#bae67e;">&quot;RUST_LOG&quot;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#bae67e;">&quot;mtcnn=DEBUG,actix_web=DEBUG&quot;</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">}
-
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#5c6773;">//Set the `RUST_LOG` var if none is provided
+</span><span style="color:#ffa759;">if </span><span>env</span><span style="color:#f29e74;">::</span><span>var(</span><span style="color:#bae67e;">&quot;RUST_LOG&quot;</span><span>)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">is_err</span><span>() {
+</span><span>    env</span><span style="color:#f29e74;">::</span><span>set_var(</span><span style="color:#bae67e;">&quot;RUST_LOG&quot;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#bae67e;">&quot;mtcnn=DEBUG,actix_web=DEBUG&quot;</span><span>)</span><span style="color:#ccc9c2cc;">;
+</span><span>}
+</span><span>
 </span><span style="font-style:italic;color:#5c6773;">//Create a timestamped logger
-</span><span style="color:#ccc9c2;">pretty_env_logger</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">init_timed()</span><span style="color:#ccc9c2cc;">;
+</span><span>pretty_env_logger</span><span style="color:#f29e74;">::</span><span>init_timed()</span><span style="color:#ccc9c2cc;">;
 </span></code></pre>
 <p>This sets up <code>DEBUG</code> level logs for our app and actix web, but allows us to change the log levels via environment variables still.</p>
 <h2 id="actix-and-state">Actix and State</h2>
 <p>We have some state we need to pass to actix to use: our <code>Mtcnn</code> struct and the run method.  There are a number of ways you can give State to actix, but probably the easiest way is the <code>App::data</code> method.  As we are now entering a multithreaded world, we're going to have to think about what things are <code>Send</code> and <code>Sync</code>.</p>
 <p>Ok, so how do we share something between threads? Well, as a first step I would look to <code>std::sync</code> to see what we need.  Since we know that mtcnn's <code>run</code> function does not need to mutate it, only requiring a reference to immutable <code>self</code>, we can probably wrap it in an <code>Arc</code>.  If we had to mutate it, then it would probably require a Mutex as well, but we can avoid this if we use the <code>master</code> branch of <code>tensorflow-rust</code> as above.</p>
 <p>So let's create our Arc:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> mtcnn </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">Arc</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new(Mtcnn</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new()</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let</span><span> mtcnn </span><span style="color:#f29e74;">= </span><span>Arc</span><span style="color:#f29e74;">::</span><span>new(Mtcnn</span><span style="color:#f29e74;">::</span><span>new()</span><span style="color:#f29e74;">?</span><span>)</span><span style="color:#ccc9c2cc;">;
 </span></code></pre>
 <p>Now, to instantiate the server:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ccc9c2;">HttpServer</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|| </span><span style="color:#ccc9c2;">{
-    App</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new()
-        </span><span style="font-style:italic;color:#5c6773;">//Add in our mtcnn struct, we clone the reference for each worker thread
-        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">data</span><span style="color:#ccc9c2;">(mtcnn</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">clone</span><span style="color:#ccc9c2;">())
-        </span><span style="font-style:italic;color:#5c6773;">//Add in a logger to see the requests coming through
-        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">wrap</span><span style="color:#ccc9c2;">(middleware</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Logger</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">default())
-        </span><span style="font-style:italic;color:#5c6773;">// Add in some routes here
-        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">service</span><span style="color:#ccc9c2;">(
-            </span><span style="color:#f29e74;">...
-        </span><span style="color:#ccc9c2;">)
-})
-</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">bind</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">opt</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">listen)</span><span style="color:#f29e74;">? </span><span style="font-style:italic;color:#5c6773;">// Use the listener from the command arguments
-</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">run</span><span style="color:#ccc9c2;">()
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>HttpServer</span><span style="color:#f29e74;">::</span><span>new(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|| </span><span>{
+</span><span>    App</span><span style="color:#f29e74;">::</span><span>new()
+</span><span>        </span><span style="font-style:italic;color:#5c6773;">//Add in our mtcnn struct, we clone the reference for each worker thread
+</span><span>        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">data</span><span>(mtcnn</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">clone</span><span>())
+</span><span>        </span><span style="font-style:italic;color:#5c6773;">//Add in a logger to see the requests coming through
+</span><span>        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">wrap</span><span>(middleware</span><span style="color:#f29e74;">::</span><span>Logger</span><span style="color:#f29e74;">::</span><span>default())
+</span><span>        </span><span style="font-style:italic;color:#5c6773;">// Add in some routes here
+</span><span>        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">service</span><span>(
+</span><span>            </span><span style="color:#f29e74;">...
+</span><span>        )
+</span><span>})
+</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">bind</span><span>(</span><span style="color:#f29e74;">&amp;</span><span>opt</span><span style="color:#f29e74;">.</span><span>listen)</span><span style="color:#f29e74;">? </span><span style="font-style:italic;color:#5c6773;">// Use the listener from the command arguments
+</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">run</span><span>()
 </span></code></pre>
 <p>Ok, let's step through what we're doing:</p>
 <ul>
@@ -322,339 +310,309 @@ output_image
 <h3 id="function-signature-and-extractors">Function Signature and Extractors</h3>
 <p>Actix 1.0 makes heavy use of Extractors, which is a way of providing functions of quite different shapes.  You basically specify what you want your web function to receive, and actix will wire it up for you.  Take care though:  This does mean that some things won't be discovered wrong until runtime.  A perfect example I had when I used the wrong type signature for the <code>web::Data</code> argument.</p>
 <p>So what do we need to <em>extract</em> from our request? The bytes of the request body, and and also our <code>mtcnn</code>:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">handle_request</span><span style="color:#ccc9c2;">(
-    </span><span style="color:#ffcc66;">stream</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ccc9c2;">web</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Payload,
-    </span><span style="color:#ffcc66;">mtcnn</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ccc9c2;">web</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Data&lt;Arc&lt;Mtcnn&gt;&gt;,
-) </span><span style="color:#ccc9c2cc;">-&gt;</span><span style="color:#ccc9c2;"> impl Future&lt;Item = HttpResponse, Error = ActixError&gt; {
-
-    </span><span style="color:#f29e74;">...
-
-</span><span style="color:#ccc9c2;">}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">handle_request</span><span>(
+</span><span>    </span><span style="color:#ffcc66;">stream</span><span style="color:#ccc9c2cc;">: </span><span>web</span><span style="color:#f29e74;">::</span><span>Payload,
+</span><span>    </span><span style="color:#ffcc66;">mtcnn</span><span style="color:#ccc9c2cc;">: </span><span>web</span><span style="color:#f29e74;">::</span><span>Data&lt;Arc&lt;Mtcnn&gt;&gt;,
+</span><span>) </span><span style="color:#ccc9c2cc;">-&gt;</span><span> impl Future&lt;Item = HttpResponse, Error = ActixError&gt; {
+</span><span>
+</span><span>    </span><span style="color:#f29e74;">...
+</span><span>
+</span><span>}
 </span></code></pre>
 <p>We will use this type signature for <code>mtcnn</code> a fair bit, so let's make a type alias for it:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">type </span><span style="color:#73d0ff;">WebMtcnn </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">web</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Data&lt;Arc&lt;Mtcnn&gt;&gt;</span><span style="color:#ccc9c2cc;">;
-</span></code></pre><h2 id="getting-the-image-from-a-payload">Getting the Image from a Payload</h2>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">type </span><span style="color:#73d0ff;">WebMtcnn </span><span style="color:#f29e74;">= </span><span>web</span><span style="color:#f29e74;">::</span><span>Data&lt;Arc&lt;Mtcnn&gt;&gt;</span><span style="color:#ccc9c2cc;">;
+</span></code></pre>
+<h2 id="getting-the-image-from-a-payload">Getting the Image from a Payload</h2>
 <p>Ok, so we need a way of retrieving the image from a payload and returning a Future.  The <code>web::Payload</code> struct implements <a href="https://docs.rs/futures/0.1.26/futures/stream/trait.Stream.html">Stream</a> with <code>Item</code> set to <a href="https://docs.rs/bytes/0.4.12/bytes/struct.Bytes.html">Bytes</a>.</p>
 <p>Well, we don't really care about the individual bytes we get from a stream, we want the whole lot to decode the image!  So let's convert the <code>Stream</code> into a <code>Future</code>, and merge all the individual bytes we'll be getting into one big bucket of bytes.  Sounds complicated, but luckily Stream has a method: <a href="https://docs.rs/futures/0.1.26/futures/stream/trait.Stream.html#method.concat2">concat2</a>. </p>
 <p>This is a pretty powerful combinator which allows us to join the results of individual Stream polls into one if the item implements <a href="https://doc.rust-lang.org/nightly/core/iter/trait.Extend.html">Extend</a> (and some other traits) which <code>Bytes</code> happens to.</p>
 <p>So this looks like:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ccc9c2;">stream</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">concat2</span><span style="color:#ccc9c2;">()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">and_then</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">....</span><span style="color:#ccc9c2;">)
-</span></code></pre><h3 id="image-decoding-and-web-block">Image Decoding and <code>web::block</code></h3>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>stream</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">concat2</span><span>()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">and_then</span><span>(</span><span style="color:#f29e74;">....</span><span>)
+</span></code></pre>
+<h3 id="image-decoding-and-web-block">Image Decoding and <code>web::block</code></h3>
 <p>Ok, second thing we need to sort out, if we're going to be decoding an image, that is probably going to block the thread until it's done.  How long? Well if it's a huge image, it might take milliseconds!  So we want to ensure that we're not blocking the http workers while this is happening.  Luckily, actix web has a way of taking a blocking portion of code, and wrapping that as a future.</p>
 <p>Enter <code>web::block</code>.  We'll do our decoding in a cpu pool, bridging sync and async together:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ccc9c2;">stream</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">concat2</span><span style="color:#ccc9c2;">()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">and_then</span><span style="color:#ccc9c2;">(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|</span><span style="color:#ccc9c2;">bytes</span><span style="color:#f29e74;">| </span><span style="color:#ccc9c2;">{
-    web</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">block(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|| </span><span style="color:#ccc9c2;">{
-        image</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">load_from_memory(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">bytes)
-    })
-})
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>stream</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">concat2</span><span>()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">and_then</span><span>(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|</span><span>bytes</span><span style="color:#f29e74;">| </span><span>{
+</span><span>    web</span><span style="color:#f29e74;">::</span><span>block(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|| </span><span>{
+</span><span>        image</span><span style="color:#f29e74;">::</span><span>load_from_memory(</span><span style="color:#f29e74;">&amp;</span><span>bytes)
+</span><span>    })
+</span><span>})
 </span></code></pre>
 <p>Ok, that is pretty succint: we take a stream, convert it into a future and a bundle of bytes, then use <code>web::block</code> to decode the bytes into an image in a background thread and return the result.  the <code>load_from_memory</code> function already returns a Result, which means we can just use that as the return type.</p>
 <h3 id="balancing-the-error-type">Balancing the Error Type</h3>
 <p>So, our Item is converted to <code>Bytes</code> to <code>DynamicImage</code>, but we still haven't dealt with the error types yet and it won't compile.  What should our error type be?  Let's use <code>actix_web::Error</code> as <code>ActixError</code>:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">use </span><span style="color:#ccc9c2;">actix_web</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">{Error </span><span style="color:#f29e74;">as</span><span style="color:#ccc9c2;"> ActixError}
-
-</span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">get_image</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">stream</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ccc9c2;">web</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Payload) </span><span style="color:#ccc9c2cc;">-&gt;</span><span style="color:#ccc9c2;"> impl Future&lt;Item = DynamicImage, Error = ActixError&gt; {
-    stream</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">concat2</span><span style="color:#ccc9c2;">()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">and_then</span><span style="color:#ccc9c2;">(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|</span><span style="color:#ccc9c2;">bytes</span><span style="color:#f29e74;">| </span><span style="color:#ccc9c2;">{
-        web</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">block(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|| </span><span style="color:#ccc9c2;">{
-            image</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">load_from_memory(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">bytes)
-        })
-    })
-}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">use </span><span>actix_web</span><span style="color:#f29e74;">::</span><span>{Error </span><span style="color:#f29e74;">as</span><span> ActixError}
+</span><span>
+</span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">get_image</span><span>(</span><span style="color:#ffcc66;">stream</span><span style="color:#ccc9c2cc;">: </span><span>web</span><span style="color:#f29e74;">::</span><span>Payload) </span><span style="color:#ccc9c2cc;">-&gt;</span><span> impl Future&lt;Item = DynamicImage, Error = ActixError&gt; {
+</span><span>    stream</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">concat2</span><span>()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">and_then</span><span>(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|</span><span>bytes</span><span style="color:#f29e74;">| </span><span>{
+</span><span>        web</span><span style="color:#f29e74;">::</span><span>block(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|| </span><span>{
+</span><span>            image</span><span style="color:#f29e74;">::</span><span>load_from_memory(</span><span style="color:#f29e74;">&amp;</span><span>bytes)
+</span><span>        })
+</span><span>    })
+</span><span>}
 </span></code></pre>
 <p>Ok, that is giving us few really gnarly errors when we try and compile it:</p>
-<pre style="background-color:#212733;">
-<code><span style="color:#ccc9c2;">error[E0271]: type mismatch resolving `&lt;impl futures::future::Future as futures::future::IntoFuture&gt;::Error == actix_http::error::PayloadError`
-  --&gt; src/main.rs:67:22
-   |
-67 |     stream.concat2().and_then(move |bytes| {
-   |                      ^^^^^^^^ expected enum `actix_threadpool::BlockingError`, found enum `actix_http::error::PayloadError`
-   |
-   = note: expected type `actix_threadpool::BlockingError&lt;image::image::ImageError&gt;`
-              found type `actix_http::error::PayloadError`
+<pre style="background-color:#212733;color:#ccc9c2;"><code><span>error[E0271]: type mismatch resolving `&lt;impl futures::future::Future as futures::future::IntoFuture&gt;::Error == actix_http::error::PayloadError`
+</span><span>  --&gt; src/main.rs:67:22
+</span><span>   |
+</span><span>67 |     stream.concat2().and_then(move |bytes| {
+</span><span>   |                      ^^^^^^^^ expected enum `actix_threadpool::BlockingError`, found enum `actix_http::error::PayloadError`
+</span><span>   |
+</span><span>   = note: expected type `actix_threadpool::BlockingError&lt;image::image::ImageError&gt;`
+</span><span>              found type `actix_http::error::PayloadError`
 </span></code></pre>
 <p>There's a couple more that aren't listed.</p>
 <p>When you are combining streams, mapping them as futures, and otherwise trying to get some output from these combinators you are actually dealing with both the <code>Item</code> type, and the <code>Error</code> type.</p>
 <p>The ergonomics of this are not as advanced as the <code>Result</code> type, where we can use the <code>?</code> operator to automatically adjust to the right error (if a conversion is available). When both <code>ops::Try</code> and <code>async/await</code> syntax stabilises, this might be a different story, but for now, we need to deal with error types.</p>
 <p>What we have instead is the magic™️ <code>from_err()</code> method.  This is basically the same as the <code>?</code> operator but for futures.  We have two futures we're dealing with: our bundle of bytes from the stream, and the image from the blocking closure. We have 3 error types we're dealing with: the Payload error, the Image load from memory error, and the blocking error.</p>
 <p>Let's start by putting <code>from_err()</code> on both of the futures:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">get_image</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">stream</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ccc9c2;">web</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Payload)
-  </span><span style="color:#ccc9c2cc;">-&gt;</span><span style="color:#ccc9c2;"> impl Future&lt;Item = DynamicImage, Error = ActixError&gt; {
-    stream</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">concat2</span><span style="color:#ccc9c2;">()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">from_err</span><span style="color:#ccc9c2;">()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">and_then</span><span style="color:#ccc9c2;">(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|</span><span style="color:#ccc9c2;">bytes</span><span style="color:#f29e74;">| </span><span style="color:#ccc9c2;">{
-        web</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">block(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|| </span><span style="color:#ccc9c2;">{
-            image</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">load_from_memory(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">bytes)
-        })</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">from_err</span><span style="color:#ccc9c2;">()
-    })
-}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">get_image</span><span>(</span><span style="color:#ffcc66;">stream</span><span style="color:#ccc9c2cc;">: </span><span>web</span><span style="color:#f29e74;">::</span><span>Payload)
+</span><span>  </span><span style="color:#ccc9c2cc;">-&gt;</span><span> impl Future&lt;Item = DynamicImage, Error = ActixError&gt; {
+</span><span>    stream</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">concat2</span><span>()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">from_err</span><span>()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">and_then</span><span>(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|</span><span>bytes</span><span style="color:#f29e74;">| </span><span>{
+</span><span>        web</span><span style="color:#f29e74;">::</span><span>block(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|| </span><span>{
+</span><span>            image</span><span style="color:#f29e74;">::</span><span>load_from_memory(</span><span style="color:#f29e74;">&amp;</span><span>bytes)
+</span><span>        })</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">from_err</span><span>()
+</span><span>    })
+</span><span>}
 </span></code></pre>
 <p>That worked! There is enough conversions for our error types to get to where we need to get it.  The <code>ActixError</code> type has a few blanket conversions from common error types enough to be able to make this magic happen.</p>
 <h2 id="getting-the-bounding-boxes-from-the-image">Getting the bounding boxes from the image</h2>
 <p>At the core of it, we need to run the following:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ccc9c2;">mtcnn</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">run</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">img)
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>mtcnn</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">run</span><span>(</span><span style="color:#f29e74;">&amp;</span><span>img)
 </span></code></pre>
 <p>But we want this to run in a threadpool too:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ccc9c2;">web</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">block(|| mtcnn</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">run</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">img))
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>web</span><span style="color:#f29e74;">::</span><span>block(|| mtcnn</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">run</span><span>(</span><span style="color:#f29e74;">&amp;</span><span>img))
 </span></code></pre>
 <p>Let's work through the function signature we'll need.  At a minimum we're gonna need the image, and the mtcnn struct.  Then we want to return a <code>Vec</code> of BBoxes.  We should try and keep our error types the same, so we'll use the ActixError type.</p>
 <p>The function signature looks like this:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">get_bboxes</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">img</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> DynamicImage, </span><span style="color:#ffcc66;">mtcnn</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> WebMtcnn) 
-  </span><span style="color:#ccc9c2cc;">-&gt;</span><span style="color:#ccc9c2;"> impl Future&lt;Item = </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span style="color:#ccc9c2;">&lt;BBox&gt;, Error = ActixError&gt; 
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">get_bboxes</span><span>(</span><span style="color:#ffcc66;">img</span><span style="color:#ccc9c2cc;">:</span><span> DynamicImage, </span><span style="color:#ffcc66;">mtcnn</span><span style="color:#ccc9c2cc;">:</span><span> WebMtcnn) 
+</span><span>  </span><span style="color:#ccc9c2cc;">-&gt;</span><span> impl Future&lt;Item = </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span>&lt;BBox&gt;, Error = ActixError&gt; 
 </span></code></pre>
 <p>We know that we'll need a <code>from_err()</code> on the <code>web::block</code> to convert the error type, and we'll have to use a <code>move</code> to give the image to the closure:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">get_bboxes</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">img</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> DynamicImage, </span><span style="color:#ffcc66;">mtcnn</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> WebMtcnn) </span><span style="color:#ccc9c2cc;">-&gt;</span><span style="color:#ccc9c2;"> impl Future&lt;Item = </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span style="color:#ccc9c2;">&lt;BBox&gt;, Error = ActixError&gt; {
-    web</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">block(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">||</span><span style="color:#ccc9c2;"> mtcnn</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">run</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">img))</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">from_err</span><span style="color:#ccc9c2;">()
-}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">get_bboxes</span><span>(</span><span style="color:#ffcc66;">img</span><span style="color:#ccc9c2cc;">:</span><span> DynamicImage, </span><span style="color:#ffcc66;">mtcnn</span><span style="color:#ccc9c2cc;">:</span><span> WebMtcnn) </span><span style="color:#ccc9c2cc;">-&gt;</span><span> impl Future&lt;Item = </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span>&lt;BBox&gt;, Error = ActixError&gt; {
+</span><span>    web</span><span style="color:#f29e74;">::</span><span>block(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">||</span><span> mtcnn</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">run</span><span>(</span><span style="color:#f29e74;">&amp;</span><span>img))</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">from_err</span><span>()
+</span><span>}
 </span></code></pre>
 <p>But does this compile? Not yet:</p>
-<pre style="background-color:#212733;">
-<code><span style="color:#ccc9c2;">error[E0277]: `*mut tensorflow_sys::TF_Status` cannot be sent between threads safely
-  --&gt; src/main.rs:75:5
-   |
-75 |     web::block(move || mtcnn.run(&amp;img)).from_err()
-   |     ^^^^^^^^^^ `*mut tensorflow_sys::TF_Status` cannot be sent between threads safely
-   |
-   = help: within `tensorflow::Status`, the trait `std::marker::Send` is not implemented for `*mut tensorflow_sys::TF_Status`
-   = note: required because it appears within the type `tensorflow::Status`
-   = note: required by `actix_web::web::block`
+<pre style="background-color:#212733;color:#ccc9c2;"><code><span>error[E0277]: `*mut tensorflow_sys::TF_Status` cannot be sent between threads safely
+</span><span>  --&gt; src/main.rs:75:5
+</span><span>   |
+</span><span>75 |     web::block(move || mtcnn.run(&amp;img)).from_err()
+</span><span>   |     ^^^^^^^^^^ `*mut tensorflow_sys::TF_Status` cannot be sent between threads safely
+</span><span>   |
+</span><span>   = help: within `tensorflow::Status`, the trait `std::marker::Send` is not implemented for `*mut tensorflow_sys::TF_Status`
+</span><span>   = note: required because it appears within the type `tensorflow::Status`
+</span><span>   = note: required by `actix_web::web::block`
 </span></code></pre>
 <p><code>tensorflow::Status</code>, which is the error type, can't be sent between threads.</p>
 <p>Let's just shortcut here, and convert the error to a <code>String</code>:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">get_bboxes</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">img</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> DynamicImage, </span><span style="color:#ffcc66;">mtcnn</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> WebMtcnn) </span><span style="color:#ccc9c2cc;">-&gt;</span><span style="color:#ccc9c2;"> impl Future&lt;Item = </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span style="color:#ccc9c2;">&lt;BBox&gt;, Error = ActixError&gt; {
-    web</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">block(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">||</span><span style="color:#ccc9c2;"> mtcnn</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">run</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">img)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map_err</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">e</span><span style="color:#ccc9c2;">| e</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">to_string</span><span style="color:#ccc9c2;">()))</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">from_err</span><span style="color:#ccc9c2;">()
-}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">get_bboxes</span><span>(</span><span style="color:#ffcc66;">img</span><span style="color:#ccc9c2cc;">:</span><span> DynamicImage, </span><span style="color:#ffcc66;">mtcnn</span><span style="color:#ccc9c2cc;">:</span><span> WebMtcnn) </span><span style="color:#ccc9c2cc;">-&gt;</span><span> impl Future&lt;Item = </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span>&lt;BBox&gt;, Error = ActixError&gt; {
+</span><span>    web</span><span style="color:#f29e74;">::</span><span>block(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">||</span><span> mtcnn</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">run</span><span>(</span><span style="color:#f29e74;">&amp;</span><span>img)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map_err</span><span>(|</span><span style="color:#ffcc66;">e</span><span>| e</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">to_string</span><span>()))</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">from_err</span><span>()
+</span><span>}
 </span></code></pre>
 <p>This allows us to move the <code>Result</code> across thread boundaries, as <code>String</code> does implement <code>Send</code></p>
 <h2 id="returning-json-bboxes">Returning JSON BBoxes</h2>
 <p>Ok, so we have 2 functions, one to get the image from the request, and one to get the bounding boxes.  We're gonna want to return json <code>HttpResponse</code>:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">return_bboxes</span><span style="color:#ccc9c2;">(
-    </span><span style="color:#ffcc66;">stream</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ccc9c2;">web</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Payload,
-    </span><span style="color:#ffcc66;">mtcnn</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> WebMtcnn,
-) </span><span style="color:#ccc9c2cc;">-&gt;</span><span style="color:#ccc9c2;"> impl Future&lt;Item = HttpResponse, Error = ActixError&gt; {
-    </span><span style="font-style:italic;color:#5c6773;">// Get the image from the input stream
-    </span><span style="color:#f28779;">get_image</span><span style="color:#ccc9c2;">(stream) 
-        </span><span style="font-style:italic;color:#5c6773;">// Get the bounding boxes from the image
-        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">and_then</span><span style="color:#ccc9c2;">(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|</span><span style="color:#ccc9c2;">img</span><span style="color:#f29e74;">| </span><span style="color:#f28779;">get_bboxes</span><span style="color:#ccc9c2;">(img</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> mtcnn)) 
-        </span><span style="font-style:italic;color:#5c6773;">// Map the bounding boxes to a json HttpResponse
-        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">bboxes</span><span style="color:#ccc9c2;">| HttpResponse</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Ok()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">json</span><span style="color:#ccc9c2;">(bboxes))
-}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">return_bboxes</span><span>(
+</span><span>    </span><span style="color:#ffcc66;">stream</span><span style="color:#ccc9c2cc;">: </span><span>web</span><span style="color:#f29e74;">::</span><span>Payload,
+</span><span>    </span><span style="color:#ffcc66;">mtcnn</span><span style="color:#ccc9c2cc;">:</span><span> WebMtcnn,
+</span><span>) </span><span style="color:#ccc9c2cc;">-&gt;</span><span> impl Future&lt;Item = HttpResponse, Error = ActixError&gt; {
+</span><span>    </span><span style="font-style:italic;color:#5c6773;">// Get the image from the input stream
+</span><span>    </span><span style="color:#f28779;">get_image</span><span>(stream) 
+</span><span>        </span><span style="font-style:italic;color:#5c6773;">// Get the bounding boxes from the image
+</span><span>        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">and_then</span><span>(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|</span><span>img</span><span style="color:#f29e74;">| </span><span style="color:#f28779;">get_bboxes</span><span>(img</span><span style="color:#ccc9c2cc;">,</span><span> mtcnn)) 
+</span><span>        </span><span style="font-style:italic;color:#5c6773;">// Map the bounding boxes to a json HttpResponse
+</span><span>        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map</span><span>(|</span><span style="color:#ffcc66;">bboxes</span><span>| HttpResponse</span><span style="color:#f29e74;">::</span><span>Ok()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">json</span><span>(bboxes))
+</span><span>}
 </span></code></pre>
 <p>Cool! Let's put this in our App definition:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ccc9c2;">HttpServer</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|| </span><span style="color:#ccc9c2;">{
-    App</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new()
-        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">data</span><span style="color:#ccc9c2;">(mtcnn</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">clone</span><span style="color:#ccc9c2;">()) 
-        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">wrap</span><span style="color:#ccc9c2;">(middleware</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Logger</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">default()) 
-        </span><span style="font-style:italic;color:#5c6773;">// our new API service
-        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">service</span><span style="color:#ccc9c2;">(web</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">resource(</span><span style="color:#bae67e;">&quot;/api/v1/bboxes&quot;</span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">to_async</span><span style="color:#ccc9c2;">(return_bboxes))
-})
-</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">bind</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">opt</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">listen)</span><span style="color:#f29e74;">?
-.</span><span style="color:#f28779;">run</span><span style="color:#ccc9c2;">()
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>HttpServer</span><span style="color:#f29e74;">::</span><span>new(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|| </span><span>{
+</span><span>    App</span><span style="color:#f29e74;">::</span><span>new()
+</span><span>        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">data</span><span>(mtcnn</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">clone</span><span>()) 
+</span><span>        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">wrap</span><span>(middleware</span><span style="color:#f29e74;">::</span><span>Logger</span><span style="color:#f29e74;">::</span><span>default()) 
+</span><span>        </span><span style="font-style:italic;color:#5c6773;">// our new API service
+</span><span>        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">service</span><span>(web</span><span style="color:#f29e74;">::</span><span>resource(</span><span style="color:#bae67e;">&quot;/api/v1/bboxes&quot;</span><span>)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">to_async</span><span>(return_bboxes))
+</span><span>})
+</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">bind</span><span>(</span><span style="color:#f29e74;">&amp;</span><span>opt</span><span style="color:#f29e74;">.</span><span>listen)</span><span style="color:#f29e74;">?
+</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">run</span><span>()
 </span></code></pre>
 <p>And let's run it, using <code>curl</code> to submit a query to get some results back</p>
-<pre style="background-color:#212733;">
-<code><span style="color:#ccc9c2;">$ curl --data-binary @rustfest.jpg  http://localhost:8000/api/v1/bboxes
-
-[{&quot;x1&quot;:471.4591,&quot;y1&quot;:287.59888,&quot;x2&quot;:495.3053,&quot;y2&quot;:317.25327,&quot;prob&quot;:0.9999908}....
+<pre style="background-color:#212733;color:#ccc9c2;"><code><span>$ curl --data-binary @rustfest.jpg  http://localhost:8000/api/v1/bboxes
+</span><span>
+</span><span>[{&quot;x1&quot;:471.4591,&quot;y1&quot;:287.59888,&quot;x2&quot;:495.3053,&quot;y2&quot;:317.25327,&quot;prob&quot;:0.9999908}....
 </span></code></pre>
 <p>Awesome! Using <a href="http://jmespath.org/">jmespath</a> to see we get our 120 faces back:</p>
-<pre style="background-color:#212733;">
-<code><span style="color:#ccc9c2;">$ curl -s --data-binary @rustfest.jpg  http://localhost:8000/api/v1/bboxes | jp &quot;length(@)&quot;
-120
-</span></code></pre><h2 id="returning-an-overlay-image">Returning an Overlay Image</h2>
+<pre style="background-color:#212733;color:#ccc9c2;"><code><span>$ curl -s --data-binary @rustfest.jpg  http://localhost:8000/api/v1/bboxes | jp &quot;length(@)&quot;
+</span><span>120
+</span></code></pre>
+<h2 id="returning-an-overlay-image">Returning an Overlay Image</h2>
 <p>The other API call we want is to return an image with the bounding boxes overlayed.  This is not much of a stretch, but the act of drawing boxes on an image is definitely a blocking action, so we'll need to do the same thing and send it to a thread pool.</p>
 <p>Let's wrap our overlay function, converting it into a Future:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">get_overlay</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">img</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> DynamicImage, </span><span style="color:#ffcc66;">bboxes</span><span style="color:#ccc9c2cc;">: </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span style="color:#ccc9c2;">&lt;BBox&gt;)
-   </span><span style="color:#ccc9c2cc;">-&gt;</span><span style="color:#ccc9c2;"> impl Future&lt;Item = </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span style="color:#ccc9c2;">&lt;</span><span style="color:#ffa759;">u8</span><span style="color:#ccc9c2;">&gt;, Error = ActixError&gt; {
-    web</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">block(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|| </span><span style="color:#ccc9c2;">{
-        </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> output_img </span><span style="color:#f29e74;">= </span><span style="color:#f28779;">overlay</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">img</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">bboxes)</span><span style="color:#ccc9c2cc;">;
-        
-        </span><span style="color:#f29e74;">...
-
-    </span><span style="color:#ccc9c2;">})</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">from_err</span><span style="color:#ccc9c2;">()
-}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">get_overlay</span><span>(</span><span style="color:#ffcc66;">img</span><span style="color:#ccc9c2cc;">:</span><span> DynamicImage, </span><span style="color:#ffcc66;">bboxes</span><span style="color:#ccc9c2cc;">: </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span>&lt;BBox&gt;)
+</span><span>   </span><span style="color:#ccc9c2cc;">-&gt;</span><span> impl Future&lt;Item = </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span>&lt;</span><span style="color:#ffa759;">u8</span><span>&gt;, Error = ActixError&gt; {
+</span><span>    web</span><span style="color:#f29e74;">::</span><span>block(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|| </span><span>{
+</span><span>        </span><span style="color:#ffa759;">let</span><span> output_img </span><span style="color:#f29e74;">= </span><span style="color:#f28779;">overlay</span><span>(</span><span style="color:#f29e74;">&amp;</span><span>img</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span>bboxes)</span><span style="color:#ccc9c2cc;">;
+</span><span>        
+</span><span>        </span><span style="color:#f29e74;">...
+</span><span>
+</span><span>    })</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">from_err</span><span>()
+</span><span>}
 </span></code></pre>
 <p>We're going to want to return a <code>Vec</code> of <code>u8</code> bytes so we can use this in the return body. So we'll need to allocate some buffer and instruct <code>image</code> to write out a JPEG from the image:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let mut</span><span style="color:#ccc9c2;"> buffer </span><span style="color:#f29e74;">= </span><span style="color:#f28779;">vec!</span><span style="color:#ccc9c2;">[]</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ccc9c2;">output_img</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">write_to</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span style="color:#ccc9c2;"> buffer</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">JPEG</span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">; </span><span style="font-style:italic;color:#5c6773;">// write out our buffer
-
-</span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span style="color:#ccc9c2;">(buffer)
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let mut</span><span> buffer </span><span style="color:#f29e74;">= </span><span style="color:#f28779;">vec!</span><span>[]</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>output_img</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">write_to</span><span>(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span> buffer</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">JPEG</span><span>)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">; </span><span style="font-style:italic;color:#5c6773;">// write out our buffer
+</span><span>
+</span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span>(buffer)
 </span></code></pre>
 <p>Ok, so let's put our little function together and see if it compiles:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">get_overlay</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">img</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> DynamicImage, </span><span style="color:#ffcc66;">bboxes</span><span style="color:#ccc9c2cc;">: </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span style="color:#ccc9c2;">&lt;BBox&gt;)
-  </span><span style="color:#ccc9c2cc;">-&gt;</span><span style="color:#ccc9c2;"> impl Future&lt;Item = </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span style="color:#ccc9c2;">&lt;</span><span style="color:#ffa759;">u8</span><span style="color:#ccc9c2;">&gt;, Error = ActixError&gt; {
-    web</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">block(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|| </span><span style="color:#ccc9c2;">{
-        </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> output_img </span><span style="color:#f29e74;">= </span><span style="color:#f28779;">overlay</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">img</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">bboxes)</span><span style="color:#ccc9c2cc;">;
-
-        </span><span style="color:#ffa759;">let mut</span><span style="color:#ccc9c2;"> buffer </span><span style="color:#f29e74;">= </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new()</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ccc9c2;">        output_img</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">write_to</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span style="color:#ccc9c2;"> buffer</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">JPEG</span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">; </span><span style="font-style:italic;color:#5c6773;">// write out our buffer
-
-        </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span style="color:#ccc9c2;">(buffer)
-    })</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">from_err</span><span style="color:#ccc9c2;">()
-}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">get_overlay</span><span>(</span><span style="color:#ffcc66;">img</span><span style="color:#ccc9c2cc;">:</span><span> DynamicImage, </span><span style="color:#ffcc66;">bboxes</span><span style="color:#ccc9c2cc;">: </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span>&lt;BBox&gt;)
+</span><span>  </span><span style="color:#ccc9c2cc;">-&gt;</span><span> impl Future&lt;Item = </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span>&lt;</span><span style="color:#ffa759;">u8</span><span>&gt;, Error = ActixError&gt; {
+</span><span>    web</span><span style="color:#f29e74;">::</span><span>block(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|| </span><span>{
+</span><span>        </span><span style="color:#ffa759;">let</span><span> output_img </span><span style="color:#f29e74;">= </span><span style="color:#f28779;">overlay</span><span>(</span><span style="color:#f29e74;">&amp;</span><span>img</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span>bboxes)</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>        </span><span style="color:#ffa759;">let mut</span><span> buffer </span><span style="color:#f29e74;">= </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span style="color:#f29e74;">::</span><span>new()</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>        output_img</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">write_to</span><span>(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span> buffer</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">JPEG</span><span>)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">; </span><span style="font-style:italic;color:#5c6773;">// write out our buffer
+</span><span>
+</span><span>        </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span>(buffer)
+</span><span>    })</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">from_err</span><span>()
+</span><span>}
 </span></code></pre>
 <p>Not quite yet: we're missing a type annotation:</p>
-<pre style="background-color:#212733;">
-<code><span style="color:#ccc9c2;">error[E0282]: type annotations needed
-  --&gt; src/main.rs:82:5
-   |
-82 |     web::block(move || {
-   |     ^^^^^^^^^^ cannot infer type for `E`
+<pre style="background-color:#212733;color:#ccc9c2;"><code><span>error[E0282]: type annotations needed
+</span><span>  --&gt; src/main.rs:82:5
+</span><span>   |
+</span><span>82 |     web::block(move || {
+</span><span>   |     ^^^^^^^^^^ cannot infer type for `E`
 </span></code></pre>
 <p>Why is there an issue with the type? Well, it relates to this line here:</p>
-<pre style="background-color:#212733;">
-<code><span style="color:#ccc9c2;">Ok(buffer) // What&#39;s the `Error` type here?
+<pre style="background-color:#212733;color:#ccc9c2;"><code><span>Ok(buffer) // What&#39;s the `Error` type here?
 </span></code></pre>
 <p>At the moment, the only error type is from the <code>write_to</code> method which is <code>ImageError</code>.  But this line here doesn't have an error type, and could be anything.</p>
 <p>There are 3 ways I can immediately think to handle this:</p>
 <p><strong>Way Number 1</strong>: Declare the error type in <code>web::block</code></p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ccc9c2;">web</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">block</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">&lt;</span><span style="color:#f29e74;">_</span><span style="color:#ccc9c2;">,</span><span style="color:#f29e74;">_</span><span style="color:#ccc9c2;">,ImageError&gt;
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>web</span><span style="color:#f29e74;">::</span><span>block</span><span style="color:#f29e74;">::</span><span>&lt;</span><span style="color:#f29e74;">_</span><span>,</span><span style="color:#f29e74;">_</span><span>,ImageError&gt;
 </span></code></pre>
 <p>This looks more like a turbosubmarine than a turbofish! But it compiles!</p>
 <p><strong>Way Number 2</strong>: Declare the Result type with <code>as</code> </p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#5ccfe6;">Ok</span><span style="color:#ccc9c2;">(buffer) </span><span style="color:#f29e74;">as </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span style="color:#ccc9c2;">&lt;</span><span style="color:#f29e74;">_</span><span style="color:#ccc9c2;">, ImageError&gt;
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#5ccfe6;">Ok</span><span>(buffer) </span><span style="color:#f29e74;">as </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span>&lt;</span><span style="color:#f29e74;">_</span><span>, ImageError&gt;
 </span></code></pre>
 <p><strong>Way Number 3</strong>: Use <code>map</code> to return the buffer on success:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ccc9c2;">output_img</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">write_to</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span style="color:#ccc9c2;"> buffer</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">JPEG</span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map</span><span style="color:#ccc9c2;">(|_| buffer)
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>output_img</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">write_to</span><span>(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span> buffer</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">JPEG</span><span>)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map</span><span>(|_| buffer)
 </span></code></pre>
 <p>I think for readability, #2 is probably easiest.  The <code>web::block</code> function takes 3 type arguments which can be confusing on first read of the code.  #3 is good too but I think it looks a bit strange.</p>
 <p>Our final method looks like:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">get_overlay</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">img</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> DynamicImage, </span><span style="color:#ffcc66;">bboxes</span><span style="color:#ccc9c2cc;">: </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span style="color:#ccc9c2;">&lt;BBox&gt;)
-   </span><span style="color:#ccc9c2cc;">-&gt;</span><span style="color:#ccc9c2;"> impl Future&lt;Item = </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span style="color:#ccc9c2;">&lt;</span><span style="color:#ffa759;">u8</span><span style="color:#ccc9c2;">&gt;, Error = ActixError&gt; {
-    web</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">block(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|| </span><span style="color:#ccc9c2;">{
-        </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> output_img </span><span style="color:#f29e74;">= </span><span style="color:#f28779;">overlay</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">img</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">bboxes)</span><span style="color:#ccc9c2cc;">;
-
-        </span><span style="color:#ffa759;">let mut</span><span style="color:#ccc9c2;"> buffer </span><span style="color:#f29e74;">= </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new()</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ccc9c2;">        output_img</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">write_to</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span style="color:#ccc9c2;"> buffer</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">JPEG</span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
-
-        </span><span style="font-style:italic;color:#5c6773;">// Type annotations required for the `web::block`
-        </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span style="color:#ccc9c2;">(buffer) </span><span style="color:#f29e74;">as </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span style="color:#ccc9c2;">&lt;</span><span style="color:#f29e74;">_</span><span style="color:#ccc9c2;">, ImageError&gt; 
-    })</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">from_err</span><span style="color:#ccc9c2;">()
-}
-</span></code></pre><h3 id="the-api-call">The API call</h3>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">get_overlay</span><span>(</span><span style="color:#ffcc66;">img</span><span style="color:#ccc9c2cc;">:</span><span> DynamicImage, </span><span style="color:#ffcc66;">bboxes</span><span style="color:#ccc9c2cc;">: </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span>&lt;BBox&gt;)
+</span><span>   </span><span style="color:#ccc9c2cc;">-&gt;</span><span> impl Future&lt;Item = </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span>&lt;</span><span style="color:#ffa759;">u8</span><span>&gt;, Error = ActixError&gt; {
+</span><span>    web</span><span style="color:#f29e74;">::</span><span>block(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|| </span><span>{
+</span><span>        </span><span style="color:#ffa759;">let</span><span> output_img </span><span style="color:#f29e74;">= </span><span style="color:#f28779;">overlay</span><span>(</span><span style="color:#f29e74;">&amp;</span><span>img</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span>bboxes)</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>        </span><span style="color:#ffa759;">let mut</span><span> buffer </span><span style="color:#f29e74;">= </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span style="color:#f29e74;">::</span><span>new()</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>        output_img</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">write_to</span><span>(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut</span><span> buffer</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">JPEG</span><span>)</span><span style="color:#f29e74;">?</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>        </span><span style="font-style:italic;color:#5c6773;">// Type annotations required for the `web::block`
+</span><span>        </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span>(buffer) </span><span style="color:#f29e74;">as </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span>&lt;</span><span style="color:#f29e74;">_</span><span>, ImageError&gt; 
+</span><span>    })</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">from_err</span><span>()
+</span><span>}
+</span></code></pre>
+<h3 id="the-api-call">The API call</h3>
 <p>Ok, we have our little futures that we need to return bounding boxes and image overlays.  Let's stitch this together and return a <code>HttpResponse</code>:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">return_overlay</span><span style="color:#ccc9c2;">(
-    </span><span style="color:#ffcc66;">stream</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ccc9c2;">web</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Payload,
-    </span><span style="color:#ffcc66;">mtcnn</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> WebMtcnn,
-) </span><span style="color:#ccc9c2cc;">-&gt;</span><span style="color:#ccc9c2;"> impl Future&lt;Item = HttpResponse, Error = ActixError&gt; {
-    </span><span style="font-style:italic;color:#5c6773;">//... magic happens here
-</span><span style="color:#ccc9c2;">}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">return_overlay</span><span>(
+</span><span>    </span><span style="color:#ffcc66;">stream</span><span style="color:#ccc9c2cc;">: </span><span>web</span><span style="color:#f29e74;">::</span><span>Payload,
+</span><span>    </span><span style="color:#ffcc66;">mtcnn</span><span style="color:#ccc9c2cc;">:</span><span> WebMtcnn,
+</span><span>) </span><span style="color:#ccc9c2cc;">-&gt;</span><span> impl Future&lt;Item = HttpResponse, Error = ActixError&gt; {
+</span><span>    </span><span style="font-style:italic;color:#5c6773;">//... magic happens here
+</span><span>}
 </span></code></pre>
 <p>Ok, first step is to get the image from the stream:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#f28779;">get_image</span><span style="color:#ccc9c2;">(stream)
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f28779;">get_image</span><span>(stream)
 </span></code></pre>
 <p>And Then once the future has resolved, we want to get the bounding boxes:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#f28779;">get_image</span><span style="color:#ccc9c2;">(stream)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">and_then</span><span style="color:#ccc9c2;">(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|</span><span style="color:#ccc9c2;">img</span><span style="color:#f29e74;">| </span><span style="color:#ccc9c2;">{
-    </span><span style="color:#f28779;">get_bboxes</span><span style="color:#ccc9c2;">(img</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> mtcnn)
-})
-</span></code></pre><h3 id="moving-images-around">Moving Images Around</h3>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#f28779;">get_image</span><span>(stream)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">and_then</span><span>(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|</span><span>img</span><span style="color:#f29e74;">| </span><span>{
+</span><span>    </span><span style="color:#f28779;">get_bboxes</span><span>(img</span><span style="color:#ccc9c2cc;">,</span><span> mtcnn)
+</span><span>})
+</span></code></pre>
+<h3 id="moving-images-around">Moving Images Around</h3>
 <p>Now we want to get the image overlay.  We have an issue though! we give the <code>get_bboxes</code> future our image, and it returns a Vec of bboxes, consuming the image.  There are a couple of options here.  We could <code>clone()</code> the image when we give it to bboxes, but that is duplicating memory.  We could wait for <code>Pin</code> and <code>async</code>/<code>await</code> to be finished and probably deal with it in an easier way then.</p>
 <p>Or we could adjust our <code>get_bboxes</code> method to return a tuple of both the image and bounding boxes:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">get_bboxes</span><span style="color:#ccc9c2;">(
-    </span><span style="color:#ffcc66;">img</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> DynamicImage,
-    </span><span style="color:#ffcc66;">mtcnn</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> WebMtcnn,
-) </span><span style="color:#ccc9c2cc;">-&gt;</span><span style="color:#ccc9c2;"> impl Future&lt;Item = (DynamicImage, </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span style="color:#ccc9c2;">&lt;BBox&gt;), Error = ActixError&gt; {
-    web</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">block(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|| </span><span style="color:#ccc9c2;">{
-        mtcnn
-            </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">run</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">img)
-            </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map_err</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">e</span><span style="color:#ccc9c2;">| e</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">to_string</span><span style="color:#ccc9c2;">())
-            </span><span style="font-style:italic;color:#5c6773;">//Return both the image and the bounding boxes
-            </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">bboxes</span><span style="color:#ccc9c2;">| (img</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> bboxes))
-    })
-    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">from_err</span><span style="color:#ccc9c2;">()
-}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">get_bboxes</span><span>(
+</span><span>    </span><span style="color:#ffcc66;">img</span><span style="color:#ccc9c2cc;">:</span><span> DynamicImage,
+</span><span>    </span><span style="color:#ffcc66;">mtcnn</span><span style="color:#ccc9c2cc;">:</span><span> WebMtcnn,
+</span><span>) </span><span style="color:#ccc9c2cc;">-&gt;</span><span> impl Future&lt;Item = (DynamicImage, </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span>&lt;BBox&gt;), Error = ActixError&gt; {
+</span><span>    web</span><span style="color:#f29e74;">::</span><span>block(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|| </span><span>{
+</span><span>        mtcnn
+</span><span>            </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">run</span><span>(</span><span style="color:#f29e74;">&amp;</span><span>img)
+</span><span>            </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map_err</span><span>(|</span><span style="color:#ffcc66;">e</span><span>| e</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">to_string</span><span>())
+</span><span>            </span><span style="font-style:italic;color:#5c6773;">//Return both the image and the bounding boxes
+</span><span>            </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map</span><span>(|</span><span style="color:#ffcc66;">bboxes</span><span>| (img</span><span style="color:#ccc9c2cc;">,</span><span> bboxes))
+</span><span>    })
+</span><span>    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">from_err</span><span>()
+</span><span>}
 </span></code></pre>
 <p>Making sure to update our <code>return_bboxes</code> function too:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">return_bboxes</span><span style="color:#ccc9c2;">(
-    </span><span style="color:#ffcc66;">stream</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ccc9c2;">web</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Payload,
-    </span><span style="color:#ffcc66;">mtcnn</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> WebMtcnn,
-) </span><span style="color:#ccc9c2cc;">-&gt;</span><span style="color:#ccc9c2;"> impl Future&lt;Item = HttpResponse, Error = ActixError&gt; {
-    </span><span style="color:#f28779;">get_image</span><span style="color:#ccc9c2;">(stream)
-        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">and_then</span><span style="color:#ccc9c2;">(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|</span><span style="color:#ccc9c2;">img</span><span style="color:#f29e74;">| </span><span style="color:#f28779;">get_bboxes</span><span style="color:#ccc9c2;">(img</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> mtcnn))
-        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map</span><span style="color:#ccc9c2;">(|(</span><span style="color:#ffcc66;">_img</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">bboxes</span><span style="color:#ccc9c2;">)| HttpResponse</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Ok()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">json</span><span style="color:#ccc9c2;">(bboxes))
-}
-</span></code></pre><h3 id="getting-the-overlay">Getting the Overlay</h3>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">return_bboxes</span><span>(
+</span><span>    </span><span style="color:#ffcc66;">stream</span><span style="color:#ccc9c2cc;">: </span><span>web</span><span style="color:#f29e74;">::</span><span>Payload,
+</span><span>    </span><span style="color:#ffcc66;">mtcnn</span><span style="color:#ccc9c2cc;">:</span><span> WebMtcnn,
+</span><span>) </span><span style="color:#ccc9c2cc;">-&gt;</span><span> impl Future&lt;Item = HttpResponse, Error = ActixError&gt; {
+</span><span>    </span><span style="color:#f28779;">get_image</span><span>(stream)
+</span><span>        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">and_then</span><span>(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|</span><span>img</span><span style="color:#f29e74;">| </span><span style="color:#f28779;">get_bboxes</span><span>(img</span><span style="color:#ccc9c2cc;">,</span><span> mtcnn))
+</span><span>        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map</span><span>(|(</span><span style="color:#ffcc66;">_img</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">bboxes</span><span>)| HttpResponse</span><span style="color:#f29e74;">::</span><span>Ok()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">json</span><span>(bboxes))
+</span><span>}
+</span></code></pre>
+<h3 id="getting-the-overlay">Getting the Overlay</h3>
 <p>It would be great if rust could desugar a tuple into command arguments.  Unfortunately not for us, so we will need to create a small closure:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#5c6773;">//Create our image overlay
-</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">and_then</span><span style="color:#ccc9c2;">(|(</span><span style="color:#ffcc66;">img</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">bbox</span><span style="color:#ccc9c2;">)| </span><span style="color:#f28779;">get_overlay</span><span style="color:#ccc9c2;">(img</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> bbox))
-</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">buffer</span><span style="color:#ccc9c2;">| {
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="font-style:italic;color:#5c6773;">//Create our image overlay
+</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">and_then</span><span>(|(</span><span style="color:#ffcc66;">img</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">bbox</span><span>)| </span><span style="color:#f28779;">get_overlay</span><span>(img</span><span style="color:#ccc9c2cc;">,</span><span> bbox))
+</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map</span><span>(|</span><span style="color:#ffcc66;">buffer</span><span>| {
 </span><span style="font-style:italic;color:#5c6773;">// Return a `HttpResponse` here
-</span><span style="color:#ccc9c2;">})
-</span></code></pre><h3 id="generating-the-response">Generating the Response</h3>
+</span><span>})
+</span></code></pre>
+<h3 id="generating-the-response">Generating the Response</h3>
 <p>Our <code>HttpResponse</code> needs to wrap the buffer into a Http Request with the buffer as the body:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ccc9c2;">HttpResponse</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">with_body(StatusCode</span><span style="color:#f29e74;">::</span><span style="color:#ffcc66;">OK</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> buffer</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">into</span><span style="color:#ccc9c2;">())
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>HttpResponse</span><span style="color:#f29e74;">::</span><span>with_body(StatusCode</span><span style="color:#f29e74;">::</span><span style="color:#ffcc66;">OK</span><span style="color:#ccc9c2cc;">,</span><span> buffer</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">into</span><span>())
 </span></code></pre>
 <p>Is that it? Well no, we have to set the content type header to be a jpeg:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let mut</span><span style="color:#ccc9c2;"> response </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">HttpResponse</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">with_body(StatusCode</span><span style="color:#f29e74;">::</span><span style="color:#ffcc66;">OK</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> buffer</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">into</span><span style="color:#ccc9c2;">())</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ccc9c2;">response
-    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">headers_mut</span><span style="color:#ccc9c2;">()
-    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">insert</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">CONTENT_TYPE</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ccc9c2;">HeaderValue</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">from_static(</span><span style="color:#bae67e;">&quot;image/jpeg&quot;</span><span style="color:#ccc9c2;">))</span><span style="color:#ccc9c2cc;">;
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let mut</span><span> response </span><span style="color:#f29e74;">= </span><span>HttpResponse</span><span style="color:#f29e74;">::</span><span>with_body(StatusCode</span><span style="color:#f29e74;">::</span><span style="color:#ffcc66;">OK</span><span style="color:#ccc9c2cc;">,</span><span> buffer</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">into</span><span>())</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>response
+</span><span>    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">headers_mut</span><span>()
+</span><span>    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">insert</span><span>(</span><span style="color:#ffcc66;">CONTENT_TYPE</span><span style="color:#ccc9c2cc;">, </span><span>HeaderValue</span><span style="color:#f29e74;">::</span><span>from_static(</span><span style="color:#bae67e;">&quot;image/jpeg&quot;</span><span>))</span><span style="color:#ccc9c2cc;">;
 </span></code></pre>
 <p>Ok now we can return the result:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">return_overlay</span><span style="color:#ccc9c2;">(
-    </span><span style="color:#ffcc66;">stream</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ccc9c2;">web</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Payload,
-    </span><span style="color:#ffcc66;">mtcnn</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> WebMtcnn,
-) </span><span style="color:#ccc9c2cc;">-&gt;</span><span style="color:#ccc9c2;"> impl Future&lt;Item = HttpResponse, Error = ActixError&gt; {
-    </span><span style="color:#f28779;">get_image</span><span style="color:#ccc9c2;">(stream)
-        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">and_then</span><span style="color:#ccc9c2;">(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|</span><span style="color:#ccc9c2;">img</span><span style="color:#f29e74;">| </span><span style="color:#ccc9c2;">{
-            </span><span style="color:#f28779;">get_bboxes</span><span style="color:#ccc9c2;">(img</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> mtcnn)
-        })
-        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">and_then</span><span style="color:#ccc9c2;">(|(</span><span style="color:#ffcc66;">img</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">bbox</span><span style="color:#ccc9c2;">) | </span><span style="color:#f28779;">get_overlay</span><span style="color:#ccc9c2;">(img</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> bbox))
-        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">buffer</span><span style="color:#ccc9c2;">| {
-            </span><span style="color:#ffa759;">let mut</span><span style="color:#ccc9c2;"> response </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">HttpResponse</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">with_body(StatusCode</span><span style="color:#f29e74;">::</span><span style="color:#ffcc66;">OK</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> buffer</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">into</span><span style="color:#ccc9c2;">())</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">            response
-                </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">headers_mut</span><span style="color:#ccc9c2;">()
-                </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">insert</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">CONTENT_TYPE</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ccc9c2;">HeaderValue</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">from_static(</span><span style="color:#bae67e;">&quot;image/jpeg&quot;</span><span style="color:#ccc9c2;">))</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">            response
-        })
-}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">return_overlay</span><span>(
+</span><span>    </span><span style="color:#ffcc66;">stream</span><span style="color:#ccc9c2cc;">: </span><span>web</span><span style="color:#f29e74;">::</span><span>Payload,
+</span><span>    </span><span style="color:#ffcc66;">mtcnn</span><span style="color:#ccc9c2cc;">:</span><span> WebMtcnn,
+</span><span>) </span><span style="color:#ccc9c2cc;">-&gt;</span><span> impl Future&lt;Item = HttpResponse, Error = ActixError&gt; {
+</span><span>    </span><span style="color:#f28779;">get_image</span><span>(stream)
+</span><span>        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">and_then</span><span>(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|</span><span>img</span><span style="color:#f29e74;">| </span><span>{
+</span><span>            </span><span style="color:#f28779;">get_bboxes</span><span>(img</span><span style="color:#ccc9c2cc;">,</span><span> mtcnn)
+</span><span>        })
+</span><span>        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">and_then</span><span>(|(</span><span style="color:#ffcc66;">img</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">bbox</span><span>) | </span><span style="color:#f28779;">get_overlay</span><span>(img</span><span style="color:#ccc9c2cc;">,</span><span> bbox))
+</span><span>        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map</span><span>(|</span><span style="color:#ffcc66;">buffer</span><span>| {
+</span><span>            </span><span style="color:#ffa759;">let mut</span><span> response </span><span style="color:#f29e74;">= </span><span>HttpResponse</span><span style="color:#f29e74;">::</span><span>with_body(StatusCode</span><span style="color:#f29e74;">::</span><span style="color:#ffcc66;">OK</span><span style="color:#ccc9c2cc;">,</span><span> buffer</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">into</span><span>())</span><span style="color:#ccc9c2cc;">;
+</span><span>            response
+</span><span>                </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">headers_mut</span><span>()
+</span><span>                </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">insert</span><span>(</span><span style="color:#ffcc66;">CONTENT_TYPE</span><span style="color:#ccc9c2cc;">, </span><span>HeaderValue</span><span style="color:#f29e74;">::</span><span>from_static(</span><span style="color:#bae67e;">&quot;image/jpeg&quot;</span><span>))</span><span style="color:#ccc9c2cc;">;
+</span><span>            response
+</span><span>        })
+</span><span>}
 </span></code></pre>
 <p>And add that to our <code>App</code> builder:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ccc9c2;">HttpServer</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|| </span><span style="color:#ccc9c2;">{
-    App</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new()
-        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">data</span><span style="color:#ccc9c2;">(mtcnn</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">clone</span><span style="color:#ccc9c2;">()) </span><span style="font-style:italic;color:#5c6773;">//Add in our data handler
-        //Add in a logger to see the requets coming through
-        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">wrap</span><span style="color:#ccc9c2;">(middleware</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">Logger</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">default()) 
-        </span><span style="font-style:italic;color:#5c6773;">//JSON bounding boxes
-        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">service</span><span style="color:#ccc9c2;">(web</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">resource(</span><span style="color:#bae67e;">&quot;/api/v1/bboxes&quot;</span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">to_async</span><span style="color:#ccc9c2;">(return_bboxes))
-        </span><span style="font-style:italic;color:#5c6773;">//Image overlay
-        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">service</span><span style="color:#ccc9c2;">(web</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">resource(</span><span style="color:#bae67e;">&quot;/api/v1/overlay&quot;</span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">to_async</span><span style="color:#ccc9c2;">(return_overlay))
-}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>HttpServer</span><span style="color:#f29e74;">::</span><span>new(</span><span style="color:#ffa759;">move </span><span style="color:#f29e74;">|| </span><span>{
+</span><span>    App</span><span style="color:#f29e74;">::</span><span>new()
+</span><span>        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">data</span><span>(mtcnn</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">clone</span><span>()) </span><span style="font-style:italic;color:#5c6773;">//Add in our data handler
+</span><span>        </span><span style="font-style:italic;color:#5c6773;">//Add in a logger to see the requets coming through
+</span><span>        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">wrap</span><span>(middleware</span><span style="color:#f29e74;">::</span><span>Logger</span><span style="color:#f29e74;">::</span><span>default()) 
+</span><span>        </span><span style="font-style:italic;color:#5c6773;">//JSON bounding boxes
+</span><span>        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">service</span><span>(web</span><span style="color:#f29e74;">::</span><span>resource(</span><span style="color:#bae67e;">&quot;/api/v1/bboxes&quot;</span><span>)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">to_async</span><span>(return_bboxes))
+</span><span>        </span><span style="font-style:italic;color:#5c6773;">//Image overlay
+</span><span>        </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">service</span><span>(web</span><span style="color:#f29e74;">::</span><span>resource(</span><span style="color:#bae67e;">&quot;/api/v1/overlay&quot;</span><span>)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">to_async</span><span>(return_overlay))
+</span><span>}
 </span></code></pre>
 <p>Great! Let's run it:</p>
-<pre style="background-color:#212733;">
-<code><span style="color:#ccc9c2;">$ curl --data-binary @rustfest.jpg  http://localhost:8000/api/v1/bboxes &gt; output.jpg
+<pre style="background-color:#212733;color:#ccc9c2;"><code><span>$ curl --data-binary @rustfest.jpg  http://localhost:8000/api/v1/bboxes &gt; output.jpg
 </span></code></pre>
 <p>And we have our original overlay!</p>
 <p><a href="/photos/rustfest_faces.jpg"><img src="/photos/rustfest_faces.jpg" alt="" /></a></p>

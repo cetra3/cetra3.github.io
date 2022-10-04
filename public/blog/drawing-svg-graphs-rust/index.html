@@ -54,59 +54,57 @@
 <li>A Colour for the line</li>
 </ul>
 <p>So, in a rust struct, this would look like the following:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ccc9c2cc;">#</span><span style="color:#ccc9c2;">[</span><span style="color:#ffd580;">derive</span><span style="color:#ccc9c2;">(Clone</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> Debug)]
-</span><span style="color:#ffa759;">pub struct </span><span style="color:#73d0ff;">Graph </span><span style="color:#ccc9c2;">{
-    </span><span style="color:#ffa759;">pub </span><span style="color:#ccc9c2;">name</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> String,
-    </span><span style="color:#ffa759;">pub </span><span style="color:#ccc9c2;">points</span><span style="color:#ccc9c2cc;">: </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span style="color:#ccc9c2;">&lt;Point&gt;,
-    </span><span style="color:#ffa759;">pub </span><span style="color:#ccc9c2;">colour</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> String
-}
-
-</span><span style="color:#ccc9c2cc;">#</span><span style="color:#ccc9c2;">[</span><span style="color:#ffd580;">derive</span><span style="color:#ccc9c2;">(Clone</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> Debug</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> Copy)]
-</span><span style="color:#ffa759;">pub struct </span><span style="color:#73d0ff;">Point </span><span style="color:#ccc9c2;">{
-    </span><span style="color:#ffa759;">pub </span><span style="color:#ccc9c2;">x</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">f64</span><span style="color:#ccc9c2;">,
-    </span><span style="color:#ffa759;">pub </span><span style="color:#ccc9c2;">y</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">f64</span><span style="color:#ccc9c2;">,
-}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ccc9c2cc;">#</span><span>[</span><span style="color:#ffd580;">derive</span><span>(Clone</span><span style="color:#ccc9c2cc;">,</span><span> Debug)]
+</span><span style="color:#ffa759;">pub struct </span><span style="color:#73d0ff;">Graph </span><span>{
+</span><span>    </span><span style="color:#ffa759;">pub </span><span>name</span><span style="color:#ccc9c2cc;">:</span><span> String,
+</span><span>    </span><span style="color:#ffa759;">pub </span><span>points</span><span style="color:#ccc9c2cc;">: </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span>&lt;Point&gt;,
+</span><span>    </span><span style="color:#ffa759;">pub </span><span>colour</span><span style="color:#ccc9c2cc;">:</span><span> String
+</span><span>}
+</span><span>
+</span><span style="color:#ccc9c2cc;">#</span><span>[</span><span style="color:#ffd580;">derive</span><span>(Clone</span><span style="color:#ccc9c2cc;">,</span><span> Debug</span><span style="color:#ccc9c2cc;">,</span><span> Copy)]
+</span><span style="color:#ffa759;">pub struct </span><span style="color:#73d0ff;">Point </span><span>{
+</span><span>    </span><span style="color:#ffa759;">pub </span><span>x</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">f64</span><span>,
+</span><span>    </span><span style="color:#ffa759;">pub </span><span>y</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">f64</span><span>,
+</span><span>}
 </span></code></pre>
 <p>Let's add some initial helper methods, one to create a new graph, and another to add points to it:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">impl </span><span style="color:#73d0ff;">Graph </span><span style="color:#ccc9c2;">{
-    </span><span style="color:#ffa759;">pub fn </span><span style="color:#ffd580;">new</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">name</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> String, </span><span style="color:#ffcc66;">colour</span><span style="color:#ccc9c2cc;">:</span><span style="color:#ccc9c2;"> String) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="color:#ffa759;">Self </span><span style="color:#ccc9c2;">{
-        Graph {
-            name</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">            points</span><span style="color:#ccc9c2cc;">: </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new()</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">            colour</span><span style="color:#ccc9c2cc;">,
-        </span><span style="color:#ccc9c2;">}
-    }
-    </span><span style="color:#ffa759;">pub fn </span><span style="color:#ffd580;">add_point</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut </span><span style="color:#ffcc66;">self</span><span style="color:#ccc9c2;">, </span><span style="color:#ffcc66;">x</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">f64</span><span style="color:#ccc9c2;">, </span><span style="color:#ffcc66;">y</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">f64</span><span style="color:#ccc9c2;">) {
-        </span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">points</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">push</span><span style="color:#ccc9c2;">(Point { x</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> y })</span><span style="color:#ccc9c2cc;">;
-    </span><span style="color:#ccc9c2;">}
-}
-</span></code></pre><h2 id="svg-template">SVG Template</h2>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">impl </span><span style="color:#73d0ff;">Graph </span><span>{
+</span><span>    </span><span style="color:#ffa759;">pub fn </span><span style="color:#ffd580;">new</span><span>(</span><span style="color:#ffcc66;">name</span><span style="color:#ccc9c2cc;">:</span><span> String, </span><span style="color:#ffcc66;">colour</span><span style="color:#ccc9c2cc;">:</span><span> String) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="color:#ffa759;">Self </span><span>{
+</span><span>        Graph {
+</span><span>            name</span><span style="color:#ccc9c2cc;">,
+</span><span>            points</span><span style="color:#ccc9c2cc;">: </span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span style="color:#f29e74;">::</span><span>new()</span><span style="color:#ccc9c2cc;">,
+</span><span>            colour</span><span style="color:#ccc9c2cc;">,
+</span><span>        }
+</span><span>    }
+</span><span>    </span><span style="color:#ffa759;">pub fn </span><span style="color:#ffd580;">add_point</span><span>(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffa759;">mut </span><span style="color:#ffcc66;">self</span><span>, </span><span style="color:#ffcc66;">x</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">f64</span><span>, </span><span style="color:#ffcc66;">y</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">f64</span><span>) {
+</span><span>        </span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span>points</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">push</span><span>(Point { x</span><span style="color:#ccc9c2cc;">,</span><span> y })</span><span style="color:#ccc9c2cc;">;
+</span><span>    }
+</span><span>}
+</span></code></pre>
+<h2 id="svg-template">SVG Template</h2>
 <p>An SVG image is an XML file, which means that we can use standard templating engines to generate SVG with some parameters.  I am going to use <a href="https://crates.io/crates/tera"><code>tera</code></a> in this example, as <a href="https://github.com/cetra3/lorikeet"><code>lorikeet</code></a> already uses it.  You could, however, use any template engine.</p>
 <p>Let's start with a simple SVG template, of which just simply draws the graph name:</p>
-<pre style="background-color:#212733;">
-<code class="language-xml" data-lang="xml"><span style="color:#5ccfe690;">&lt;?</span><span style="color:#73d0ff;">xml </span><span style="color:#ffd580;">version</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;1.0&quot; </span><span style="color:#ffd580;">standalone</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;no&quot;</span><span style="color:#5ccfe690;">?&gt;
-&lt;</span><span style="color:#73d0ff;">svg
-  </span><span style="color:#ffd580;">width</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;100%&quot;
-  </span><span style="color:#ffd580;">height</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;100%&quot;
-  </span><span style="color:#ffd580;">viewBox</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;0 0 {{height + padding * 2}} {{width + padding * 2}}&quot;
-  </span><span style="color:#ffd580;">preserveAspectRatio</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;xMidYMid meet&quot;
-  </span><span style="color:#ffd580;">xmlns</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;http://www.w3.org/2000/svg&quot;
-  </span><span style="color:#5ccfe690;">&gt;
-  &lt;</span><span style="color:#73d0ff;">text 
-    </span><span style="color:#ffd580;">x</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;{{width/2 + padding}}&quot;
-    </span><span style="color:#ffd580;">y</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;{{padding / 2}}&quot;
-    </span><span style="color:#ffd580;">font-family</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot;
-    </span><span style="color:#ffd580;">dominant-baseline</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;middle&quot;
-    </span><span style="color:#ffd580;">text-anchor</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;middle&quot;
-    </span><span style="color:#ffd580;">font-size</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;18&quot;
-    </span><span style="color:#ffd580;">fill</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;#74838f&quot;
-    </span><span style="color:#ffd580;">font-weight</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;700&quot;
-    </span><span style="color:#5ccfe690;">&gt;
-</span><span style="color:#ccc9c2;">    {{name}}
-  </span><span style="color:#5ccfe690;">&lt;/</span><span style="color:#73d0ff;">text</span><span style="color:#5ccfe690;">&gt;
-&lt;/</span><span style="color:#73d0ff;">svg</span><span style="color:#5ccfe690;">&gt;
+<pre data-lang="xml" style="background-color:#212733;color:#ccc9c2;" class="language-xml "><code class="language-xml" data-lang="xml"><span style="color:#5ccfe690;">&lt;?</span><span style="color:#73d0ff;">xml </span><span style="color:#ffd580;">version</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;1.0&quot; </span><span style="color:#ffd580;">standalone</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;no&quot;</span><span style="color:#5ccfe690;">?&gt;
+</span><span style="color:#5ccfe690;">&lt;</span><span style="color:#73d0ff;">svg
+</span><span>  </span><span style="color:#ffd580;">width</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;100%&quot;
+</span><span>  </span><span style="color:#ffd580;">height</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;100%&quot;
+</span><span>  </span><span style="color:#ffd580;">viewBox</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;0 0 {{height + padding * 2}} {{width + padding * 2}}&quot;
+</span><span>  </span><span style="color:#ffd580;">preserveAspectRatio</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;xMidYMid meet&quot;
+</span><span>  </span><span style="color:#ffd580;">xmlns</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;http://www.w3.org/2000/svg&quot;
+</span><span>  </span><span style="color:#5ccfe690;">&gt;
+</span><span>  </span><span style="color:#5ccfe690;">&lt;</span><span style="color:#73d0ff;">text 
+</span><span>    </span><span style="color:#ffd580;">x</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;{{width/2 + padding}}&quot;
+</span><span>    </span><span style="color:#ffd580;">y</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;{{padding / 2}}&quot;
+</span><span>    </span><span style="color:#ffd580;">font-family</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot;
+</span><span>    </span><span style="color:#ffd580;">dominant-baseline</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;middle&quot;
+</span><span>    </span><span style="color:#ffd580;">text-anchor</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;middle&quot;
+</span><span>    </span><span style="color:#ffd580;">font-size</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;18&quot;
+</span><span>    </span><span style="color:#ffd580;">fill</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;#74838f&quot;
+</span><span>    </span><span style="color:#ffd580;">font-weight</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;700&quot;
+</span><span>    </span><span style="color:#5ccfe690;">&gt;
+</span><span>    {{name}}
+</span><span>  </span><span style="color:#5ccfe690;">&lt;/</span><span style="color:#73d0ff;">text</span><span style="color:#5ccfe690;">&gt;
+</span><span style="color:#5ccfe690;">&lt;/</span><span style="color:#73d0ff;">svg</span><span style="color:#5ccfe690;">&gt;
 </span></code></pre>
 <p>Let's visit some decisions I have made here:</p>
 <ul>
@@ -115,40 +113,38 @@
 <li>We're using a big <code>font-family</code> list which should display roughly similar fonts depending on your OS.</li>
 </ul>
 <p>With our tera template svg ready, we can use the <code>include_str</code> macro to have this compiled in:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ccc9c2;">Tera</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">one_off(</span><span style="color:#f28779;">include_str!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;graph.svg&quot;</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">context</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">true</span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">expect</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;Could not draw graph&quot;</span><span style="color:#ccc9c2;">)
-</span></code></pre><h3 id="drawing-the-name">Drawing the Name</h3>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>Tera</span><span style="color:#f29e74;">::</span><span>one_off(</span><span style="color:#f28779;">include_str!</span><span>(</span><span style="color:#bae67e;">&quot;graph.svg&quot;</span><span>)</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span>context</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">true</span><span>)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">expect</span><span>(</span><span style="color:#bae67e;">&quot;Could not draw graph&quot;</span><span>)
+</span></code></pre>
+<h3 id="drawing-the-name">Drawing the Name</h3>
 <p>We'll add a <code>draw_svg(&amp;self, width: usize, height: usize)</code> method to the <code>Graph</code> struct which should start by drawing the name as per the above template.  The arguments are simply the width &amp; height to draw.  To ensure that the viewbox of the svg comes out the right size, we'll subtract the padding from both x 2.</p>
 <p>To put it another way, the <code>width</code> and <code>height</code> become the width and height of the graph itself rather than the SVG.</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">pub fn </span><span style="color:#ffd580;">draw_svg</span><span style="color:#ccc9c2;">(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffcc66;">self</span><span style="color:#ccc9c2;">, </span><span style="color:#ffcc66;">width</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">usize</span><span style="color:#ccc9c2;">, </span><span style="color:#ffcc66;">height</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">usize</span><span style="color:#ccc9c2;">) </span><span style="color:#ccc9c2cc;">-&gt;</span><span style="color:#ccc9c2;"> String {
-
-    </span><span style="color:#ffa759;">let mut</span><span style="color:#ccc9c2;"> context </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">Context</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new()</span><span style="color:#ccc9c2cc;">;
-
-    </span><span style="font-style:italic;color:#5c6773;">//hardset the padding around the graph
-    </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> padding </span><span style="color:#f29e74;">= </span><span style="color:#ffcc66;">50</span><span style="color:#ccc9c2cc;">;
-
-    </span><span style="font-style:italic;color:#5c6773;">//ensure the viewbox is as per input
-    </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> width </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> width </span><span style="color:#f29e74;">-</span><span style="color:#ccc9c2;"> padding </span><span style="color:#f29e74;">* </span><span style="color:#ffcc66;">2</span><span style="color:#ccc9c2cc;">;
-    </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> height </span><span style="color:#f29e74;">=</span><span style="color:#ccc9c2;"> height </span><span style="color:#f29e74;">-</span><span style="color:#ccc9c2;"> padding </span><span style="color:#f29e74;">* </span><span style="color:#ffcc66;">2</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ccc9c2;">    context</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">insert</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;name&quot;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">name)</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">    context</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">insert</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;width&quot;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">width)</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">    context</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">insert</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;height&quot;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">height)</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">    context</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">insert</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;padding&quot;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">padding)</span><span style="color:#ccc9c2cc;">;
-
-    </span><span style="color:#ccc9c2;">Tera</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">one_off(</span><span style="color:#f28779;">include_str!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;graph.svg&quot;</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">context</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">true</span><span style="color:#ccc9c2;">)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">expect</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;Could not draw graph&quot;</span><span style="color:#ccc9c2;">)
-
-}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">pub fn </span><span style="color:#ffd580;">draw_svg</span><span>(</span><span style="color:#f29e74;">&amp;</span><span style="color:#ffcc66;">self</span><span>, </span><span style="color:#ffcc66;">width</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">usize</span><span>, </span><span style="color:#ffcc66;">height</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ffa759;">usize</span><span>) </span><span style="color:#ccc9c2cc;">-&gt;</span><span> String {
+</span><span>
+</span><span>    </span><span style="color:#ffa759;">let mut</span><span> context </span><span style="color:#f29e74;">= </span><span>Context</span><span style="color:#f29e74;">::</span><span>new()</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    </span><span style="font-style:italic;color:#5c6773;">//hardset the padding around the graph
+</span><span>    </span><span style="color:#ffa759;">let</span><span> padding </span><span style="color:#f29e74;">= </span><span style="color:#ffcc66;">50</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    </span><span style="font-style:italic;color:#5c6773;">//ensure the viewbox is as per input
+</span><span>    </span><span style="color:#ffa759;">let</span><span> width </span><span style="color:#f29e74;">=</span><span> width </span><span style="color:#f29e74;">-</span><span> padding </span><span style="color:#f29e74;">* </span><span style="color:#ffcc66;">2</span><span style="color:#ccc9c2cc;">;
+</span><span>    </span><span style="color:#ffa759;">let</span><span> height </span><span style="color:#f29e74;">=</span><span> height </span><span style="color:#f29e74;">-</span><span> padding </span><span style="color:#f29e74;">* </span><span style="color:#ffcc66;">2</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    context</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">insert</span><span>(</span><span style="color:#bae67e;">&quot;name&quot;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span>name)</span><span style="color:#ccc9c2cc;">;
+</span><span>    context</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">insert</span><span>(</span><span style="color:#bae67e;">&quot;width&quot;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span>width)</span><span style="color:#ccc9c2cc;">;
+</span><span>    context</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">insert</span><span>(</span><span style="color:#bae67e;">&quot;height&quot;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span>height)</span><span style="color:#ccc9c2cc;">;
+</span><span>    context</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">insert</span><span>(</span><span style="color:#bae67e;">&quot;padding&quot;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span>padding)</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    Tera</span><span style="color:#f29e74;">::</span><span>one_off(</span><span style="color:#f28779;">include_str!</span><span>(</span><span style="color:#bae67e;">&quot;graph.svg&quot;</span><span>)</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span>context</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">true</span><span>)</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">expect</span><span>(</span><span style="color:#bae67e;">&quot;Could not draw graph&quot;</span><span>)
+</span><span>
+</span><span>}
 </span></code></pre>
 <p>The <code>Context</code> here is what tera uses to provide variables to a template.  Anything that implements <code>serde::Serialize</code> can be put into the context.  At this moment we're providing a few strings and width/height parameters.</p>
 <p>This can be run to spit out an SVG:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">main</span><span style="color:#ccc9c2;">() {
-    </span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> graph </span><span style="color:#f29e74;">= </span><span style="color:#ccc9c2;">Graph</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">new(</span><span style="color:#bae67e;">&quot;Example&quot;</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">into</span><span style="color:#ccc9c2;">()</span><span style="color:#ccc9c2cc;">, </span><span style="color:#bae67e;">&quot;#8ff0a4&quot;</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">into</span><span style="color:#ccc9c2;">())</span><span style="color:#ccc9c2cc;">;
-
-    </span><span style="color:#f28779;">println!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;</span><span style="color:#ffcc66;">{}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> graph</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">draw_svg</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">800</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">400</span><span style="color:#ccc9c2;">))</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">}
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">main</span><span>() {
+</span><span>    </span><span style="color:#ffa759;">let</span><span> graph </span><span style="color:#f29e74;">= </span><span>Graph</span><span style="color:#f29e74;">::</span><span>new(</span><span style="color:#bae67e;">&quot;Example&quot;</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">into</span><span>()</span><span style="color:#ccc9c2cc;">, </span><span style="color:#bae67e;">&quot;#8ff0a4&quot;</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">into</span><span>())</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span>    </span><span style="color:#f28779;">println!</span><span>(</span><span style="color:#bae67e;">&quot;</span><span style="color:#ffcc66;">{}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span> graph</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">draw_svg</span><span>(</span><span style="color:#ffcc66;">800</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">400</span><span>))</span><span style="color:#ccc9c2cc;">;
+</span><span>}
 </span></code></pre>
 <p>Running this, should output the following SVG:</p>
 <?xml version="1.0" standalone="no"?>
@@ -174,80 +170,74 @@ Example
 </svg></p>
 <h2 id="drawing-the-points">Drawing the Points</h2>
 <p>Let's fill up the graph with some dummy points so we have something to draw (note: we are assuming you'll add the points in order here):</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ccc9c2;">graph</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">add_point</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">1.0</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">1.0</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">graph</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">add_point</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">2.0</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">3.0</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">graph</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">add_point</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">3.0</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">2.5</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">graph</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">add_point</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">4.0</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">6.0</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">graph</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">add_point</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">5.0</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">3.0</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;
-</span></code></pre><h3 id="scaling-the-axis">Scaling the Axis</h3>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>graph</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">add_point</span><span>(</span><span style="color:#ffcc66;">1.0</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">1.0</span><span>)</span><span style="color:#ccc9c2cc;">;
+</span><span>graph</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">add_point</span><span>(</span><span style="color:#ffcc66;">2.0</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">3.0</span><span>)</span><span style="color:#ccc9c2cc;">;
+</span><span>graph</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">add_point</span><span>(</span><span style="color:#ffcc66;">3.0</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">2.5</span><span>)</span><span style="color:#ccc9c2cc;">;
+</span><span>graph</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">add_point</span><span>(</span><span style="color:#ffcc66;">4.0</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">6.0</span><span>)</span><span style="color:#ccc9c2cc;">;
+</span><span>graph</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">add_point</span><span>(</span><span style="color:#ffcc66;">5.0</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">3.0</span><span>)</span><span style="color:#ccc9c2cc;">;
+</span></code></pre>
+<h3 id="scaling-the-axis">Scaling the Axis</h3>
 <p>To keep things simple, we'll start from the origin &amp; scale both the x and y axis by the max value of either.  We'll pull out both of those values and use these to scale the points within the svg:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> max_x </span><span style="color:#f29e74;">= </span><span style="font-style:italic;color:#5ccfe6;">self
-  </span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">points
-  </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">iter</span><span style="color:#ccc9c2;">()
-  </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">point</span><span style="color:#ccc9c2;">| point</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">x)
-  </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">fold</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">0. </span><span style="color:#f29e74;">/ </span><span style="color:#ffcc66;">0.</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffa759;">f64</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">max)</span><span style="color:#ccc9c2cc;">;
-
-</span><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> max_y </span><span style="color:#f29e74;">= </span><span style="font-style:italic;color:#5ccfe6;">self
-  </span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">points
-  </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">iter</span><span style="color:#ccc9c2;">()
-  </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">point</span><span style="color:#ccc9c2;">| point</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">y)
-  </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">fold</span><span style="color:#ccc9c2;">(</span><span style="color:#ffcc66;">0. </span><span style="color:#f29e74;">/ </span><span style="color:#ffcc66;">0.</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffa759;">f64</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">max)</span><span style="color:#ccc9c2cc;">;
-</span></code></pre><h3 id="drawing-a-line">Drawing a Line</h3>
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let</span><span> max_x </span><span style="color:#f29e74;">= </span><span style="font-style:italic;color:#5ccfe6;">self
+</span><span>  </span><span style="color:#f29e74;">.</span><span>points
+</span><span>  </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">iter</span><span>()
+</span><span>  </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map</span><span>(|</span><span style="color:#ffcc66;">point</span><span>| point</span><span style="color:#f29e74;">.</span><span>x)
+</span><span>  </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">fold</span><span>(</span><span style="color:#ffcc66;">0. </span><span style="color:#f29e74;">/ </span><span style="color:#ffcc66;">0.</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffa759;">f64</span><span style="color:#f29e74;">::</span><span>max)</span><span style="color:#ccc9c2cc;">;
+</span><span>
+</span><span style="color:#ffa759;">let</span><span> max_y </span><span style="color:#f29e74;">= </span><span style="font-style:italic;color:#5ccfe6;">self
+</span><span>  </span><span style="color:#f29e74;">.</span><span>points
+</span><span>  </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">iter</span><span>()
+</span><span>  </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map</span><span>(|</span><span style="color:#ffcc66;">point</span><span>| point</span><span style="color:#f29e74;">.</span><span>y)
+</span><span>  </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">fold</span><span>(</span><span style="color:#ffcc66;">0. </span><span style="color:#f29e74;">/ </span><span style="color:#ffcc66;">0.</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffa759;">f64</span><span style="color:#f29e74;">::</span><span>max)</span><span style="color:#ccc9c2cc;">;
+</span></code></pre>
+<h3 id="drawing-a-line">Drawing a Line</h3>
 <p>To draw a line between points in an SVG, <a href="https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths">you can use the <code>path</code> element with draw commands</a>.  A simple line would look like:</p>
-<pre style="background-color:#212733;">
-<code class="language-xml" data-lang="xml"><span style="color:#5ccfe690;">&lt;</span><span style="color:#73d0ff;">path </span><span style="color:#ffd580;">d</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;M10 10 L15 15&quot;</span><span style="color:#5ccfe690;">/&gt;
+<pre data-lang="xml" style="background-color:#212733;color:#ccc9c2;" class="language-xml "><code class="language-xml" data-lang="xml"><span style="color:#5ccfe690;">&lt;</span><span style="color:#73d0ff;">path </span><span style="color:#ffd580;">d</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;M10 10 L15 15&quot;</span><span style="color:#5ccfe690;">/&gt;
 </span></code></pre>
 <p>That is: move to point 10,10 and then draw a line to point 15,15.  These points are in the SVG space, so we will need to translate our graph points onto this space, keeping in mind padding, width and height and scaling.</p>
 <h3 id="translating-the-points">Translating the points</h3>
 <p>We want to draw a line between each of the points in the SVG but scaled to fit within the viewport.</p>
 <p>To add another complication, the chart origin is in the bottom left, whereas the SVG origin is the top left.</p>
 <p>For both the x and y axis, we want to scale down based upon the max value (<code>width</code> and <code>height</code> here are the chart width):</p>
-<pre style="background-color:#212733;">
-<code><span style="color:#ccc9c2;">x = x / max_x * width
-y = y / max_y * height
+<pre style="background-color:#212733;color:#ccc9c2;"><code><span>x = x / max_x * width
+</span><span>y = y / max_y * height
 </span></code></pre>
 <p>For the x axis, we need to shift them along the right based upon padding, otherwise they will sit on the left side of the svg:</p>
-<pre style="background-color:#212733;">
-<code><span style="color:#ccc9c2;">x = x / max_x * width + padding
+<pre style="background-color:#212733;color:#ccc9c2;"><code><span>x = x / max_x * width + padding
 </span></code></pre>
 <p>For the y axis, we want to flip this based upon the height, to translate the origin, then add <code>height + padding</code>:</p>
-<pre style="background-color:#212733;">
-<code><span style="color:#ccc9c2;">y = y / max_y * (height * -1.0) + height + padding
-</span></code></pre><h3 id="iterating-through">Iterating through</h3>
+<pre style="background-color:#212733;color:#ccc9c2;"><code><span>y = y / max_y * (height * -1.0) + height + padding
+</span></code></pre>
+<h3 id="iterating-through">Iterating through</h3>
 <p>We have our points commands, now let's iterate through and convert them to a bunch of draw commands.  First we will use <code>M</code> to move to start drawing, then we will use <code>L</code> to draw a line between each.</p>
 <p>We can use <code>enumerate()</code> on the iterator to get whether this is the first or subsequent value, and then join it together as a big string:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let</span><span style="color:#ccc9c2;"> path </span><span style="color:#f29e74;">= </span><span style="font-style:italic;color:#5ccfe6;">self
-    </span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">points
-    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">iter</span><span style="color:#ccc9c2;">()
-    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map</span><span style="color:#ccc9c2;">(|</span><span style="color:#ffcc66;">val</span><span style="color:#ccc9c2;">| Point {
-        x</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ccc9c2;">(val</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">x </span><span style="color:#f29e74;">/</span><span style="color:#ccc9c2;"> max_x </span><span style="color:#f29e74;">*</span><span style="color:#ccc9c2;"> width </span><span style="color:#f29e74;">as </span><span style="color:#ffa759;">f64</span><span style="color:#ccc9c2;">) </span><span style="color:#f29e74;">+</span><span style="color:#ccc9c2;"> padding </span><span style="color:#f29e74;">as </span><span style="color:#ffa759;">f64</span><span style="color:#ccc9c2cc;">,
-</span><span style="color:#ccc9c2;">        y</span><span style="color:#ccc9c2cc;">: </span><span style="color:#ccc9c2;">(val</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">y </span><span style="color:#f29e74;">/</span><span style="color:#ccc9c2;"> max_y </span><span style="color:#f29e74;">* </span><span style="color:#ccc9c2;">(height </span><span style="color:#f29e74;">as </span><span style="color:#ffa759;">f64 </span><span style="color:#f29e74;">* -</span><span style="color:#ffcc66;">1.0</span><span style="color:#ccc9c2;">)) </span><span style="color:#f29e74;">+ </span><span style="color:#ccc9c2;">(padding </span><span style="color:#f29e74;">+</span><span style="color:#ccc9c2;"> height) </span><span style="color:#f29e74;">as </span><span style="color:#ffa759;">f64</span><span style="color:#ccc9c2cc;">,
-    </span><span style="color:#ccc9c2;">})
-    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">enumerate</span><span style="color:#ccc9c2;">()
-    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map</span><span style="color:#ccc9c2;">(|(</span><span style="color:#ffcc66;">i</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">point</span><span style="color:#ccc9c2;">)| {
-        </span><span style="color:#ffa759;">if</span><span style="color:#ccc9c2;"> i </span><span style="color:#f29e74;">== </span><span style="color:#ffcc66;">0 </span><span style="color:#ccc9c2;">{
-            </span><span style="color:#f28779;">format!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;M </span><span style="color:#ffcc66;">{} {}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> point</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">x</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> point</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">y)
-        } </span><span style="color:#ffa759;">else </span><span style="color:#ccc9c2;">{
-            </span><span style="color:#f28779;">format!</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;L </span><span style="color:#ffcc66;">{} {}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> point</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">x</span><span style="color:#ccc9c2cc;">,</span><span style="color:#ccc9c2;"> point</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">y)
-        }
-    })
-    </span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">collect</span><span style="color:#f29e74;">::</span><span style="color:#ccc9c2;">&lt;</span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span style="color:#ccc9c2;">&lt;</span><span style="font-style:italic;color:#5ccfe6;">String</span><span style="color:#ccc9c2;">&gt;&gt;()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">join</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot; &quot;</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let</span><span> path </span><span style="color:#f29e74;">= </span><span style="font-style:italic;color:#5ccfe6;">self
+</span><span>    </span><span style="color:#f29e74;">.</span><span>points
+</span><span>    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">iter</span><span>()
+</span><span>    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map</span><span>(|</span><span style="color:#ffcc66;">val</span><span>| Point {
+</span><span>        x</span><span style="color:#ccc9c2cc;">: </span><span>(val</span><span style="color:#f29e74;">.</span><span>x </span><span style="color:#f29e74;">/</span><span> max_x </span><span style="color:#f29e74;">*</span><span> width </span><span style="color:#f29e74;">as </span><span style="color:#ffa759;">f64</span><span>) </span><span style="color:#f29e74;">+</span><span> padding </span><span style="color:#f29e74;">as </span><span style="color:#ffa759;">f64</span><span style="color:#ccc9c2cc;">,
+</span><span>        y</span><span style="color:#ccc9c2cc;">: </span><span>(val</span><span style="color:#f29e74;">.</span><span>y </span><span style="color:#f29e74;">/</span><span> max_y </span><span style="color:#f29e74;">* </span><span>(height </span><span style="color:#f29e74;">as </span><span style="color:#ffa759;">f64 </span><span style="color:#f29e74;">* -</span><span style="color:#ffcc66;">1.0</span><span>)) </span><span style="color:#f29e74;">+ </span><span>(padding </span><span style="color:#f29e74;">+</span><span> height) </span><span style="color:#f29e74;">as </span><span style="color:#ffa759;">f64</span><span style="color:#ccc9c2cc;">,
+</span><span>    })
+</span><span>    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">enumerate</span><span>()
+</span><span>    </span><span style="color:#f29e74;">.</span><span style="color:#f28779;">map</span><span>(|(</span><span style="color:#ffcc66;">i</span><span style="color:#ccc9c2cc;">, </span><span style="color:#ffcc66;">point</span><span>)| {
+</span><span>        </span><span style="color:#ffa759;">if</span><span> i </span><span style="color:#f29e74;">== </span><span style="color:#ffcc66;">0 </span><span>{
+</span><span>            </span><span style="color:#f28779;">format!</span><span>(</span><span style="color:#bae67e;">&quot;M </span><span style="color:#ffcc66;">{} {}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span> point</span><span style="color:#f29e74;">.</span><span>x</span><span style="color:#ccc9c2cc;">,</span><span> point</span><span style="color:#f29e74;">.</span><span>y)
+</span><span>        } </span><span style="color:#ffa759;">else </span><span>{
+</span><span>            </span><span style="color:#f28779;">format!</span><span>(</span><span style="color:#bae67e;">&quot;L </span><span style="color:#ffcc66;">{} {}</span><span style="color:#bae67e;">&quot;</span><span style="color:#ccc9c2cc;">,</span><span> point</span><span style="color:#f29e74;">.</span><span>x</span><span style="color:#ccc9c2cc;">,</span><span> point</span><span style="color:#f29e74;">.</span><span>y)
+</span><span>        }
+</span><span>    })
+</span><span>    </span><span style="color:#f29e74;">.</span><span>collect</span><span style="color:#f29e74;">::</span><span>&lt;</span><span style="font-style:italic;color:#5ccfe6;">Vec</span><span>&lt;</span><span style="font-style:italic;color:#5ccfe6;">String</span><span>&gt;&gt;()</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">join</span><span>(</span><span style="color:#bae67e;">&quot; &quot;</span><span>)</span><span style="color:#ccc9c2cc;">;
 </span></code></pre>
 <p>This will output a path string like so:</p>
-<pre style="background-color:#212733;">
-<code><span style="color:#ccc9c2;">M 190 383.33333333333337 L 330 250 L 470 283.3333333333333 L 610 50 L 750 250
-</span></code></pre><h3 id="adding-to-the-svg">Adding to the SVG</h3>
+<pre style="background-color:#212733;color:#ccc9c2;"><code><span>M 190 383.33333333333337 L 330 250 L 470 283.3333333333333 L 610 50 L 750 250
+</span></code></pre>
+<h3 id="adding-to-the-svg">Adding to the SVG</h3>
 <p>We can add the path &amp; colour to the Context:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ccc9c2;">context</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">insert</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;path&quot;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="color:#ccc9c2;">path)</span><span style="color:#ccc9c2cc;">;
-</span><span style="color:#ccc9c2;">context</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">insert</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;colour&quot;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span style="color:#ccc9c2;">colour)</span><span style="color:#ccc9c2cc;">;
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>context</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">insert</span><span>(</span><span style="color:#bae67e;">&quot;path&quot;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span>path)</span><span style="color:#ccc9c2cc;">;
+</span><span>context</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">insert</span><span>(</span><span style="color:#bae67e;">&quot;colour&quot;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="font-style:italic;color:#5ccfe6;">self</span><span style="color:#f29e74;">.</span><span>colour)</span><span style="color:#ccc9c2cc;">;
 </span></code></pre>
 <p>Then add the following to have it drawn in the SVG:</p>
-<pre style="background-color:#212733;">
-<code class="language-xml" data-lang="xml"><span style="color:#5ccfe690;">&lt;</span><span style="color:#73d0ff;">path </span><span style="color:#ffd580;">stroke</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;{{colour}}&quot; </span><span style="color:#ffd580;">stroke-linejoin</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;round&quot; </span><span style="color:#ffd580;">d</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;{{path}}&quot; </span><span style="color:#ffd580;">stroke-width</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;2.0&quot; </span><span style="color:#ffd580;">fill</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;none&quot; </span><span style="color:#5ccfe690;">/&gt;
+<pre data-lang="xml" style="background-color:#212733;color:#ccc9c2;" class="language-xml "><code class="language-xml" data-lang="xml"><span style="color:#5ccfe690;">&lt;</span><span style="color:#73d0ff;">path </span><span style="color:#ffd580;">stroke</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;{{colour}}&quot; </span><span style="color:#ffd580;">stroke-linejoin</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;round&quot; </span><span style="color:#ffd580;">d</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;{{path}}&quot; </span><span style="color:#ffd580;">stroke-width</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;2.0&quot; </span><span style="color:#ffd580;">fill</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;none&quot; </span><span style="color:#5ccfe690;">/&gt;
 </span></code></pre>
 <p>If all goes well, the graph should start looking more like a graph:</p>
 <?xml version="1.0" standalone="no"?>
@@ -274,27 +264,24 @@ Example
 </svg></p>
 <h2 id="adding-in-the-axis">Adding in the Axis</h2>
 <p>We need to add in some axis scale so we know what the graph values represent.  I'm gonna cheat here &amp; break up both the x and y axis the same amount of times each.  We'll break up the axis 5 times each, but have this set in the context to be changes later:</p>
-<pre style="background-color:#212733;">
-<code class="language-rust" data-lang="rust"><span style="color:#ccc9c2;">context</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">insert</span><span style="color:#ccc9c2;">(</span><span style="color:#bae67e;">&quot;lines&quot;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="color:#ffcc66;">5</span><span style="color:#ccc9c2;">)</span><span style="color:#ccc9c2cc;">;
+<pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span>context</span><span style="color:#f29e74;">.</span><span style="color:#f28779;">insert</span><span>(</span><span style="color:#bae67e;">&quot;lines&quot;</span><span style="color:#ccc9c2cc;">, </span><span style="color:#f29e74;">&amp;</span><span style="color:#ffcc66;">5</span><span>)</span><span style="color:#ccc9c2cc;">;
 </span></code></pre>
 <p>Tera allows us to do a loop within the template, so we'll use that to add some lines and nudges.</p>
-<pre style="background-color:#212733;">
-<code><span style="color:#ccc9c2;">{% for i in range(end=(lines + 1)) %}
-... draw some lines here
-{% endfor %}
+<pre style="background-color:#212733;color:#ccc9c2;"><code><span>{% for i in range(end=(lines + 1)) %}
+</span><span>... draw some lines here
+</span><span>{% endfor %}
 </span></code></pre>
 <p>Let's set some variables within the template, based upon the current line we're drawing.  These are the offsets for both the axis:</p>
-<pre style="background-color:#212733;">
-<code><span style="color:#ccc9c2;">{% set offset_x = padding + loop.index0/lines * width%}
-{% set offset_y = padding + loop.index0/lines * height%}
-</span></code></pre><h3 id="horizontal-lines">Horizontal Lines</h3>
+<pre style="background-color:#212733;color:#ccc9c2;"><code><span>{% set offset_x = padding + loop.index0/lines * width%}
+</span><span>{% set offset_y = padding + loop.index0/lines * height%}
+</span></code></pre>
+<h3 id="horizontal-lines">Horizontal Lines</h3>
 <p>We will draw 5 horizontal dashed lines, to give scale to the y value.  This will start on the left side of the graph and continue to the end of the graph.  We'll draw a solid horizontal line when <code>y = 0</code> (keep in mind the axis is flipped in SVG), which means we skip drawing this for the last line:</p>
-<pre style="background-color:#212733;">
-<code class="language-xml" data-lang="xml"><span style="color:#ccc9c2;">{% if loop.last == false %}
+<pre data-lang="xml" style="background-color:#212733;color:#ccc9c2;" class="language-xml "><code class="language-xml" data-lang="xml"><span>{% if loop.last == false %}
 </span><span style="color:#5ccfe690;">&lt;</span><span style="color:#73d0ff;">path </span><span style="color:#ffd580;">stroke</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;#74838f&quot; </span><span style="color:#ffd580;">stroke-dasharray</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;10 6&quot; </span><span style="color:#ffd580;">stroke-width</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;0.5&quot;  </span><span style="color:#ffd580;">d</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;M {{padding}} {{offset_y}} L {{width + padding}} {{offset_y}}&quot; </span><span style="color:#5ccfe690;">/&gt;
-</span><span style="color:#ccc9c2;">{% else %}
+</span><span>{% else %}
 </span><span style="color:#5ccfe690;">&lt;</span><span style="color:#73d0ff;">path </span><span style="color:#ffd580;">stroke</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;#74838f&quot; </span><span style="color:#ffd580;">stroke-width</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;2&quot; </span><span style="color:#ffd580;">fill</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;none&quot;  </span><span style="color:#ffd580;">d</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;M {{padding}} {{offset_y}} L {{width + padding}} {{offset_y}}&quot; </span><span style="color:#5ccfe690;">/&gt;
-</span><span style="color:#ccc9c2;">{% endif %}
+</span><span>{% endif %}
 </span></code></pre>
 <p>Now our graph will be a bit easier to read:</p>
 <?xml version="1.0" standalone="no"?>
@@ -328,8 +315,7 @@ Example
 <h3 id="vertical-lines">Vertical Lines</h3>
 <p>We will just put little 10px nudges in the axis rather than dotted vertical lines.</p>
 <p>In the existing for loop, we can add the following:</p>
-<pre style="background-color:#212733;">
-<code class="language-xml" data-lang="xml"><span style="color:#5ccfe690;">&lt;</span><span style="color:#73d0ff;">path </span><span style="color:#ffd580;">stroke</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;#74838f&quot; </span><span style="color:#ffd580;">stroke-width</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;2.0&quot; </span><span style="color:#ffd580;">d</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;M {{offset_x}} {{height + padding}} L {{offset_x}} {{height + padding + 10}}&quot; </span><span style="color:#5ccfe690;">/&gt;
+<pre data-lang="xml" style="background-color:#212733;color:#ccc9c2;" class="language-xml "><code class="language-xml" data-lang="xml"><span style="color:#5ccfe690;">&lt;</span><span style="color:#73d0ff;">path </span><span style="color:#ffd580;">stroke</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;#74838f&quot; </span><span style="color:#ffd580;">stroke-width</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;2.0&quot; </span><span style="color:#ffd580;">d</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;M {{offset_x}} {{height + padding}} L {{offset_x}} {{height + padding + 10}}&quot; </span><span style="color:#5ccfe690;">/&gt;
 </span></code></pre>
 <p>This will create nudges where we'll put our axis labels:</p>
 <?xml version="1.0" standalone="no"?>
@@ -369,41 +355,37 @@ Example
 <h3 id="axis-labels">Axis Labels</h3>
 <p>We can add in axis labels in the same for loop.</p>
 <p>For the y-axis, the loop starts at the top of the graph and goes down, so we will use the following formula to present the 1/5th value:</p>
-<pre style="background-color:#212733;">
-<code><span style="color:#ccc9c2;">(lines - loop.index0)/lines * max_y
+<pre style="background-color:#212733;color:#ccc9c2;"><code><span>(lines - loop.index0)/lines * max_y
 </span></code></pre>
 <p>We can use the tera <code>round</code> helper to round the value up, so there is not a lot of decimal places:</p>
-<pre style="background-color:#212733;">
-<code><span style="color:#ccc9c2;">{{((lines - loop.index0)/lines * max_y) | round}}
+<pre style="background-color:#212733;color:#ccc9c2;"><code><span>{{((lines - loop.index0)/lines * max_y) | round}}
 </span></code></pre>
 <p>Putting this together:</p>
-<pre style="background-color:#212733;">
-<code class="language-xml" data-lang="xml"><span style="color:#5ccfe690;">&lt;</span><span style="color:#73d0ff;">text
-  </span><span style="color:#ffd580;">x</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;{{padding - 5}}&quot;
-  </span><span style="color:#ffd580;">font-family</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot;
-  </span><span style="color:#ffd580;">y</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;{{offset_y}}&quot;
-  </span><span style="color:#ffd580;">dominant-baseline</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;middle&quot;
-  </span><span style="color:#ffd580;">text-anchor</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;end&quot;
-  </span><span style="color:#ffd580;">font-size</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;12&quot;
-  </span><span style="color:#ffd580;">fill</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;#74838f&quot;
-  </span><span style="color:#ffd580;">font-weight</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;bold&quot;
- </span><span style="color:#5ccfe690;">&gt;
-</span><span style="color:#ccc9c2;"> {{((lines - loop.index0)/lines * max_y) | round}}
+<pre data-lang="xml" style="background-color:#212733;color:#ccc9c2;" class="language-xml "><code class="language-xml" data-lang="xml"><span style="color:#5ccfe690;">&lt;</span><span style="color:#73d0ff;">text
+</span><span>  </span><span style="color:#ffd580;">x</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;{{padding - 5}}&quot;
+</span><span>  </span><span style="color:#ffd580;">font-family</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot;
+</span><span>  </span><span style="color:#ffd580;">y</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;{{offset_y}}&quot;
+</span><span>  </span><span style="color:#ffd580;">dominant-baseline</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;middle&quot;
+</span><span>  </span><span style="color:#ffd580;">text-anchor</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;end&quot;
+</span><span>  </span><span style="color:#ffd580;">font-size</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;12&quot;
+</span><span>  </span><span style="color:#ffd580;">fill</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;#74838f&quot;
+</span><span>  </span><span style="color:#ffd580;">font-weight</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;bold&quot;
+</span><span> </span><span style="color:#5ccfe690;">&gt;
+</span><span> {{((lines - loop.index0)/lines * max_y) | round}}
 </span><span style="color:#5ccfe690;">&lt;/</span><span style="color:#73d0ff;">text</span><span style="color:#5ccfe690;">&gt;
 </span></code></pre>
 <p>And quite similarly, the x-axis can be generated the same way (width <code>y</code> being fixed to where the nudge starts &amp; <code>x</code> being the offset):</p>
-<pre style="background-color:#212733;">
-<code class="language-xml" data-lang="xml"><span style="color:#5ccfe690;">&lt;</span><span style="color:#73d0ff;">text
-  </span><span style="color:#ffd580;">x</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;{{offset_x}}&quot;
-  </span><span style="color:#ffd580;">font-family</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot;
-  </span><span style="color:#ffd580;">y</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;{{height + padding + 10}}&quot;
-  </span><span style="color:#ffd580;">dominant-baseline</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;hanging&quot;
-  </span><span style="color:#ffd580;">text-anchor</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;middle&quot;
-  </span><span style="color:#ffd580;">font-size</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;12&quot;
-  </span><span style="color:#ffd580;">fill</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;#74838f&quot;
-  </span><span style="color:#ffd580;">font-weight</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;bold&quot;
- </span><span style="color:#5ccfe690;">&gt;
-</span><span style="color:#ccc9c2;"> {{loop.index0/lines * max_x | round}}
+<pre data-lang="xml" style="background-color:#212733;color:#ccc9c2;" class="language-xml "><code class="language-xml" data-lang="xml"><span style="color:#5ccfe690;">&lt;</span><span style="color:#73d0ff;">text
+</span><span>  </span><span style="color:#ffd580;">x</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;{{offset_x}}&quot;
+</span><span>  </span><span style="color:#ffd580;">font-family</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;-apple-system, system-ui, BlinkMacSystemFont, Roboto&quot;
+</span><span>  </span><span style="color:#ffd580;">y</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;{{height + padding + 10}}&quot;
+</span><span>  </span><span style="color:#ffd580;">dominant-baseline</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;hanging&quot;
+</span><span>  </span><span style="color:#ffd580;">text-anchor</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;middle&quot;
+</span><span>  </span><span style="color:#ffd580;">font-size</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;12&quot;
+</span><span>  </span><span style="color:#ffd580;">fill</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;#74838f&quot;
+</span><span>  </span><span style="color:#ffd580;">font-weight</span><span style="color:#ccc9c2cc;">=</span><span style="color:#bae67e;">&quot;bold&quot;
+</span><span> </span><span style="color:#5ccfe690;">&gt;
+</span><span> {{loop.index0/lines * max_x | round}}
 </span><span style="color:#5ccfe690;">&lt;/</span><span style="color:#73d0ff;">text</span><span style="color:#5ccfe690;">&gt;
 </span></code></pre>
 <p>Putting this all together, we should have our labels in the right place:</p>
