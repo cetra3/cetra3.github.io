@@ -18,7 +18,7 @@
 &lt;p&gt;This blog will step through one possible solution for this challenge using a combination of &lt;a href=&quot;https:&#x2F;&#x2F;developer.mozilla.org&#x2F;en-US&#x2F;docs&#x2F;Web&#x2F;API&#x2F;WebSockets_API&quot;&gt;WebSockets&lt;&#x2F;a&gt; for transport and &lt;a href=&quot;http:&#x2F;&#x2F;jsonpatch.com&#x2F;&quot;&gt;JSON Patch&lt;&#x2F;a&gt; for describing changes to an arbitrary structure.&lt;&#x2F;p&gt;
 &lt;p&gt;To provide an example of this, we&#x27;ll be building up everyone&#x27;s favourite &lt;strong&gt;Todo Application&lt;&#x2F;strong&gt;: a list of todos with a mark to say whether they&#x27;re completed or not. However, our version will ensure that all connected clients will, in close to real time, have updates shown.&lt;&#x2F;p&gt;
 &lt;p&gt;For those wanting to skip ahead and see the finished product, you can &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;websocket_jsonpatch&#x2F;&quot;&gt;view the source here&lt;&#x2F;a&gt;.&lt;&#x2F;p&gt;
-&lt;p&gt;&lt;video width=&quot;100%&quot; autoplay loop src=&quot;&#x2F;videos&#x2F;websocket_jsonpatch.mp4&quot; &gt;&lt;&#x2F;video&gt;&lt;&#x2F;p&gt;
+&lt;p&gt;&lt;video width=&quot;100%&quot; autoplay muted loop src=&quot;&#x2F;videos&#x2F;websocket_jsonpatch.mp4&quot; &gt;&lt;&#x2F;video&gt;&lt;&#x2F;p&gt;
 &lt;h2 id=&quot;what-is-json-patch&quot;&gt;What is JSON Patch&lt;&#x2F;h2&gt;
 &lt;p&gt;&lt;a href=&quot;http:&#x2F;&#x2F;jsonpatch.com&#x2F;&quot;&gt;JSON Patch&lt;&#x2F;a&gt; is an RFC standard for describing patch updates to an arbitrary JSON structure.&lt;&#x2F;p&gt;
 &lt;p&gt;For instance, if you had a JSON object that looked like this:&lt;&#x2F;p&gt;
