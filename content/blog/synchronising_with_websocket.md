@@ -18,7 +18,7 @@ To provide an example of this, we'll be building up everyone's favourite **Todo 
 
 For those wanting to skip ahead and see the finished product, you can [view the source here](https://github.com/cetra3/websocket_jsonpatch/).
 
-<video width="100%" autoplay loop src="/videos/websocket_jsonpatch.mp4" ></video>
+<video width="100%" autoplay muted loop src="/videos/websocket_jsonpatch.mp4" ></video>
 
 ## What is JSON Patch
 
