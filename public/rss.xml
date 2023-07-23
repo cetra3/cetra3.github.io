@@ -2,18 +2,286 @@
 <rss xmlns:atom="http://www.w3.org/2005/Atom" version="2.0">
     <channel>
       <title>Cetra&#x27;s Thoughts</title>
-        <link>https://cetra3.github.io</link>
-        <description>Blogs and Investigations mostly about Rust</description>
-        <generator>Zola</generator>
-        <language>en</language>
-        <atom:link href="https://cetra3.github.io/rss.xml" rel="self" type="application/rss+xml"/>
-        <lastBuildDate>Sun, 29 Jan 2023 00:00:00 +0000</lastBuildDate>
-        <item>
-            <title>Synchronizing state with Websockets and JSON Patch</title>
-            <pubDate>Sun, 29 Jan 2023 00:00:00 +0000</pubDate>
-            <link>https://cetra3.github.io/blog/synchronising-with-websocket/</link>
-            <guid>https://cetra3.github.io/blog/synchronising-with-websocket/</guid>
-            <description>&lt;p&gt;At &lt;a href=&quot;https:&#x2F;&#x2F;www.formlogic.com&#x2F;&quot;&gt;formlogic&lt;&#x2F;a&gt;, we are using rust for a number of components within our tech stack, including: internal and external web applications, coordinating and logging machining workflows, parsing an industrial domain specific language (&lt;a href=&quot;https:&#x2F;&#x2F;en.wikipedia.org&#x2F;wiki&#x2F;G-code&quot;&gt;G-Code&lt;&#x2F;a&gt;), and more.&lt;&#x2F;p&gt;
+      <link>https://cetra3.github.io</link>
+      <description>Blogs and Investigations mostly about Rust</description>
+      <generator>Zola</generator>
+      <language>en</language>
+      <atom:link href="https://cetra3.github.io/rss.xml" rel="self" type="application/rss+xml"/>
+      <lastBuildDate>Sun, 23 Jul 2023 00:00:00 +0000</lastBuildDate>
+      <item>
+          <title>Creating your own custom derive macro</title>
+          <pubDate>Sun, 23 Jul 2023 00:00:00 +0000</pubDate>
+          <author>Unknown</author>
+          <link>https://cetra3.github.io/blog/creating-your-own-derive-macro/</link>
+          <guid>https://cetra3.github.io/blog/creating-your-own-derive-macro/</guid>
+          <description>&lt;p&gt;One of the things I tackled early on with when creating &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;divedb&quot;&gt;DiveDB&lt;&#x2F;a&gt; was trying to import a lot of metrics from dive logs. At regular intervals, normally every 10 seconds, a dive computer will record metrics about the dive, such as depth, tank pressure, water temperature etc... While this isn&#x27;t a &lt;em&gt;huge&lt;&#x2F;em&gt; amount of entries, nearly every SQL framework I used for it was painfully slow at importing this type of data.&lt;&#x2F;p&gt;
+&lt;p&gt;The only crate that I managed to get to work with reasonable performance was &lt;a href=&quot;https:&#x2F;&#x2F;docs.rs&#x2F;tokio-postgres&#x2F;latest&#x2F;tokio_postgres&#x2F;&quot;&gt;tokio-postgres&lt;&#x2F;a&gt;.  Itself being lightweight: it doesn&#x27;t include a lot of features you would expect from a full blown SQL framework like &lt;a href=&quot;http:&#x2F;&#x2F;diesel.rs&#x2F;&quot;&gt;diesel&lt;&#x2F;a&gt; or &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;launchbadge&#x2F;sqlx&quot;&gt;SQLx&lt;&#x2F;a&gt;. I was OK with that, I don&#x27;t mind writing a bit of raw SQL, but one thing I thought was missing was some sort of way to create a struct from a database row.&lt;&#x2F;p&gt;
+&lt;p&gt;So I set out to make a really simple trait to hydrate a struct from a row. The obvious candidate for this is a procedural macro. Writing procedural macros has been written about before, but I haven&#x27;t found a terse enough guide that I was happy with. I wanted to document my approach in the odd chance it helps other people.  At the very least I have something to refer to if I need to do this again!&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;aim-of-the-macro&quot;&gt;Aim of the Macro&lt;&#x2F;h2&gt;
+&lt;p&gt;The Aim of the macro is to be able to write &lt;code&gt;#[derive(MyTrait)]&lt;&#x2F;code&gt; and have it fill in the trait implementation at compile time.&lt;&#x2F;p&gt;
+&lt;p&gt;In this case I will be deriving a simple trait that looks like this:&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#212733;color:#ccc9c2;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;use &lt;&#x2F;span&gt;&lt;span&gt;tokio_postgres&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;Row&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;use &lt;&#x2F;span&gt;&lt;span&gt;anyhow&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;Error&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;pub trait &lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;FromRow &lt;&#x2F;span&gt;&lt;span&gt;{
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5c6773;&quot;&gt;&#x2F;&#x2F;&#x2F; hydrate a struct from a database `Row`
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;from_row&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;row&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;:&lt;&#x2F;span&gt;&lt;span&gt; Row) &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;-&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5ccfe6;&quot;&gt;Result&lt;&#x2F;span&gt;&lt;span&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;Self&lt;&#x2F;span&gt;&lt;span&gt;, Error&amp;gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;where
+&lt;&#x2F;span&gt;&lt;span&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;Self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span&gt;std&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;marker&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;Sized;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;There are a few things I have made the decision not to handle to keep things simple:&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;SQLx is already has some great macros for validating against a live schema. I don&#x27;t want to reimplement this here.&lt;&#x2F;li&gt;
+&lt;li&gt;I don&#x27;t want to pay the cost of column index lookups for named fields. Instead, we will use indices and expect the queries we write return fields in correct order.&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;So if I have a struct like this:&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#212733;color:#ccc9c2;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;pub struct &lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;DiveMetric &lt;&#x2F;span&gt;&lt;span&gt;{
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;pub &lt;&#x2F;span&gt;&lt;span&gt;time&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;i32&lt;&#x2F;span&gt;&lt;span&gt;,
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;pub &lt;&#x2F;span&gt;&lt;span&gt;depth&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;f32&lt;&#x2F;span&gt;&lt;span&gt;,
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;pub &lt;&#x2F;span&gt;&lt;span&gt;pressure&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5ccfe6;&quot;&gt;Option&lt;&#x2F;span&gt;&lt;span&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;f32&lt;&#x2F;span&gt;&lt;span&gt;&amp;gt;,
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;pub &lt;&#x2F;span&gt;&lt;span&gt;temperature&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5ccfe6;&quot;&gt;Option&lt;&#x2F;span&gt;&lt;span&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;f32&lt;&#x2F;span&gt;&lt;span&gt;&amp;gt;,
+&lt;&#x2F;span&gt;&lt;span&gt;}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;It should automatically derive the trait like so:&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#212733;color:#ccc9c2;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;impl &lt;&#x2F;span&gt;&lt;span&gt;FromRow &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;for &lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;DiveMetric &lt;&#x2F;span&gt;&lt;span&gt;{
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;from_row&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;row&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;:&lt;&#x2F;span&gt;&lt;span&gt; Row) &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;-&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5ccfe6;&quot;&gt;Result&lt;&#x2F;span&gt;&lt;span&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;Self&lt;&#x2F;span&gt;&lt;span&gt;, Error&amp;gt; {
+&lt;&#x2F;span&gt;&lt;span&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5ccfe6;&quot;&gt;Ok&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;Self &lt;&#x2F;span&gt;&lt;span&gt;{
+&lt;&#x2F;span&gt;&lt;span&gt;            time&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;:&lt;&#x2F;span&gt;&lt;span&gt; row&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;try_get&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span&gt;)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;?&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,
+&lt;&#x2F;span&gt;&lt;span&gt;            depth&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;:&lt;&#x2F;span&gt;&lt;span&gt; row&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;try_get&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;1&lt;&#x2F;span&gt;&lt;span&gt;)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;?&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,
+&lt;&#x2F;span&gt;&lt;span&gt;            pressure&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;:&lt;&#x2F;span&gt;&lt;span&gt; row&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;try_get&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;2&lt;&#x2F;span&gt;&lt;span&gt;)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;?&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,
+&lt;&#x2F;span&gt;&lt;span&gt;            temperature&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;:&lt;&#x2F;span&gt;&lt;span&gt; row&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;try_get&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;3&lt;&#x2F;span&gt;&lt;span&gt;)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;?&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,
+&lt;&#x2F;span&gt;&lt;span&gt;        })
+&lt;&#x2F;span&gt;&lt;span&gt;    }
+&lt;&#x2F;span&gt;&lt;span&gt;}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;h2 id=&quot;crate-layout&quot;&gt;Crate Layout&lt;&#x2F;h2&gt;
+&lt;p&gt;You will need at minimum 3 crates to do this:&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;One crate for the macro itself.  I.e, it has &lt;code&gt;proc-macro = true&lt;&#x2F;code&gt; in the Manifest, I called this &lt;code&gt;macro&lt;&#x2F;code&gt;&lt;&#x2F;li&gt;
+&lt;li&gt;One crate has the definitions of the trait. I have called this &lt;code&gt;core&lt;&#x2F;code&gt;.  This crate will include the macro as a dependency&lt;&#x2F;li&gt;
+&lt;li&gt;One crate to actually use &lt;code&gt;core&lt;&#x2F;code&gt; and derive things&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;h2 id=&quot;procedural-macro-crate&quot;&gt;Procedural Macro Crate&lt;&#x2F;h2&gt;
+&lt;p&gt;A Procedural Macro Crate is built at compile time and can influence your source code, pretty much by injecting source code in the form of &amp;quot;tokens&amp;quot; in-line with the rest of your code. &lt;&#x2F;p&gt;
+&lt;p&gt;The &lt;a href=&quot;https:&#x2F;&#x2F;doc.rust-lang.org&#x2F;proc_macro&#x2F;struct.TokenStream.html&quot;&gt;&lt;code&gt;TokenStream&lt;&#x2F;code&gt;&lt;&#x2F;a&gt; interface is very very bare minimum.  You get a list of these tokens and it&#x27;s up to you to work out what they mean.  Luckily there is a crate out there, &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;dtolnay&#x2F;syn&quot;&gt;&lt;code&gt;syn&lt;&#x2F;code&gt;&lt;&#x2F;a&gt;, for parsing a &lt;code&gt;TokenStream&lt;&#x2F;code&gt; into a higher level structure.  Think reflection but at compile time.&lt;&#x2F;p&gt;
+&lt;p&gt;So firstly, let&#x27;s set up the crate manifest:&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;toml&quot; style=&quot;background-color:#212733;color:#ccc9c2;&quot; class=&quot;language-toml &quot;&gt;&lt;code class=&quot;language-toml&quot; data-lang=&quot;toml&quot;&gt;&lt;span&gt;[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;package&lt;&#x2F;span&gt;&lt;span&gt;]
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;name &lt;&#x2F;span&gt;&lt;span&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;divedb_macro&amp;quot;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;version &lt;&#x2F;span&gt;&lt;span&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;0.1.0&amp;quot;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;edition &lt;&#x2F;span&gt;&lt;span&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;2021&amp;quot;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;lib&lt;&#x2F;span&gt;&lt;span&gt;]
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;proc-macro &lt;&#x2F;span&gt;&lt;span&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;true
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;dependencies&lt;&#x2F;span&gt;&lt;span&gt;]
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;syn &lt;&#x2F;span&gt;&lt;span&gt;= { &lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;version &lt;&#x2F;span&gt;&lt;span&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;2&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;features &lt;&#x2F;span&gt;&lt;span&gt;= [&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;full&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;parsing&amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;] }
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;This is a standard crate, with the only difference is in that &lt;code&gt;lib&lt;&#x2F;code&gt; section: we tell it this is a proc-macro crate.&lt;&#x2F;p&gt;
+&lt;p&gt;Then, we are going to create a derive macro with the same name as the trait, i.e, &lt;code&gt;FromRow&lt;&#x2F;code&gt;.  We will just create this in &lt;code&gt;lib.rs&lt;&#x2F;code&gt; the entrypoint to our crate.&lt;&#x2F;p&gt;
+&lt;p&gt;The scaffolding we have to lay out is a method that looks something like this:&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#212733;color:#ccc9c2;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;use &lt;&#x2F;span&gt;&lt;span&gt;proc_macro&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;TokenStream&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;#&lt;&#x2F;span&gt;&lt;span&gt;[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;proc_macro_derive&lt;&#x2F;span&gt;&lt;span&gt;(FromRow)]
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;pub fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;derive_from_row&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;input&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;:&lt;&#x2F;span&gt;&lt;span&gt; TokenStream) &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;-&amp;gt;&lt;&#x2F;span&gt;&lt;span&gt; TokenStream {
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5c6773;&quot;&gt;&#x2F;&#x2F; do something with the token stream here
+&lt;&#x2F;span&gt;&lt;span&gt;}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;h3 id=&quot;parsing-the-tokenstream&quot;&gt;Parsing the TokenStream&lt;&#x2F;h3&gt;
+&lt;p&gt;First step is to convert a &lt;code&gt;TokenStream&lt;&#x2F;code&gt; into a structure we can work with.  We&#x27;ll use &lt;code&gt;syn&lt;&#x2F;code&gt; to do the heavy lifting here.  There are some helper methods to parse out as a &lt;a href=&quot;https:&#x2F;&#x2F;docs.rs&#x2F;syn&#x2F;latest&#x2F;syn&#x2F;struct.DeriveInput.html&quot;&gt;&lt;code&gt;DeriveInput&lt;&#x2F;code&gt;&lt;&#x2F;a&gt; struct:&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#212733;color:#ccc9c2;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; input &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;parse_macro_input!&lt;&#x2F;span&gt;&lt;span&gt;(input &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;as&lt;&#x2F;span&gt;&lt;span&gt; DeriveInput)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Looking at &lt;code&gt;DeriveInput&lt;&#x2F;code&gt;, there is the &lt;a href=&quot;https:&#x2F;&#x2F;docs.rs&#x2F;syn&#x2F;latest&#x2F;syn&#x2F;enum.Data.html&quot;&gt;&lt;code&gt;Data&lt;&#x2F;code&gt;&lt;&#x2F;a&gt; enum, which is an enum of 3 different types, &lt;code&gt;Struct&lt;&#x2F;code&gt;, &lt;code&gt;Enum&lt;&#x2F;code&gt; or &lt;code&gt;Union&lt;&#x2F;code&gt;. &lt;&#x2F;p&gt;
+&lt;p&gt;We only care about structs, and don&#x27;t want to derive it for anything else.&lt;&#x2F;p&gt;
+&lt;p&gt;So what we can do is an &lt;code&gt;if let&lt;&#x2F;code&gt; match on the variant we want, and otherwise error out with some sort of message that will hopefully remind you when you derive it later on.  There are a few ways to error out &amp;amp; most require a &lt;code&gt;span&lt;&#x2F;code&gt;: the portion of the &lt;code&gt;TokenStream&lt;&#x2F;code&gt; that relates to the error.  I.e, where the red squiggly line will show up. You can also &lt;code&gt;panic!&lt;&#x2F;code&gt; if you are shortcutting massively, but I wouldn&#x27;t recommend it.&lt;&#x2F;p&gt;
+&lt;p&gt;I&#x27;ve elected to do a catchall in the case it&#x27;s not in a structure that I want to support. &lt;&#x2F;p&gt;
+&lt;p&gt;Using &lt;a href=&quot;https:&#x2F;&#x2F;docs.rs&#x2F;syn&#x2F;latest&#x2F;syn&#x2F;struct.Error.html&quot;&gt;&lt;code&gt;syn::Error&lt;&#x2F;code&gt;&lt;&#x2F;a&gt;, we can provide it a span, and a message.&lt;&#x2F;p&gt;
+&lt;p&gt;Since our method needs to return a &lt;code&gt;TokenStream&lt;&#x2F;code&gt;, not a &lt;code&gt;syn::Error&lt;&#x2F;code&gt;, we can convert the error by injecting a &lt;code&gt;compile_error!()&lt;&#x2F;code&gt; in the form of a &lt;code&gt;TokenStream&lt;&#x2F;code&gt; by using the &lt;a href=&quot;https:&#x2F;&#x2F;docs.rs&#x2F;syn&#x2F;latest&#x2F;syn&#x2F;struct.Error.html#method.to_compile_error&quot;&gt;&lt;code&gt;to_compile_error()&lt;&#x2F;code&gt;&lt;&#x2F;a&gt; function:&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#212733;color:#ccc9c2;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;#&lt;&#x2F;span&gt;&lt;span&gt;[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;proc_macro_derive&lt;&#x2F;span&gt;&lt;span&gt;(FromRow)]
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;pub fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;derive_from_row&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;input&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;:&lt;&#x2F;span&gt;&lt;span&gt; TokenStream) &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;-&amp;gt;&lt;&#x2F;span&gt;&lt;span&gt; TokenStream {
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; input &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;parse_macro_input!&lt;&#x2F;span&gt;&lt;span&gt;(input &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;as&lt;&#x2F;span&gt;&lt;span&gt; DeriveInput)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5c6773;&quot;&gt;&#x2F;&#x2F; Do something with the fields here
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5c6773;&quot;&gt;&#x2F;&#x2F; Catchall if we don&amp;#39;t match on the structure we don&amp;#39;t want
+&lt;&#x2F;span&gt;&lt;span&gt;    TokenStream&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;from(
+&lt;&#x2F;span&gt;&lt;span&gt;        syn&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;Error&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;new(
+&lt;&#x2F;span&gt;&lt;span&gt;            input&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span&gt;ident&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;span&lt;&#x2F;span&gt;&lt;span&gt;()&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,
+&lt;&#x2F;span&gt;&lt;span&gt;            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;Only structs with named fields can derive `FromRow`&amp;quot;
+&lt;&#x2F;span&gt;&lt;span&gt;        )&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;to_compile_error&lt;&#x2F;span&gt;&lt;span&gt;()
+&lt;&#x2F;span&gt;&lt;span&gt;    )
+&lt;&#x2F;span&gt;&lt;span&gt;}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;A lot of the examples for proc macros I&#x27;ve seen introduce more methods and structure here, but for brevity I&#x27;ve kept it all in the one method.&lt;&#x2F;p&gt;
+&lt;p&gt;With our high level structure out of the way, we can do an &lt;code&gt;if let&lt;&#x2F;code&gt; match on finding a struct:&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#212733;color:#ccc9c2;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;if let &lt;&#x2F;span&gt;&lt;span&gt;syn&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;Data&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;Struct(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;ref&lt;&#x2F;span&gt;&lt;span&gt; data) &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span&gt; input&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span&gt;data {
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5c6773;&quot;&gt;&#x2F;&#x2F; we know it&amp;#39;s a struct
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;You&#x27;ll find that there are actually 3 variants of a struct: Named field structs, Unnamed (tuple) structs and unit structs:&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#212733;color:#ccc9c2;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;struct &lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;Named &lt;&#x2F;span&gt;&lt;span&gt;{
+&lt;&#x2F;span&gt;&lt;span&gt;    field&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;:&lt;&#x2F;span&gt;&lt;span&gt; String
+&lt;&#x2F;span&gt;&lt;span&gt;}
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;struct &lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;Unnamed&lt;&#x2F;span&gt;&lt;span&gt;(String)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;struct &lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;Unit&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;It might be important if you are fleshing out a derive macro to deal with those other two cases. For this macro we only care about the first variant, the name field struct, not the other two. So we match on that:&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#212733;color:#ccc9c2;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;if let &lt;&#x2F;span&gt;&lt;span&gt;Fields&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;Named(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;ref&lt;&#x2F;span&gt;&lt;span&gt; fields) &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span&gt; data&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span&gt;fields {
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5c6773;&quot;&gt;&#x2F;&#x2F; Deal with a named-field struct
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;h3 id=&quot;emitting-our-tokenstream&quot;&gt;Emitting our TokenStream&lt;&#x2F;h3&gt;
+&lt;p&gt;From here, we want to iterate over the fields, and for each field emit a bit of code like:&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#212733;color:#ccc9c2;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span&gt;field_name&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;&amp;gt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;:&lt;&#x2F;span&gt;&lt;span&gt; row&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;try_get&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span&gt;field_idx&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;&amp;gt;&lt;&#x2F;span&gt;&lt;span&gt;)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;?&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;However: we can&#x27;t just send a &lt;code&gt;String&lt;&#x2F;code&gt; back from our method, we need to provide a &lt;code&gt;TokenStream&lt;&#x2F;code&gt;.  This is where the second handy crate comes in: &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;dtolnay&#x2F;quote&quot;&gt;&lt;code&gt;quote&lt;&#x2F;code&gt;&lt;&#x2F;a&gt;. We can use the &lt;code&gt;quote!&lt;&#x2F;code&gt; macro to generate code snippets in a mostly-readable fashion and output them as a &lt;code&gt;TokenStream&lt;&#x2F;code&gt;.  One thing to note: &lt;code&gt;quote!&lt;&#x2F;code&gt; will return a &lt;code&gt;proc_macro2&lt;&#x2F;code&gt; &lt;code&gt;TokenStream&lt;&#x2F;code&gt;, so you can either call &lt;code&gt;into()&lt;&#x2F;code&gt; or use &lt;code&gt;TokenStream::from&lt;&#x2F;code&gt;.&lt;&#x2F;p&gt;
+&lt;p&gt;So let&#x27;s iterate over our fields, and for each field, return a snippet, a &lt;code&gt;TokenStream&lt;&#x2F;code&gt;, which we can combine later:&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#212733;color:#ccc9c2;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; field_vals &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span&gt; fields&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span&gt;named&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;iter&lt;&#x2F;span&gt;&lt;span&gt;()&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;enumerate&lt;&#x2F;span&gt;&lt;span&gt;()&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;map&lt;&#x2F;span&gt;&lt;span&gt;(|(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;i&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;field&lt;&#x2F;span&gt;&lt;span&gt;)| {
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5c6773;&quot;&gt;&#x2F;&#x2F; grab the name of the field
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; name &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;= &amp;amp;&lt;&#x2F;span&gt;&lt;span&gt;field&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span&gt;ident&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;quote!&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;#&lt;&#x2F;span&gt;&lt;span&gt;name&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;:&lt;&#x2F;span&gt;&lt;span&gt; row&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;try_get&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;#&lt;&#x2F;span&gt;&lt;span&gt;i)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;?&lt;&#x2F;span&gt;&lt;span&gt;)
+&lt;&#x2F;span&gt;&lt;span&gt;})&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;We&#x27;re using the standard &lt;code&gt;iter().enumerate()&lt;&#x2F;code&gt; here to get out an index number of the field and the &lt;code&gt;field.ident&lt;&#x2F;code&gt; to reflect the name of the field.&lt;&#x2F;p&gt;
+&lt;p&gt;As an alternative, if instead you wanted to use column names instead of column indices, you could adjust this easily:&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#212733;color:#ccc9c2;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; field_vals &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span&gt; fields&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span&gt;named&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;iter&lt;&#x2F;span&gt;&lt;span&gt;()&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;map&lt;&#x2F;span&gt;&lt;span&gt;(|&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;field&lt;&#x2F;span&gt;&lt;span&gt;| {
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; name &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span&gt; field&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span&gt;ident&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;as_ref&lt;&#x2F;span&gt;&lt;span&gt;()&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;unwrap&lt;&#x2F;span&gt;&lt;span&gt;()&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; name_string &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span&gt; name&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;to_string&lt;&#x2F;span&gt;&lt;span&gt;()&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;quote!&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;#&lt;&#x2F;span&gt;&lt;span&gt;name&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;:&lt;&#x2F;span&gt;&lt;span&gt; row&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;try_get&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;#&lt;&#x2F;span&gt;&lt;span&gt;name_string)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;?&lt;&#x2F;span&gt;&lt;span&gt;)
+&lt;&#x2F;span&gt;&lt;span&gt;})&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Ok, now we have a list of fields, and for each field, we have a snippet of source code, the next is to combine them and implement the &lt;code&gt;FromRow&lt;&#x2F;code&gt; trait.  Once again we can use &lt;code&gt;quote!&lt;&#x2F;code&gt; to do this.&lt;&#x2F;p&gt;
+&lt;p&gt;Another thing worth noting is that it&#x27;s as if the proc macro literally injects a bit of source code in-line where you call derive. This means that if you are going to refer to any structs&#x2F;crates&#x2F;modules etc.. it makes things a lot easier to refer to them via their full path.  I.e, don&#x27;t put &lt;code&gt;Row&lt;&#x2F;code&gt;, put &lt;code&gt;tokio_postgres::Row&lt;&#x2F;code&gt; instead.&lt;&#x2F;p&gt;
+&lt;p&gt;With that in mind, here&#x27;s our simple &lt;code&gt;quote!&lt;&#x2F;code&gt; statement:&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#212733;color:#ccc9c2;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; name &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span&gt; input&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span&gt;ident&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;quote!&lt;&#x2F;span&gt;&lt;span&gt;(
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;impl &lt;&#x2F;span&gt;&lt;span&gt;divedb_core&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;FromRow &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;for&lt;&#x2F;span&gt;&lt;span&gt; #&lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;name &lt;&#x2F;span&gt;&lt;span&gt;{
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;from_row&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;row&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span&gt;tokio_postgres&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;Row) &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;-&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5ccfe6;&quot;&gt;Result&lt;&#x2F;span&gt;&lt;span&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;Self&lt;&#x2F;span&gt;&lt;span&gt;, anyhow&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;Error&amp;gt; {
+&lt;&#x2F;span&gt;&lt;span&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5ccfe6;&quot;&gt;Ok&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;Self &lt;&#x2F;span&gt;&lt;span&gt;{
+&lt;&#x2F;span&gt;&lt;span&gt;            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;#&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;#&lt;&#x2F;span&gt;&lt;span&gt;field_vals)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;*
+&lt;&#x2F;span&gt;&lt;span&gt;        })
+&lt;&#x2F;span&gt;&lt;span&gt;    }
+&lt;&#x2F;span&gt;&lt;span&gt;})
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;Most of this is self-explanatory.  The only weird&#x2F;interesting thing is this part:&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#212733;color:#ccc9c2;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;#&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;#&lt;&#x2F;span&gt;&lt;span&gt;field_vals)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;*
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;This will just iterate over our field vals, and include each one.&lt;&#x2F;p&gt;
+&lt;p&gt;Putting it all together, we get a pretty terse, but powerful proc macro:&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#212733;color:#ccc9c2;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;use &lt;&#x2F;span&gt;&lt;span&gt;proc_macro&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;TokenStream&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;use &lt;&#x2F;span&gt;&lt;span&gt;quote&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;quote&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;use &lt;&#x2F;span&gt;&lt;span&gt;syn&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;{parse_macro_input&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,&lt;&#x2F;span&gt;&lt;span&gt; DeriveInput&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,&lt;&#x2F;span&gt;&lt;span&gt; Fields}&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5c6773;&quot;&gt;&#x2F;&#x2F;&#x2F; This derives the `FromRow` trait for structs
+&lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5c6773;&quot;&gt;&#x2F;&#x2F;&#x2F; Requires that the query is in field order, as it just uses row indices
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;#&lt;&#x2F;span&gt;&lt;span&gt;[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;proc_macro_derive&lt;&#x2F;span&gt;&lt;span&gt;(FromRow)]
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;pub fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;derive_from_row&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;input&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;:&lt;&#x2F;span&gt;&lt;span&gt; TokenStream) &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;-&amp;gt;&lt;&#x2F;span&gt;&lt;span&gt; TokenStream {
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5c6773;&quot;&gt;&#x2F;&#x2F; Parse it as a proc macro
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; input &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;parse_macro_input!&lt;&#x2F;span&gt;&lt;span&gt;(input &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;as&lt;&#x2F;span&gt;&lt;span&gt; DeriveInput)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;if let &lt;&#x2F;span&gt;&lt;span&gt;syn&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;Data&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;Struct(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;ref&lt;&#x2F;span&gt;&lt;span&gt; data) &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span&gt; input&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span&gt;data {
+&lt;&#x2F;span&gt;&lt;span&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;if let &lt;&#x2F;span&gt;&lt;span&gt;Fields&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;Named(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;ref&lt;&#x2F;span&gt;&lt;span&gt; fields) &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span&gt; data&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span&gt;fields {
+&lt;&#x2F;span&gt;&lt;span&gt;            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; field_vals &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span&gt; fields&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span&gt;named&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;iter&lt;&#x2F;span&gt;&lt;span&gt;()&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;enumerate&lt;&#x2F;span&gt;&lt;span&gt;()&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;map&lt;&#x2F;span&gt;&lt;span&gt;(|(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;i&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;field&lt;&#x2F;span&gt;&lt;span&gt;)| {
+&lt;&#x2F;span&gt;&lt;span&gt;                &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; name &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;= &amp;amp;&lt;&#x2F;span&gt;&lt;span&gt;field&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span&gt;ident&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;span&gt;                &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;quote!&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;#&lt;&#x2F;span&gt;&lt;span&gt;name&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;:&lt;&#x2F;span&gt;&lt;span&gt; row&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;try_get&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;#&lt;&#x2F;span&gt;&lt;span&gt;i)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;?&lt;&#x2F;span&gt;&lt;span&gt;)
+&lt;&#x2F;span&gt;&lt;span&gt;            })&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;let&lt;&#x2F;span&gt;&lt;span&gt; name &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span&gt; input&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span&gt;ident&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;return &lt;&#x2F;span&gt;&lt;span&gt;TokenStream&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;from(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;quote!&lt;&#x2F;span&gt;&lt;span&gt;(
+&lt;&#x2F;span&gt;&lt;span&gt;            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;impl &lt;&#x2F;span&gt;&lt;span&gt;divedb_core&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;FromRow &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;for&lt;&#x2F;span&gt;&lt;span&gt; #&lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;name &lt;&#x2F;span&gt;&lt;span&gt;{
+&lt;&#x2F;span&gt;&lt;span&gt;                &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;from_row&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;row&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span&gt;tokio_postgres&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;Row) &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;-&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5ccfe6;&quot;&gt;Result&lt;&#x2F;span&gt;&lt;span&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;Self&lt;&#x2F;span&gt;&lt;span&gt;, anyhow&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;Error&amp;gt; {
+&lt;&#x2F;span&gt;&lt;span&gt;                    &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5ccfe6;&quot;&gt;Ok&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;Self &lt;&#x2F;span&gt;&lt;span&gt;{
+&lt;&#x2F;span&gt;&lt;span&gt;                        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;#&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;#&lt;&#x2F;span&gt;&lt;span&gt;field_vals)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;*
+&lt;&#x2F;span&gt;&lt;span&gt;                    })
+&lt;&#x2F;span&gt;&lt;span&gt;                }
+&lt;&#x2F;span&gt;&lt;span&gt;            }))&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;span&gt;        }
+&lt;&#x2F;span&gt;&lt;span&gt;    }
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    TokenStream&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;from(
+&lt;&#x2F;span&gt;&lt;span&gt;        syn&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;Error&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;new(
+&lt;&#x2F;span&gt;&lt;span&gt;            input&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span&gt;ident&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;span&lt;&#x2F;span&gt;&lt;span&gt;()&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,
+&lt;&#x2F;span&gt;&lt;span&gt;            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;Only structs with named fields can derive `FromRow`&amp;quot;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,
+&lt;&#x2F;span&gt;&lt;span&gt;        )
+&lt;&#x2F;span&gt;&lt;span&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;to_compile_error&lt;&#x2F;span&gt;&lt;span&gt;()&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,
+&lt;&#x2F;span&gt;&lt;span&gt;    )
+&lt;&#x2F;span&gt;&lt;span&gt;}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;h2 id=&quot;core-crate&quot;&gt;Core Crate&lt;&#x2F;h2&gt;
+&lt;p&gt;The core crate implements the trait itself &amp;amp; also exports the macro as well.  If the macro &amp;amp; trait are the same name, you can cheat and &lt;code&gt;pub use&lt;&#x2F;code&gt; the macro crate so you don&#x27;t always have to import the macro &amp;amp; trait separately.&lt;&#x2F;p&gt;
+&lt;p&gt;Otherwise the core &lt;code&gt;lib.rs&lt;&#x2F;code&gt; is rather simple:&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#212733;color:#ccc9c2;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;use &lt;&#x2F;span&gt;&lt;span&gt;anyhow&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;Error&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5c6773;&quot;&gt;&#x2F;&#x2F; Export our derive macro here.
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;pub use &lt;&#x2F;span&gt;&lt;span&gt;divedb_macro&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;use &lt;&#x2F;span&gt;&lt;span&gt;tokio_postgres&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;Row&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5c6773;&quot;&gt;&#x2F;&#x2F;&#x2F; Really simple ORM for `tokio_postgres`
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;pub trait &lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;FromRow &lt;&#x2F;span&gt;&lt;span&gt;{
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5c6773;&quot;&gt;&#x2F;&#x2F;&#x2F; hydrate a struct from a database `Row`
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;from_row&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;row&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;:&lt;&#x2F;span&gt;&lt;span&gt; Row) &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;-&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5ccfe6;&quot;&gt;Result&lt;&#x2F;span&gt;&lt;span&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;Self&lt;&#x2F;span&gt;&lt;span&gt;, Error&amp;gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;where
+&lt;&#x2F;span&gt;&lt;span&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;Self&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span&gt;std&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;marker&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;Sized;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    ...
+&lt;&#x2F;span&gt;&lt;span&gt;}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;h2 id=&quot;standard-crate&quot;&gt;Standard Crate&lt;&#x2F;h2&gt;
+&lt;p&gt;Now we have the macro crate, the core crate, we can simply &lt;code&gt;use&lt;&#x2F;code&gt; this to derive on our own types:&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#212733;color:#ccc9c2;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;use &lt;&#x2F;span&gt;&lt;span&gt;divedb_core&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;FromRow&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;#&lt;&#x2F;span&gt;&lt;span&gt;[&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;derive&lt;&#x2F;span&gt;&lt;span&gt;(FromRow)]
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;pub struct &lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;DiveMetric &lt;&#x2F;span&gt;&lt;span&gt;{
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;pub &lt;&#x2F;span&gt;&lt;span&gt;time&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;i32&lt;&#x2F;span&gt;&lt;span&gt;,
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;pub &lt;&#x2F;span&gt;&lt;span&gt;depth&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;f32&lt;&#x2F;span&gt;&lt;span&gt;,
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;pub &lt;&#x2F;span&gt;&lt;span&gt;pressure&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5ccfe6;&quot;&gt;Option&lt;&#x2F;span&gt;&lt;span&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;f32&lt;&#x2F;span&gt;&lt;span&gt;&amp;gt;,
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;pub &lt;&#x2F;span&gt;&lt;span&gt;temperature&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5ccfe6;&quot;&gt;Option&lt;&#x2F;span&gt;&lt;span&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;f32&lt;&#x2F;span&gt;&lt;span&gt;&amp;gt;,
+&lt;&#x2F;span&gt;&lt;span&gt;}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;h3 id=&quot;expanding-the-macro&quot;&gt;Expanding the Macro&lt;&#x2F;h3&gt;
+&lt;p&gt;Remember when I said that these macros pretty much inject more source code in line?  Well you can see that intermediate output rather easily by using &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;dtolnay&#x2F;cargo-expand&quot;&gt;&lt;code&gt;cargo expand&lt;&#x2F;code&gt;&lt;&#x2F;a&gt;.  This will print out the results of the macro expansion and show what code is actually being generated &amp;amp; a &lt;em&gt;lot&lt;&#x2F;em&gt; more.  If you are writing something super tricky, it really helps to see this output &amp;amp; makes a great tool for debugging procedural macros.&lt;&#x2F;p&gt;
+&lt;p&gt;I.e, for our above &lt;code&gt;DiveMetric&lt;&#x2F;code&gt; struct, using column indices:&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#212733;color:#ccc9c2;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;impl &lt;&#x2F;span&gt;&lt;span&gt;divedb_core&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;FromRow &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;for &lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;DiveMetric &lt;&#x2F;span&gt;&lt;span&gt;{
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;from_row&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;row&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span&gt;tokio_postgres&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;Row) &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;-&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5ccfe6;&quot;&gt;Result&lt;&#x2F;span&gt;&lt;span&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;Self&lt;&#x2F;span&gt;&lt;span&gt;, anyhow&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;Error&amp;gt; {
+&lt;&#x2F;span&gt;&lt;span&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5ccfe6;&quot;&gt;Ok&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;Self &lt;&#x2F;span&gt;&lt;span&gt;{
+&lt;&#x2F;span&gt;&lt;span&gt;            time&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;:&lt;&#x2F;span&gt;&lt;span&gt; row&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;try_get&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;usize&lt;&#x2F;span&gt;&lt;span&gt;)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;?&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,
+&lt;&#x2F;span&gt;&lt;span&gt;            depth&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;:&lt;&#x2F;span&gt;&lt;span&gt; row&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;try_get&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;1&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;usize&lt;&#x2F;span&gt;&lt;span&gt;)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;?&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,
+&lt;&#x2F;span&gt;&lt;span&gt;            pressure&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;:&lt;&#x2F;span&gt;&lt;span&gt; row&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;try_get&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;2&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;usize&lt;&#x2F;span&gt;&lt;span&gt;)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;?&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,
+&lt;&#x2F;span&gt;&lt;span&gt;            temperature&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;:&lt;&#x2F;span&gt;&lt;span&gt; row&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;try_get&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;3&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;usize&lt;&#x2F;span&gt;&lt;span&gt;)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;?&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,
+&lt;&#x2F;span&gt;&lt;span&gt;        })
+&lt;&#x2F;span&gt;&lt;span&gt;    }
+&lt;&#x2F;span&gt;&lt;span&gt;}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;And for using the column name variant:&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;rust&quot; style=&quot;background-color:#212733;color:#ccc9c2;&quot; class=&quot;language-rust &quot;&gt;&lt;code class=&quot;language-rust&quot; data-lang=&quot;rust&quot;&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;impl &lt;&#x2F;span&gt;&lt;span&gt;divedb_core&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;FromRow &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;for &lt;&#x2F;span&gt;&lt;span style=&quot;color:#73d0ff;&quot;&gt;DiveMetric &lt;&#x2F;span&gt;&lt;span&gt;{
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;fn &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffd580;&quot;&gt;from_row&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffcc66;&quot;&gt;row&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;: &lt;&#x2F;span&gt;&lt;span&gt;tokio_postgres&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;Row) &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;-&amp;gt; &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5ccfe6;&quot;&gt;Result&lt;&#x2F;span&gt;&lt;span&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;Self&lt;&#x2F;span&gt;&lt;span&gt;, anyhow&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;::&lt;&#x2F;span&gt;&lt;span&gt;Error&amp;gt; {
+&lt;&#x2F;span&gt;&lt;span&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;font-style:italic;color:#5ccfe6;&quot;&gt;Ok&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffa759;&quot;&gt;Self &lt;&#x2F;span&gt;&lt;span&gt;{
+&lt;&#x2F;span&gt;&lt;span&gt;            time&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;:&lt;&#x2F;span&gt;&lt;span&gt; row&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;try_get&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;time&amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;?&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,
+&lt;&#x2F;span&gt;&lt;span&gt;            depth&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;:&lt;&#x2F;span&gt;&lt;span&gt; row&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;try_get&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;depth&amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;?&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,
+&lt;&#x2F;span&gt;&lt;span&gt;            pressure&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;:&lt;&#x2F;span&gt;&lt;span&gt; row&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;try_get&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;pressure&amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;?&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,
+&lt;&#x2F;span&gt;&lt;span&gt;            temperature&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;:&lt;&#x2F;span&gt;&lt;span&gt; row&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;.&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f28779;&quot;&gt;try_get&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#bae67e;&quot;&gt;&amp;quot;temperature&amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;)&lt;&#x2F;span&gt;&lt;span style=&quot;color:#f29e74;&quot;&gt;?&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ccc9c2cc;&quot;&gt;,
+&lt;&#x2F;span&gt;&lt;span&gt;        })
+&lt;&#x2F;span&gt;&lt;span&gt;    }
+&lt;&#x2F;span&gt;&lt;span&gt;}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;h2 id=&quot;conclusion&quot;&gt;Conclusion&lt;&#x2F;h2&gt;
+&lt;p&gt;As you see, it&#x27;s not &lt;em&gt;too&lt;&#x2F;em&gt; onerous to make your own custom derives.  There is a bit of boilerplate that is needed, but you can write code to write code and keep things simple.&lt;&#x2F;p&gt;
+&lt;p&gt;Without greater support for compile time reflection in rust, you can reach for macros to help you remove the repetitive tasks we face as programmers&lt;&#x2F;p&gt;
+</description>
+      </item>
+      <item>
+          <title>Synchronizing state with Websockets and JSON Patch</title>
+          <pubDate>Sun, 29 Jan 2023 00:00:00 +0000</pubDate>
+          <author>Unknown</author>
+          <link>https://cetra3.github.io/blog/synchronising-with-websocket/</link>
+          <guid>https://cetra3.github.io/blog/synchronising-with-websocket/</guid>
+          <description>&lt;p&gt;At &lt;a href=&quot;https:&#x2F;&#x2F;www.formlogic.com&#x2F;&quot;&gt;formlogic&lt;&#x2F;a&gt;, we are using rust for a number of components within our tech stack, including: internal and external web applications, coordinating and logging machining workflows, parsing an industrial domain specific language (&lt;a href=&quot;https:&#x2F;&#x2F;en.wikipedia.org&#x2F;wiki&#x2F;G-code&quot;&gt;G-Code&lt;&#x2F;a&gt;), and more.&lt;&#x2F;p&gt;
 &lt;p&gt;One of the challenges we faced early on was we had state that needed to be synchronized between rust applications, browsers and the database itself. We wanted to make sure that everyone could subscribe to state changes and everyone could have the same view. We also wanted the ability to roll back state, but preserve history i.e, have an append only immutable event log, while also being able to extend the structure of our state if we choose to in the future.&lt;&#x2F;p&gt;
 &lt;p&gt;This blog will step through one possible solution for this challenge using a combination of &lt;a href=&quot;https:&#x2F;&#x2F;developer.mozilla.org&#x2F;en-US&#x2F;docs&#x2F;Web&#x2F;API&#x2F;WebSockets_API&quot;&gt;WebSockets&lt;&#x2F;a&gt; for transport and &lt;a href=&quot;http:&#x2F;&#x2F;jsonpatch.com&#x2F;&quot;&gt;JSON Patch&lt;&#x2F;a&gt; for describing changes to an arbitrary structure.&lt;&#x2F;p&gt;
 &lt;p&gt;To provide an example of this, we&#x27;ll be building up everyone&#x27;s favourite &lt;strong&gt;Todo Application&lt;&#x2F;strong&gt;: a list of todos with a mark to say whether they&#x27;re completed or not. However, our version will ensure that all connected clients will, in close to real time, have updates shown.&lt;&#x2F;p&gt;
@@ -667,13 +935,14 @@
 &lt;p&gt;We&#x27;ve demonstrated here that, we can provide a powerful framework, abstracting away our transport and state update logic, with room to grow.&lt;&#x2F;p&gt;
 &lt;p&gt;The code for this article is available in a &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;websocket_jsonpatch&#x2F;&quot;&gt;source repository here&lt;&#x2F;a&gt;, so please feel free to tweak.&lt;&#x2F;p&gt;
 </description>
-        </item>
-        <item>
-            <title>Publishing Rust types to a TypeScript frontend</title>
-            <pubDate>Tue, 13 Sep 2022 00:00:00 +0000</pubDate>
-            <link>https://cetra3.github.io/blog/sharing-types-with-the-frontend/</link>
-            <guid>https://cetra3.github.io/blog/sharing-types-with-the-frontend/</guid>
-            <description>&lt;p&gt;When building in a strongly-typed language such as rust it&#x27;s a shame to have to throw this strictness away, &lt;strong&gt;especially&lt;&#x2F;strong&gt; when dealing with the wild west of frontend stacks. The bigger the project is, the more you want to keep things cohesive.&lt;&#x2F;p&gt;
+      </item>
+      <item>
+          <title>Publishing Rust types to a TypeScript frontend</title>
+          <pubDate>Tue, 13 Sep 2022 00:00:00 +0000</pubDate>
+          <author>Unknown</author>
+          <link>https://cetra3.github.io/blog/sharing-types-with-the-frontend/</link>
+          <guid>https://cetra3.github.io/blog/sharing-types-with-the-frontend/</guid>
+          <description>&lt;p&gt;When building in a strongly-typed language such as rust it&#x27;s a shame to have to throw this strictness away, &lt;strong&gt;especially&lt;&#x2F;strong&gt; when dealing with the wild west of frontend stacks. The bigger the project is, the more you want to keep things cohesive.&lt;&#x2F;p&gt;
 &lt;p&gt;This cohesion evaporates quickly when you need to pass language barriers. While normal JavaScript does not have types, we can utilise &lt;a href=&quot;https:&#x2F;&#x2F;www.typescriptlang.org&#x2F;&quot;&gt;TypeScript&lt;&#x2F;a&gt; to share this type information and hopefully maintain some cohesion between languages.&lt;&#x2F;p&gt;
 &lt;p&gt;The scenario we&#x27;re targeting here is writing a web backend in rust, and having those types&#x2F;methods available easily for a &lt;code&gt;TypeScript&lt;&#x2F;code&gt; enabled frontend. This article describes a few common methods we can bridge the two languages together using currently available tools and libraries. Most of them follow similar characteristics, but each approach has their own set of tradeoffs.&lt;&#x2F;p&gt;
 &lt;p&gt;This blog will primarily use &lt;a href=&quot;https:&#x2F;&#x2F;actix.rs&#x2F;&quot;&gt;&lt;code&gt;actix-web&lt;&#x2F;code&gt;&lt;&#x2F;a&gt; as the example for the web backend, as it is one I&#x27;m most familiar with, but the libraries used here do have support for other backends.&lt;&#x2F;p&gt;
@@ -1047,13 +1316,14 @@
 &lt;p&gt;&lt;strong&gt;GraphQL&lt;&#x2F;strong&gt;: You can use GraphQL with &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;async-graphql&#x2F;async-graphql&quot;&gt;&lt;code&gt;async-graphql&lt;&#x2F;code&gt;&lt;&#x2F;a&gt; or &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;graphql-rust&#x2F;juniper&quot;&gt;&lt;code&gt;juniper&lt;&#x2F;code&gt;&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
 &lt;p&gt;When building &lt;a href=&quot;https:&#x2F;&#x2F;divedb.net&#x2F;&quot;&gt;DiveDB&lt;&#x2F;a&gt;, I opted to use GraphQL due to its great frontend tooling &amp;amp; standardised introspection. In future blogs I hope to dive into some of the details of this decision.&lt;&#x2F;p&gt;
 </description>
-        </item>
-        <item>
-            <title>Implementing a Job queue with SQLx and Postgres</title>
-            <pubDate>Fri, 26 Jun 2020 00:00:00 +0000</pubDate>
-            <link>https://cetra3.github.io/blog/implementing-a-jobq-sqlx/</link>
-            <guid>https://cetra3.github.io/blog/implementing-a-jobq-sqlx/</guid>
-            <description>&lt;p&gt;&lt;strong&gt;SQLx&lt;&#x2F;strong&gt; is a new &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;launchbadge&#x2F;sqlx&quot;&gt;async SQL Toolkit&lt;&#x2F;a&gt; for rust that is closer to standard SQL than a more opinionated ORM like &lt;a href=&quot;http:&#x2F;&#x2F;diesel.rs&#x2F;&quot;&gt;Diesel&lt;&#x2F;a&gt;. I wanted to give it a bit of a test run and see how easy it would be to convert usage from &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;sfackler&#x2F;rust-postgres&quot;&gt;tokio-postgres&lt;&#x2F;a&gt;.  So as the next saga in the jobq series (&lt;a href=&quot;..&#x2F;implementing-a-jobq&#x2F;&quot;&gt;part 1&lt;&#x2F;a&gt;, &lt;a href=&quot;..&#x2F;implementing-a-jobq-with-tokio&#x2F;&quot;&gt;part 2&lt;&#x2F;a&gt;), we will be converting &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;jobq&quot;&gt;jobq&lt;&#x2F;a&gt; crate to use &lt;code&gt;sqlx&lt;&#x2F;code&gt;.  You can find the &lt;em&gt;SQLx&lt;&#x2F;em&gt; branch here: &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;jobq&#x2F;tree&#x2F;sqlx&quot;&gt;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;jobq&#x2F;tree&#x2F;sqlx&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
+      </item>
+      <item>
+          <title>Implementing a Job queue with SQLx and Postgres</title>
+          <pubDate>Fri, 26 Jun 2020 00:00:00 +0000</pubDate>
+          <author>Unknown</author>
+          <link>https://cetra3.github.io/blog/implementing-a-jobq-sqlx/</link>
+          <guid>https://cetra3.github.io/blog/implementing-a-jobq-sqlx/</guid>
+          <description>&lt;p&gt;&lt;strong&gt;SQLx&lt;&#x2F;strong&gt; is a new &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;launchbadge&#x2F;sqlx&quot;&gt;async SQL Toolkit&lt;&#x2F;a&gt; for rust that is closer to standard SQL than a more opinionated ORM like &lt;a href=&quot;http:&#x2F;&#x2F;diesel.rs&#x2F;&quot;&gt;Diesel&lt;&#x2F;a&gt;. I wanted to give it a bit of a test run and see how easy it would be to convert usage from &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;sfackler&#x2F;rust-postgres&quot;&gt;tokio-postgres&lt;&#x2F;a&gt;.  So as the next saga in the jobq series (&lt;a href=&quot;..&#x2F;implementing-a-jobq&#x2F;&quot;&gt;part 1&lt;&#x2F;a&gt;, &lt;a href=&quot;..&#x2F;implementing-a-jobq-with-tokio&#x2F;&quot;&gt;part 2&lt;&#x2F;a&gt;), we will be converting &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;jobq&quot;&gt;jobq&lt;&#x2F;a&gt; crate to use &lt;code&gt;sqlx&lt;&#x2F;code&gt;.  You can find the &lt;em&gt;SQLx&lt;&#x2F;em&gt; branch here: &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;jobq&#x2F;tree&#x2F;sqlx&quot;&gt;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;jobq&#x2F;tree&#x2F;sqlx&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
 &lt;p&gt;As a little spoiler: I found it quite easy to adjust and a pleasure to use but found the documentation a little lacking.&lt;&#x2F;p&gt;
 &lt;h2 id=&quot;object-relational-mappers-orms&quot;&gt;Object Relational Mappers (ORMs)&lt;&#x2F;h2&gt;
 &lt;p&gt;&lt;strong&gt;ORMs&lt;&#x2F;strong&gt; definitely serve a purpose. &lt;em&gt;ORMs&lt;&#x2F;em&gt; provide an opinionated way to manage the database schema and craft queries in an easy way.  Normally you construct queries using builders, or other language constructs, and get given the results back straight in your language types (structs in the case of rust).  Migration is a lot easier as most offer a managed way to run migrations for you.  You don&#x27;t need to know SQL either, and can simply run functions in your language to build up queries to the database.&lt;&#x2F;p&gt;
@@ -1175,13 +1445,14 @@
 &lt;p&gt;One area which may need some improvement is the documentation &amp;amp; examples.  As it is a comparitively young library with the &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;launchbadge&#x2F;sqlx&#x2F;commit&#x2F;d29b24abf0f491d912333f34d7b5187e4c30bb08&quot;&gt;first commit a year ago&lt;&#x2F;a&gt;, I assume that this will only get better with time.  The &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;launchbadge&#x2F;sqlx&quot;&gt;README&lt;&#x2F;a&gt;  and &lt;a href=&quot;https:&#x2F;&#x2F;docs.rs&#x2F;sqlx&quot;&gt;api docs&lt;&#x2F;a&gt; were enough for me to get into trouble.&lt;&#x2F;p&gt;
 &lt;p&gt;If you are looking to talk to a database with async rust, make sure you consider SQLx!&lt;&#x2F;p&gt;
 </description>
-        </item>
-        <item>
-            <title>Drawing SVG Graphs with Rust</title>
-            <pubDate>Fri, 22 May 2020 00:00:00 +0000</pubDate>
-            <link>https://cetra3.github.io/blog/drawing-svg-graphs-rust/</link>
-            <guid>https://cetra3.github.io/blog/drawing-svg-graphs-rust/</guid>
-            <description>&lt;p&gt;I have just released the first version of &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;lorikeet-dash&quot;&gt;lorikeet-dash&lt;&#x2F;a&gt; and part of that exercise was to find out a way to draw SVG graphs using rust.&lt;&#x2F;p&gt;
+      </item>
+      <item>
+          <title>Drawing SVG Graphs with Rust</title>
+          <pubDate>Fri, 22 May 2020 00:00:00 +0000</pubDate>
+          <author>Unknown</author>
+          <link>https://cetra3.github.io/blog/drawing-svg-graphs-rust/</link>
+          <guid>https://cetra3.github.io/blog/drawing-svg-graphs-rust/</guid>
+          <description>&lt;p&gt;I have just released the first version of &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;lorikeet-dash&quot;&gt;lorikeet-dash&lt;&#x2F;a&gt; and part of that exercise was to find out a way to draw SVG graphs using rust.&lt;&#x2F;p&gt;
 &lt;p&gt;I thought my findings &amp;amp; approach may be useful for others looking to do the same thing and so I have documented the design evolution in this blog.&lt;&#x2F;p&gt;
 &lt;p&gt;Here&#x27;s what the end result looks like in the &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;lorikeet-dash&quot;&gt;&lt;code&gt;lorikeet-dash&lt;&#x2F;code&gt;&lt;&#x2F;a&gt; project:&lt;&#x2F;p&gt;
 &lt;p&gt;&lt;img src=&quot;https:&#x2F;&#x2F;raw.githubusercontent.com&#x2F;cetra3&#x2F;lorikeet-dash&#x2F;master&#x2F;dash.png&quot; alt=&quot;&quot; &#x2F;&gt;&lt;&#x2F;p&gt;
@@ -1630,13 +1901,14 @@ Example
 &lt;p&gt;We used tera, as a template engine, to generate an SVG chart with rust.  Some basic geometry was needed, but the results show for themselves. I hope you have found this educational and gives you some ideas.&lt;&#x2F;p&gt;
 &lt;p&gt;Also: try out &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;lorikeet-dash&quot;&gt;lorikeet-dash&lt;&#x2F;a&gt; and let me know what you think!&lt;&#x2F;p&gt;
 </description>
-        </item>
-        <item>
-            <title>Implementing a Job queue with Tokio-Serde</title>
-            <pubDate>Wed, 13 May 2020 00:00:00 +0000</pubDate>
-            <link>https://cetra3.github.io/blog/implementing-a-jobq-with-tokio/</link>
-            <guid>https://cetra3.github.io/blog/implementing-a-jobq-with-tokio/</guid>
-            <description>&lt;p&gt;In the &lt;a href=&quot;..&#x2F;implementing-a-jobq&#x2F;&quot;&gt;last blog&lt;&#x2F;a&gt; of this series, I implemented job queue with &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;tmq&quot;&gt;tmq&lt;&#x2F;a&gt;.  I noted back then that &lt;strong&gt;tmq&lt;&#x2F;strong&gt; is great if you need to interact with other languages, but may be a little overkill if you are just using rust.  I wondered what it&#x27;d take to build the job queue with a smaller library footprint, using something like &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;carllerche&#x2F;tokio-serde&quot;&gt;tokio-serde&lt;&#x2F;a&gt; instead of &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;tmq&quot;&gt;tmq&lt;&#x2F;a&gt;.  It was successful, and this blog will step through some of the changes needed.&lt;&#x2F;p&gt;
+      </item>
+      <item>
+          <title>Implementing a Job queue with Tokio-Serde</title>
+          <pubDate>Wed, 13 May 2020 00:00:00 +0000</pubDate>
+          <author>Unknown</author>
+          <link>https://cetra3.github.io/blog/implementing-a-jobq-with-tokio/</link>
+          <guid>https://cetra3.github.io/blog/implementing-a-jobq-with-tokio/</guid>
+          <description>&lt;p&gt;In the &lt;a href=&quot;..&#x2F;implementing-a-jobq&#x2F;&quot;&gt;last blog&lt;&#x2F;a&gt; of this series, I implemented job queue with &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;tmq&quot;&gt;tmq&lt;&#x2F;a&gt;.  I noted back then that &lt;strong&gt;tmq&lt;&#x2F;strong&gt; is great if you need to interact with other languages, but may be a little overkill if you are just using rust.  I wondered what it&#x27;d take to build the job queue with a smaller library footprint, using something like &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;carllerche&#x2F;tokio-serde&quot;&gt;tokio-serde&lt;&#x2F;a&gt; instead of &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;tmq&quot;&gt;tmq&lt;&#x2F;a&gt;.  It was successful, and this blog will step through some of the changes needed.&lt;&#x2F;p&gt;
 &lt;p&gt;To follow along, these changes are on the &lt;code&gt;tokio_serde&lt;&#x2F;code&gt; branch of the &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;jobq&#x2F;tree&#x2F;tokio_serde&quot;&gt;jobq repo&lt;&#x2F;a&gt;.&lt;&#x2F;p&gt;
 &lt;p&gt;If you are getting lost make sure you &lt;a href=&quot;..&#x2F;implementing-a-jobq&#x2F;&quot;&gt;review the last blog&lt;&#x2F;a&gt; to see some of the logic &amp;amp; design tradeoffs.&lt;&#x2F;p&gt;
 &lt;h2 id=&quot;what-is-tokio-serde&quot;&gt;What is Tokio-Serde&lt;&#x2F;h2&gt;
@@ -1878,13 +2150,14 @@ Example
 &lt;p&gt;Implementing a more barebones messaging system native in rust took not much time at all.  While this solution is not nearly as robust as using ZeroMQ, it does provide a more building blocks approach to messaging, reducing external dependencies.  I found the hardest portion was gluing everything together between the 3 main crates and getting the types right.  &lt;em&gt;Tokio-Serde&lt;&#x2F;em&gt; could use a bit more fleshing out and does seem quite embryonic still, but it is enough to get your hands dirty.&lt;&#x2F;p&gt;
 &lt;p&gt;The initial design of the jobq made it easy to slot in another transport layer as well.  All the structs &amp;amp; types were all ready and rolling to go, we just needed a couple of extra libraries to fill in the pieces.&lt;&#x2F;p&gt;
 </description>
-        </item>
-        <item>
-            <title>Lorikeet 0.11.0 - Upgrading to async</title>
-            <pubDate>Tue, 21 Apr 2020 00:00:00 +0000</pubDate>
-            <link>https://cetra3.github.io/blog/lorikeet-0-11-0/</link>
-            <guid>https://cetra3.github.io/blog/lorikeet-0-11-0/</guid>
-            <description>&lt;p&gt;I have just spent some time doing an initial async version of &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;lorikeet&quot;&gt;lorikeet&lt;&#x2F;a&gt; now that the async&#x2F;await syntax is stable and the ecosystem has caught up.  The major blocker was reqwest, as this is used extensively in the &lt;code&gt;http&lt;&#x2F;code&gt; test.&lt;&#x2F;p&gt;
+      </item>
+      <item>
+          <title>Lorikeet 0.11.0 - Upgrading to async</title>
+          <pubDate>Tue, 21 Apr 2020 00:00:00 +0000</pubDate>
+          <author>Unknown</author>
+          <link>https://cetra3.github.io/blog/lorikeet-0-11-0/</link>
+          <guid>https://cetra3.github.io/blog/lorikeet-0-11-0/</guid>
+          <description>&lt;p&gt;I have just spent some time doing an initial async version of &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;lorikeet&quot;&gt;lorikeet&lt;&#x2F;a&gt; now that the async&#x2F;await syntax is stable and the ecosystem has caught up.  The major blocker was reqwest, as this is used extensively in the &lt;code&gt;http&lt;&#x2F;code&gt; test.&lt;&#x2F;p&gt;
 &lt;p&gt;This async version is available now as version &lt;code&gt;0.11.0&lt;&#x2F;code&gt;.  You can also install the cli by running &lt;code&gt;cargo install lorikeet&lt;&#x2F;code&gt;.&lt;&#x2F;p&gt;
 &lt;h2 id=&quot;what-is-lorikeet&quot;&gt;What is Lorikeet&lt;&#x2F;h2&gt;
 &lt;p&gt;&lt;strong&gt;Lorikeet&lt;&#x2F;strong&gt; is a command line tool and a rust library to run tests for smoke testing and integration testing.  &lt;em&gt;Lorikeet&lt;&#x2F;em&gt; currently supports bash commands and simple HTTP requests along with system information (RAM, Disk &amp;amp; CPU).  There is more information on the &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;lorikeet&quot;&gt;github readme&lt;&#x2F;a&gt; about how to write test files, including how to structure dependent tests and make assertions on the output.&lt;&#x2F;p&gt;
@@ -1974,13 +2247,14 @@ Example
 &lt;p&gt;I was happy with the ease at which it was to convert existing sections to async by sprinkling a few keywords here and there.  I am concerned that it is too easy to have blocking sections, so I hope there is some tooling&#x2F;linting around that in the future.&lt;&#x2F;p&gt;
 &lt;p&gt;Please give lorikeet a go and try out some of the newer features from &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;lorikeet&quot;&gt;the readme&lt;&#x2F;a&gt;!&lt;&#x2F;p&gt;
 </description>
-        </item>
-        <item>
-            <title>Implementing a Job queue with Tokio, PostgreSQL &amp; ZeroMQ</title>
-            <pubDate>Thu, 09 Apr 2020 00:00:00 +0000</pubDate>
-            <link>https://cetra3.github.io/blog/implementing-a-jobq/</link>
-            <guid>https://cetra3.github.io/blog/implementing-a-jobq/</guid>
-            <description>&lt;p&gt;One of the challenges I have had with on premise solutions is the lack of reliable environments and constrained resources.   Not only are you limited in your ability to control things, you need to ensure that things continue on in the case of failure.&lt;&#x2F;p&gt;
+      </item>
+      <item>
+          <title>Implementing a Job queue with Tokio, PostgreSQL &amp; ZeroMQ</title>
+          <pubDate>Thu, 09 Apr 2020 00:00:00 +0000</pubDate>
+          <author>Unknown</author>
+          <link>https://cetra3.github.io/blog/implementing-a-jobq/</link>
+          <guid>https://cetra3.github.io/blog/implementing-a-jobq/</guid>
+          <description>&lt;p&gt;One of the challenges I have had with on premise solutions is the lack of reliable environments and constrained resources.   Not only are you limited in your ability to control things, you need to ensure that things continue on in the case of failure.&lt;&#x2F;p&gt;
 &lt;p&gt;I was tasked with rewriting the job processing pipeline for my company&#x27;s product, &lt;a href=&quot;https:&#x2F;&#x2F;www.schoolbench.com.au&#x2F;&quot;&gt;SchoolBench&lt;&#x2F;a&gt;, to ensure a greater level of robustness in the case of service or system failure.&lt;&#x2F;p&gt;
 &lt;p&gt;This article steps through an approach to this using async rust &amp;amp; the help of tokio ZeroMQ library: &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;tmq&quot;&gt;tmq&lt;&#x2F;a&gt; along with &lt;a href=&quot;https:&#x2F;&#x2F;crates.io&#x2F;crates&#x2F;tokio-postgres&quot;&gt;tokio-postgres&lt;&#x2F;a&gt;.&lt;&#x2F;p&gt;
 &lt;p&gt;As some excellent work has been put in bringing tmq to async, I thought it pertinent to look at reapproaching the pipeline using async code.  I have published an &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;jobq&quot;&gt;initial prototype&lt;&#x2F;a&gt; of what the end result may look like, and will be stepping through the approach here, and some of the tradeoffs I made&lt;&#x2F;p&gt;
@@ -2499,13 +2773,14 @@ Example
 &lt;p&gt;Taking a few libraries and gluing them together we can get a pretty decent, albeit rough, outline of a background job queue.  The new &lt;code&gt;async&#x2F;await&lt;&#x2F;code&gt; ecosystem while embryonic already has the tools there to build some cool stuff.&lt;&#x2F;p&gt;
 &lt;p&gt;There will be a separate article around the release of &lt;code&gt;tmq&lt;&#x2F;code&gt; version &lt;code&gt;0.2.0&lt;&#x2F;code&gt; and some of the changes that have been made, but thought it might be great to provide a good example of working code before getting aroudn to that.&lt;&#x2F;p&gt;
 </description>
-        </item>
-        <item>
-            <title>Handling Breaking API Changes</title>
-            <pubDate>Mon, 03 Feb 2020 00:00:00 +0000</pubDate>
-            <link>https://cetra3.github.io/blog/breaking-api-changes/</link>
-            <guid>https://cetra3.github.io/blog/breaking-api-changes/</guid>
-            <description>&lt;p&gt;While upgrading dependencies (basically deleting &lt;code&gt;Cargo.lock&lt;&#x2F;code&gt;) in a big rust project I hit an issue.  A &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;serde-rs&#x2F;json&#x2F;commit&#x2F;97f87f2587037dcd50b9504815ee1f1540b1c2b8&quot;&gt;new commit&lt;&#x2F;a&gt; in &lt;code&gt;serde_json&lt;&#x2F;code&gt; caused has upstream failure in another library, &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;mtdowling&#x2F;jmespath.rs&#x2F;issues&#x2F;33&quot;&gt;jmespath&lt;&#x2F;a&gt;, and possibly more crates. Because these structs and enums visibility has changed, this could be interpreted as a breaking change, depending on what you consider &lt;em&gt;public&lt;&#x2F;em&gt;.&lt;&#x2F;p&gt;
+      </item>
+      <item>
+          <title>Handling Breaking API Changes</title>
+          <pubDate>Mon, 03 Feb 2020 00:00:00 +0000</pubDate>
+          <author>Unknown</author>
+          <link>https://cetra3.github.io/blog/breaking-api-changes/</link>
+          <guid>https://cetra3.github.io/blog/breaking-api-changes/</guid>
+          <description>&lt;p&gt;While upgrading dependencies (basically deleting &lt;code&gt;Cargo.lock&lt;&#x2F;code&gt;) in a big rust project I hit an issue.  A &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;serde-rs&#x2F;json&#x2F;commit&#x2F;97f87f2587037dcd50b9504815ee1f1540b1c2b8&quot;&gt;new commit&lt;&#x2F;a&gt; in &lt;code&gt;serde_json&lt;&#x2F;code&gt; caused has upstream failure in another library, &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;mtdowling&#x2F;jmespath.rs&#x2F;issues&#x2F;33&quot;&gt;jmespath&lt;&#x2F;a&gt;, and possibly more crates. Because these structs and enums visibility has changed, this could be interpreted as a breaking change, depending on what you consider &lt;em&gt;public&lt;&#x2F;em&gt;.&lt;&#x2F;p&gt;
 &lt;p&gt;While &lt;code&gt;jmespath&lt;&#x2F;code&gt; was doing the wrong thing here, using undocumented API, it got me thinking about what can library maintainers and library consumers do to ensure semver compatibility, and what tools are out there to assist both groups.&lt;&#x2F;p&gt;
 &lt;h2 id=&quot;what-is-semantic-versioning&quot;&gt;What is Semantic Versioning&lt;&#x2F;h2&gt;
 &lt;p&gt;Semantic versioning (semver) is one standard used for version numbers which appears to have gained the most traction.   Since cargo and friends use semver to identify what versions to use, it is important to understand (excuse my pun) the semantics of what this means.&lt;&#x2F;p&gt;
@@ -2590,13 +2865,14 @@ to prevent the breakage from affecting dependencies.&lt;&#x2F;p&gt;
 &lt;p&gt;With more libraries reaching &lt;code&gt;1.0.0&lt;&#x2F;code&gt; I think it&#x27;s important to introduce more safety nets for library authors and consumers.  As an idea, we can potentially see whether a crate has breaking change through lints etc.. so why don&#x27;t we do that when we publish to crates.io?&lt;&#x2F;p&gt;
 &lt;p&gt;There is a lot of room for improvement here, and as new users come on board and new companies look at adopting, it&#x27;s important that the stability of semver is maintained.  I still think the way that cargo handles this is much better than other ecosystems.&lt;&#x2F;p&gt;
 </description>
-        </item>
-        <item>
-            <title>Lessons learnt updating a library to std::future</title>
-            <pubDate>Wed, 22 Jan 2020 00:00:00 +0000</pubDate>
-            <link>https://cetra3.github.io/blog/mpart-async-0-3-0/</link>
-            <guid>https://cetra3.github.io/blog/mpart-async-0-3-0/</guid>
-            <description>&lt;p&gt;With the new &lt;code&gt;std::future&lt;&#x2F;code&gt; way of doing things and &lt;a href=&quot;https:&#x2F;&#x2F;tokio.rs&quot;&gt;tokio&lt;&#x2F;a&gt; slowly reaching maturation, it&#x27;s time to look at updating the libraries out there that are using &lt;em&gt;the old ways&lt;&#x2F;em&gt;.  For one of my libraries, &lt;a href=&quot;https:&#x2F;&#x2F;crates.io&#x2F;crates&#x2F;tmq&quot;&gt;tmq&lt;&#x2F;a&gt;, a Tokio ZeroMQ library, there is some &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;tmq&#x2F;pull&#x2F;5&quot;&gt;awesome work already done&lt;&#x2F;a&gt; to get this updated.&lt;&#x2F;p&gt;
+      </item>
+      <item>
+          <title>Lessons learnt updating a library to std::future</title>
+          <pubDate>Wed, 22 Jan 2020 00:00:00 +0000</pubDate>
+          <author>Unknown</author>
+          <link>https://cetra3.github.io/blog/mpart-async-0-3-0/</link>
+          <guid>https://cetra3.github.io/blog/mpart-async-0-3-0/</guid>
+          <description>&lt;p&gt;With the new &lt;code&gt;std::future&lt;&#x2F;code&gt; way of doing things and &lt;a href=&quot;https:&#x2F;&#x2F;tokio.rs&quot;&gt;tokio&lt;&#x2F;a&gt; slowly reaching maturation, it&#x27;s time to look at updating the libraries out there that are using &lt;em&gt;the old ways&lt;&#x2F;em&gt;.  For one of my libraries, &lt;a href=&quot;https:&#x2F;&#x2F;crates.io&#x2F;crates&#x2F;tmq&quot;&gt;tmq&lt;&#x2F;a&gt;, a Tokio ZeroMQ library, there is some &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;tmq&#x2F;pull&#x2F;5&quot;&gt;awesome work already done&lt;&#x2F;a&gt; to get this updated.&lt;&#x2F;p&gt;
 &lt;p&gt;But, I thought it pertinent to at least get my feet in the water to see how hard it would be, from a library maintainer perspective, to update to &lt;code&gt;std::future&lt;&#x2F;code&gt;.  For this effort, I chose my small library: &lt;a href=&quot;https:&#x2F;&#x2F;crates.io&#x2F;crates&#x2F;mpart-async&quot;&gt;mpart-async&lt;&#x2F;a&gt;.   You can see the changes I have made by comparing the &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;mpart-async&#x2F;compare&#x2F;0.2.1...0.3.0&quot;&gt;versions&lt;&#x2F;a&gt; here.  This blog is a small collection of notes &amp;amp; gotches I found when porting code across.&lt;&#x2F;p&gt;
 &lt;p&gt;&lt;code&gt;mpart-async&lt;&#x2F;code&gt; is a &lt;em&gt;mostly&lt;&#x2F;em&gt; agnostic library for client side &lt;code&gt;multipart&#x2F;form-data&lt;&#x2F;code&gt; requests.  There are existing libraries out there, like &lt;a href=&quot;https:&#x2F;&#x2F;crates.io&#x2F;crates&#x2F;multipart&quot;&gt;multipart&lt;&#x2F;a&gt;, but I found the API a little unwieldy for my taste (That: and async support is &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;abonander&#x2F;multipart-async&quot;&gt;still in alpha&lt;&#x2F;a&gt; according to the readme). I wanted something that worked, and was simple, but didn&#x27;t offer an opinion on the web client. I use both the &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;actix&#x2F;actix-web&#x2F;tree&#x2F;master&#x2F;awc&quot;&gt;actix client&lt;&#x2F;a&gt; &amp;amp;  &lt;a href=&quot;https:&#x2F;&#x2F;crates.io&#x2F;crates&#x2F;hyper&quot;&gt;hyper&lt;&#x2F;a&gt; to make multipart requests depending on the project.&lt;&#x2F;p&gt;
 &lt;p&gt;The challenge is that with multipart requests you mostly have fields &amp;amp; binary files.  For binary files, you can appreciate, should not be buffered entirely in memory, but streamed out as the bytes become available.  So &lt;code&gt;mpart-async&lt;&#x2F;code&gt; works with multiple internal streams of files and also provides a &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;mpart-async&#x2F;blob&#x2F;981ba0437e19fa47f94a913cf9aaa4717fbe12bc&#x2F;src&#x2F;filestream.rs&quot;&gt;convenience wrapper&lt;&#x2F;a&gt; (if using tokio) for sending files given a path.&lt;&#x2F;p&gt;
@@ -2769,13 +3045,14 @@ to prevent the breakage from affecting dependencies.&lt;&#x2F;p&gt;
 &lt;p&gt;The omission of the &lt;code&gt;Error&lt;&#x2F;code&gt; associated type to me actually makes things less ergonomic and things a little more fragmented (as evidenced by 3 &lt;code&gt;*StreamExt&lt;&#x2F;code&gt; traits..).  I was an advocate of this initially, but there probably needs to be a bit more work in making this nicer.&lt;&#x2F;p&gt;
 &lt;p&gt;There are still a lot of libraries out there that will be required to be updated, a lot of old blogs that are no longer relevant, and a lot of exploration that needs to be done to see how the async ecosystem falls out.  But considering the friction of updating is quite small, I am quitely optimistic!&lt;&#x2F;p&gt;
 </description>
-        </item>
-        <item>
-            <title>My Wishes for Rust 2020</title>
-            <pubDate>Wed, 30 Oct 2019 00:00:00 +0000</pubDate>
-            <link>https://cetra3.github.io/blog/rust-2020/</link>
-            <guid>https://cetra3.github.io/blog/rust-2020/</guid>
-            <description>&lt;p&gt;2019 was another huge year for rust, but instead of implementing the shiny new thing, it&#x27;s been a focus on refining existing ideas.&lt;&#x2F;p&gt;
+      </item>
+      <item>
+          <title>My Wishes for Rust 2020</title>
+          <pubDate>Wed, 30 Oct 2019 00:00:00 +0000</pubDate>
+          <author>Unknown</author>
+          <link>https://cetra3.github.io/blog/rust-2020/</link>
+          <guid>https://cetra3.github.io/blog/rust-2020/</guid>
+          <description>&lt;p&gt;2019 was another huge year for rust, but instead of implementing the shiny new thing, it&#x27;s been a focus on refining existing ideas.&lt;&#x2F;p&gt;
 &lt;p&gt;Having being using rust professionally for over 3 years, I feel I will very soon be regailing new rust developers of the times before NLL &amp;amp; async, where we had to play &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;rust-lang&#x2F;rfcs&#x2F;blob&#x2F;master&#x2F;text&#x2F;2094-nll.md#problem-case-3-conditional-control-flow-across-functions&quot;&gt;lexicon-fu&lt;&#x2F;a&gt; to get things like caches to work in a reasonable fashion, or using super dooper combinator chains and wrestling with futures types (&lt;code&gt;Either::A&#x2F;B&lt;&#x2F;code&gt; anyone?).&lt;&#x2F;p&gt;
 &lt;p&gt;So I&#x27;d like to make clear my acknowledgement that I am happy with the direction that the rust language is heading in, and these requests are really nice to haves.&lt;&#x2F;p&gt;
 &lt;h2 id=&quot;the-future-of-futures&quot;&gt;The Future of Futures&lt;&#x2F;h2&gt;
@@ -2816,13 +3093,14 @@ to prevent the breakage from affecting dependencies.&lt;&#x2F;p&gt;
 &lt;p&gt;I don&#x27;t feel there is a need for another epoch just yet, considering we&#x27;re still working through the current one.&lt;&#x2F;p&gt;
 &lt;p&gt;Let&#x27;s work towards polishing the async ecosystem for this year, and hopefully we&#x27;ll have a very compelling story for everyone else to get involved.&lt;&#x2F;p&gt;
 </description>
-        </item>
-        <item>
-            <title>Face Detection with Actix Web</title>
-            <pubDate>Thu, 11 Apr 2019 00:00:00 +0000</pubDate>
-            <link>https://cetra3.github.io/blog/face-detection-with-actix-web/</link>
-            <guid>https://cetra3.github.io/blog/face-detection-with-actix-web/</guid>
-            <description>&lt;p&gt;Last article I wrote about how to &lt;a href=&quot;https:&#x2F;&#x2F;cetra3.github.io&#x2F;blog&#x2F;face-detection-with-tensorflow-rust&#x2F;&quot;&gt;use tensorflow with rust&lt;&#x2F;a&gt;.  This time we&#x27;re going to take what we&#x27;ve built on, and serve it as an HTTP API call.  As &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;actix&#x2F;actix-web&quot;&gt;Actix Web&lt;&#x2F;a&gt; is nearing its inevitable &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;actix&#x2F;actix-web&#x2F;issues&#x2F;722&quot;&gt;1.0 release&lt;&#x2F;a&gt;, I thought it would be a great time to build something with it.&lt;&#x2F;p&gt;
+      </item>
+      <item>
+          <title>Face Detection with Actix Web</title>
+          <pubDate>Thu, 11 Apr 2019 00:00:00 +0000</pubDate>
+          <author>Unknown</author>
+          <link>https://cetra3.github.io/blog/face-detection-with-actix-web/</link>
+          <guid>https://cetra3.github.io/blog/face-detection-with-actix-web/</guid>
+          <description>&lt;p&gt;Last article I wrote about how to &lt;a href=&quot;https:&#x2F;&#x2F;cetra3.github.io&#x2F;blog&#x2F;face-detection-with-tensorflow-rust&#x2F;&quot;&gt;use tensorflow with rust&lt;&#x2F;a&gt;.  This time we&#x27;re going to take what we&#x27;ve built on, and serve it as an HTTP API call.  As &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;actix&#x2F;actix-web&quot;&gt;Actix Web&lt;&#x2F;a&gt; is nearing its inevitable &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;actix&#x2F;actix-web&#x2F;issues&#x2F;722&quot;&gt;1.0 release&lt;&#x2F;a&gt;, I thought it would be a great time to build something with it.&lt;&#x2F;p&gt;
 &lt;p&gt;This article assumes you have some knowledge about &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;rust-lang-nursery&#x2F;futures-rs&quot;&gt;Futures&lt;&#x2F;a&gt; and how they work. I will do my best to explain in simpler terms, but understanding the futures ecosystem would be quite handy to help work through this article. For this, I suggest you start with &lt;a href=&quot;https:&#x2F;&#x2F;tokio.rs&#x2F;&quot;&gt;tokio&lt;&#x2F;a&gt;.&lt;&#x2F;p&gt;
 &lt;p&gt;&lt;em&gt;(Some people have suggested waiting for async&#x2F;await and friends to land before diving into Futures.  I think you should get your hands dirty now: async programming will always be challenging and the changes being introduced only affect ergonomics, not fundamentals)&lt;&#x2F;em&gt;&lt;&#x2F;p&gt;
 &lt;p&gt;Once again for the impatient, you can find the reference code here on the &lt;code&gt;actix-web&lt;&#x2F;code&gt; branch: &lt;&#x2F;p&gt;
@@ -3404,13 +3682,14 @@ to prevent the breakage from affecting dependencies.&lt;&#x2F;p&gt;
 &lt;p&gt;&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;actix&#x2F;examples&quot;&gt;https:&#x2F;&#x2F;github.com&#x2F;actix&#x2F;examples&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
 &lt;p&gt;I look forward to seeing what the community builds in the future!&lt;&#x2F;p&gt;
 </description>
-        </item>
-        <item>
-            <title>Face Detection with Tensorflow Rust</title>
-            <pubDate>Thu, 28 Mar 2019 00:00:00 +0000</pubDate>
-            <link>https://cetra3.github.io/blog/face-detection-with-tensorflow-rust/</link>
-            <guid>https://cetra3.github.io/blog/face-detection-with-tensorflow-rust/</guid>
-            <description>&lt;p&gt;One of the promises of machine learning is to be able to use it for object recognition in photos.  This includes being able to pick out features such as animals, buildings and even faces.&lt;&#x2F;p&gt;
+      </item>
+      <item>
+          <title>Face Detection with Tensorflow Rust</title>
+          <pubDate>Thu, 28 Mar 2019 00:00:00 +0000</pubDate>
+          <author>Unknown</author>
+          <link>https://cetra3.github.io/blog/face-detection-with-tensorflow-rust/</link>
+          <guid>https://cetra3.github.io/blog/face-detection-with-tensorflow-rust/</guid>
+          <description>&lt;p&gt;One of the promises of machine learning is to be able to use it for object recognition in photos.  This includes being able to pick out features such as animals, buildings and even faces.&lt;&#x2F;p&gt;
 &lt;p&gt;This article will step you through using some existing models to accomplish face detection using rust and &lt;a href=&quot;https:&#x2F;&#x2F;www.tensorflow.org&#x2F;&quot;&gt;tensorflow&lt;&#x2F;a&gt;.  For the impatient among you, you can find the source code here: &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;mtcnn&quot;&gt;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;mtcnn&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
 &lt;p&gt;We will be using a pre-trained model called &lt;a href=&quot;https:&#x2F;&#x2F;kpzhang93.github.io&#x2F;MTCNN_face_detection_alignment&#x2F;index.html&quot;&gt;mtcnn&lt;&#x2F;a&gt; for face detection (&lt;em&gt;Note: training a new model is not something we&#x27;ll be concerned with in this article&lt;&#x2F;em&gt;).&lt;&#x2F;p&gt;
 &lt;h2 id=&quot;the-challenge&quot;&gt;The Challenge&lt;&#x2F;h2&gt;
@@ -3669,13 +3948,14 @@ to prevent the breakage from affecting dependencies.&lt;&#x2F;p&gt;
 &lt;p&gt;If you got stuck at any point, have a look at the repository here: &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;mtcnn&quot;&gt;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;mtcnn&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
 &lt;p&gt;Hopefully this gives you a good introduction to using tensorflow in rust&lt;&#x2F;p&gt;
 </description>
-        </item>
-        <item>
-            <title>TMQ 0.1.0 Release: ZeroMQ bindings for Tokio</title>
-            <pubDate>Thu, 07 Feb 2019 00:00:00 +0000</pubDate>
-            <link>https://cetra3.github.io/blog/tmq-0-1-0/</link>
-            <guid>https://cetra3.github.io/blog/tmq-0-1-0/</guid>
-            <description>&lt;p&gt;&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;tmq&quot;&gt;TMQ&lt;&#x2F;a&gt; is a rust library to use &lt;a href=&quot;http:&#x2F;&#x2F;zeromq.org&#x2F;&quot;&gt;ZeroMQ&lt;&#x2F;a&gt; within the &lt;a href=&quot;https:&#x2F;&#x2F;tokio.rs&#x2F;&quot;&gt;Tokio&lt;&#x2F;a&gt; ecosystem.  ZeroMQ is a distributed messaging queue written in C supporting a number of different messaging patterns.  While there are other options out there (including gRPC, etc..), I settled on ZeroMQ due to its cross-language support, great documentation and battle-tested nature.&lt;&#x2F;p&gt;
+      </item>
+      <item>
+          <title>TMQ 0.1.0 Release: ZeroMQ bindings for Tokio</title>
+          <pubDate>Thu, 07 Feb 2019 00:00:00 +0000</pubDate>
+          <author>Unknown</author>
+          <link>https://cetra3.github.io/blog/tmq-0-1-0/</link>
+          <guid>https://cetra3.github.io/blog/tmq-0-1-0/</guid>
+          <description>&lt;p&gt;&lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;cetra3&#x2F;tmq&quot;&gt;TMQ&lt;&#x2F;a&gt; is a rust library to use &lt;a href=&quot;http:&#x2F;&#x2F;zeromq.org&#x2F;&quot;&gt;ZeroMQ&lt;&#x2F;a&gt; within the &lt;a href=&quot;https:&#x2F;&#x2F;tokio.rs&#x2F;&quot;&gt;Tokio&lt;&#x2F;a&gt; ecosystem.  ZeroMQ is a distributed messaging queue written in C supporting a number of different messaging patterns.  While there are other options out there (including gRPC, etc..), I settled on ZeroMQ due to its cross-language support, great documentation and battle-tested nature.&lt;&#x2F;p&gt;
 &lt;p&gt;&lt;a href=&quot;https:&#x2F;&#x2F;crates.io&#x2F;crates&#x2F;tmq&#x2F;0.1.0&quot;&gt;Version &lt;code&gt;0.1.0&lt;&#x2F;code&gt;&lt;&#x2F;a&gt; is an alpha release which implements &lt;code&gt;request&lt;&#x2F;code&gt;, &lt;code&gt;response&lt;&#x2F;code&gt;, &lt;code&gt;publish&lt;&#x2F;code&gt; and &lt;code&gt;subscribe&lt;&#x2F;code&gt; style sockets.&lt;&#x2F;p&gt;
 &lt;h2 id=&quot;usage-example&quot;&gt;Usage Example&lt;&#x2F;h2&gt;
 &lt;p&gt;This example uses &lt;code&gt;tmq&lt;&#x2F;code&gt; to subscribe to messages, and then prints them out via &lt;a href=&quot;https:&#x2F;&#x2F;github.com&#x2F;seanmonstar&#x2F;pretty-env-logger&quot;&gt;pretty-env-logger&lt;&#x2F;a&gt;:&lt;&#x2F;p&gt;
@@ -3785,13 +4065,14 @@ to prevent the breakage from affecting dependencies.&lt;&#x2F;p&gt;
 &lt;p&gt;Version &lt;code&gt;0.1.0&lt;&#x2F;code&gt; is the first real release, with previous releases having to vendor in the &lt;code&gt;zmq&lt;&#x2F;code&gt; library in order to publish.   While it is alpha, I don&#x27;t plan to change what is there currently unless there is a compelling reason to do so.&lt;&#x2F;p&gt;
 &lt;p&gt;Please give &lt;a href=&quot;https:&#x2F;&#x2F;crates.io&#x2F;crates&#x2F;tmq&quot;&gt;tmq&lt;&#x2F;a&gt; a try and let me know your thoughts!&lt;&#x2F;p&gt;
 </description>
-        </item>
-        <item>
-            <title>My Wishes for Rust 2019</title>
-            <pubDate>Fri, 14 Dec 2018 00:00:00 +0000</pubDate>
-            <link>https://cetra3.github.io/blog/rust-2019/</link>
-            <guid>https://cetra3.github.io/blog/rust-2019/</guid>
-            <description>&lt;p&gt;2018 was a massive year for rust, and it&#x27;s great to reflect back on how far we&#x27;ve all come.  My main wish for the new year is to put on the breaks a little bit, and finish off what has been started without taking on anything majorly new.&lt;&#x2F;p&gt;
+      </item>
+      <item>
+          <title>My Wishes for Rust 2019</title>
+          <pubDate>Fri, 14 Dec 2018 00:00:00 +0000</pubDate>
+          <author>Unknown</author>
+          <link>https://cetra3.github.io/blog/rust-2019/</link>
+          <guid>https://cetra3.github.io/blog/rust-2019/</guid>
+          <description>&lt;p&gt;2018 was a massive year for rust, and it&#x27;s great to reflect back on how far we&#x27;ve all come.  My main wish for the new year is to put on the breaks a little bit, and finish off what has been started without taking on anything majorly new.&lt;&#x2F;p&gt;
 &lt;p&gt;There are a couple of areas that I feel need more attention than most (purely for selfish reasons of course!):&lt;&#x2F;p&gt;
 &lt;h2 id=&quot;compiler-times-ide-support-and-rls&quot;&gt;Compiler Times, IDE Support and RLS&lt;&#x2F;h2&gt;
 &lt;p&gt;I think RLS is great.  I think &lt;code&gt;cargo check&lt;&#x2F;code&gt; is great too.  Sometimes when I am waiting for RLS to finish in VSCode, I run &lt;code&gt;cargo check&lt;&#x2F;code&gt; in a terminal to see who wins the race.  Sometimes I get results faster from the &lt;code&gt;cargo check&lt;&#x2F;code&gt; than I do in RLS.  I&#x27;m not sure why that is, it might be that I&#x27;m making a lot of small edits, and RLS is constantly restarting. I am assuming that the plumbing for both methods is rather similar.  On average, if I just adjust whitespace on one of my projects, it takes at least 10 seconds to recompile.  If I change any trivial bit of code, this doubles to 20 seconds.&lt;&#x2F;p&gt;
@@ -3815,6 +4096,6 @@ to prevent the breakage from affecting dependencies.&lt;&#x2F;p&gt;
 &lt;p&gt;I think rust has come a long way and still has a long way to go.  I focused a lot of energy on &lt;a href=&quot;https:&#x2F;&#x2F;www.schoolbench.com.au&#x2F;&quot;&gt;writing apps&lt;&#x2F;a&gt; in rust this year, and will undoubtably accelerate the usage as time goes on.&lt;&#x2F;p&gt;
 &lt;p&gt;I hope that the rust team has time to put on the breaks, and apply a bit of polish before doing anything major.  I also hope I have more time to contribute some bits and pieces here and there to make the community better.&lt;&#x2F;p&gt;
 </description>
-        </item>
+      </item>
     </channel>
 </rss>
