@@ -20,6 +20,10 @@
         <lastmod>2020-02-03</lastmod>
     </url>
     <url>
+        <loc>https://cetra3.github.io/blog/creating-your-own-derive-macro/</loc>
+        <lastmod>2023-07-23</lastmod>
+    </url>
+    <url>
         <loc>https://cetra3.github.io/blog/drawing-svg-graphs-rust/</loc>
         <lastmod>2020-05-22</lastmod>
     </url>
@@ -76,6 +80,9 @@
     </url>
     <url>
         <loc>https://cetra3.github.io/tags/async/</loc>
+    </url>
+    <url>
+        <loc>https://cetra3.github.io/tags/divedb/</loc>
     </url>
     <url>
         <loc>https://cetra3.github.io/tags/lorikeet/</loc>
