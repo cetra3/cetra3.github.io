@@ -84,11 +84,11 @@
 </span><span>}
 </span></code></pre>
 <h2 id="crate-layout">Crate Layout</h2>
-<p>You will need at minimum 3 crates to do this:</p>
+<p>You will need at minimum 2 crates to do this:</p>
 <ul>
 <li>One crate for the macro itself.  I.e, it has <code>proc-macro = true</code> in the Manifest, I called this <code>macro</code></li>
 <li>One crate has the definitions of the trait. I have called this <code>core</code>.  This crate will include the macro as a dependency</li>
-<li>One crate to actually use <code>core</code> and derive things</li>
+<li>Any extra crates that require this can depend on <code>core</code></li>
 </ul>
 <h2 id="procedural-macro-crate">Procedural Macro Crate</h2>
 <p>A Procedural Macro Crate is built at compile time and can influence your source code, pretty much by injecting source code in the form of &quot;tokens&quot; in-line with the rest of your code. </p>
@@ -183,13 +183,13 @@
 </span><span>})</span><span style="color:#ccc9c2cc;">;
 </span></code></pre>
 <p>Ok, now we have a list of fields, and for each field, we have a snippet of source code, the next is to combine them and implement the <code>FromRow</code> trait.  Once again we can use <code>quote!</code> to do this.</p>
-<p>Another thing worth noting is that it's as if the proc macro literally injects a bit of source code in-line where you call derive. This means that if you are going to refer to any structs/crates/modules etc.. it makes things a lot easier to refer to them via their full path.  I.e, don't put <code>Row</code>, put <code>tokio_postgres::Row</code> instead.</p>
+<p>Another thing worth noting is that it's as if the proc macro literally injects a bit of source code in-line where you call derive. This means that if you are going to refer to any structs/crates/modules etc.. it makes things a lot easier to refer to them via their full path.  I.e, don't put <code>Row</code>, put <code>::tokio_postgres::Row</code> instead.</p>
 <p>With that in mind, here's our simple <code>quote!</code> statement:</p>
 <pre data-lang="rust" style="background-color:#212733;color:#ccc9c2;" class="language-rust "><code class="language-rust" data-lang="rust"><span style="color:#ffa759;">let</span><span> name </span><span style="color:#f29e74;">=</span><span> input</span><span style="color:#f29e74;">.</span><span>ident</span><span style="color:#ccc9c2cc;">;
 </span><span>
 </span><span style="color:#f28779;">quote!</span><span>(
-</span><span style="color:#ffa759;">impl </span><span>divedb_core</span><span style="color:#f29e74;">::</span><span>FromRow </span><span style="color:#ffa759;">for</span><span> #</span><span style="color:#73d0ff;">name </span><span>{
-</span><span>    </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">from_row</span><span>(</span><span style="color:#ffcc66;">row</span><span style="color:#ccc9c2cc;">: </span><span>tokio_postgres</span><span style="color:#f29e74;">::</span><span>Row) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span>&lt;</span><span style="color:#ffa759;">Self</span><span>, anyhow</span><span style="color:#f29e74;">::</span><span>Error&gt; {
+</span><span style="color:#ffa759;">impl </span><span style="color:#f29e74;">::</span><span>divedb_core</span><span style="color:#f29e74;">::</span><span>FromRow </span><span style="color:#ffa759;">for</span><span> #</span><span style="color:#73d0ff;">name </span><span>{
+</span><span>    </span><span style="color:#ffa759;">fn </span><span style="color:#ffd580;">from_row</span><span>(</span><span style="color:#ffcc66;">row</span><span style="color:#ccc9c2cc;">: </span><span style="color:#f29e74;">::</span><span>tokio_postgres</span><span style="color:#f29e74;">::</span><span>Row) </span><span style="color:#ccc9c2cc;">-&gt; </span><span style="font-style:italic;color:#5ccfe6;">Result</span><span>&lt;</span><span style="color:#ffa759;">Self</span><span>, </span><span style="color:#f29e74;">::</span><span>anyhow</span><span style="color:#f29e74;">::</span><span>Error&gt; {
 </span><span>        </span><span style="font-style:italic;color:#5ccfe6;">Ok</span><span>(</span><span style="color:#ffa759;">Self </span><span>{
 </span><span>            </span><span style="color:#f29e74;">#</span><span>(</span><span style="color:#f29e74;">#</span><span>field_vals)</span><span style="color:#ccc9c2cc;">,</span><span style="color:#f29e74;">*
 </span><span>        })
