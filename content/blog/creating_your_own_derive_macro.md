@@ -66,11 +66,11 @@ impl FromRow for DiveMetric {
 
 ## Crate Layout
 
-You will need at minimum 3 crates to do this:
+You will need at minimum 2 crates to do this:
 
 * One crate for the macro itself.  I.e, it has `proc-macro = true` in the Manifest, I called this `macro`
 * One crate has the definitions of the trait. I have called this `core`.  This crate will include the macro as a dependency
-* One crate to actually use `core` and derive things
+* Any extra crates that require this can depend on `core`
 
 
 ## Procedural Macro Crate
@@ -212,7 +212,7 @@ let field_vals = fields.named.iter().map(|field| {
 
 Ok, now we have a list of fields, and for each field, we have a snippet of source code, the next is to combine them and implement the `FromRow` trait.  Once again we can use `quote!` to do this.
 
-Another thing worth noting is that it's as if the proc macro literally injects a bit of source code in-line where you call derive. This means that if you are going to refer to any structs/crates/modules etc.. it makes things a lot easier to refer to them via their full path.  I.e, don't put `Row`, put `tokio_postgres::Row` instead.
+Another thing worth noting is that it's as if the proc macro literally injects a bit of source code in-line where you call derive. This means that if you are going to refer to any structs/crates/modules etc.. it makes things a lot easier to refer to them via their full path.  I.e, don't put `Row`, put `::tokio_postgres::Row` instead.
 
 With that in mind, here's our simple `quote!` statement:
 
@@ -220,8 +220,8 @@ With that in mind, here's our simple `quote!` statement:
 let name = input.ident;
 
 quote!(
-impl divedb_core::FromRow for #name {
-    fn from_row(row: tokio_postgres::Row) -> Result<Self, anyhow::Error> {
+impl ::divedb_core::FromRow for #name {
+    fn from_row(row: ::tokio_postgres::Row) -> Result<Self, ::anyhow::Error> {
         Ok(Self {
             #(#field_vals),*
         })
