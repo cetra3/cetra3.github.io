@@ -7,6 +7,10 @@
         <loc>https://cetra3.github.io/blog/</loc>
     </url>
     <url>
+        <loc>https://cetra3.github.io/blog/a-tale-of-two-lengths/</loc>
+        <lastmod>2025-05-11</lastmod>
+    </url>
+    <url>
         <loc>https://cetra3.github.io/blog/archive/1/</loc>
     </url>
     <url>
@@ -14,6 +18,9 @@
     </url>
     <url>
         <loc>https://cetra3.github.io/blog/archive/3/</loc>
+    </url>
+    <url>
+        <loc>https://cetra3.github.io/blog/archive/4/</loc>
     </url>
     <url>
         <loc>https://cetra3.github.io/blog/breaking-api-changes/</loc>

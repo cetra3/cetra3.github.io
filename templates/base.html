@@ -1,40 +1,49 @@
-<!DOCTYPE HTML>
+<!DOCTYPE html>
 <html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>{% if page.title %}{{page.title}}{% endif %}</title>
+        {% if page.description %}
+        <meta name="description" content="{{page.description}}" />
+        {% endif %}
+        <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <script
+            defer
+            data-domain="cetra3.github.io"
+            src="https://track.divedb.net/js/plausible.js"
+        ></script>
+        {%- set css = load_data(path="public/spectre.css") %}
+        <style>
+            {{ css | safe }}
+        </style>
+    </head>
 
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% if page.title %}{{page.title}}{% endif %}</title>
-    {% if page.description %}<meta name="description" content="{{page.description}}" />{% endif %}
-    <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-    <script defer data-domain="cetra3.github.io" src="https://track.divedb.net/js/plausible.js"></script>
-    {%- set css = load_data(path="public/spectre.css") %}
-    <style>{{ css | safe }}</style>
-</head>
-
-<body>
-    <header class="main-header">
-        <div class="navbar">
-        <section class="navbar-section">
-            <img src="/favicon.svg" width="30" height="30"/>
-            <a href="/" class="btn btn-link">Home</a>
-            <a href="/blog/" class="btn btn-link">Blogs</a>
-            <a href="/rss.xml" class="btn btn-link">RSS</a>
-        </section>
-        <section class="navbar-center">
-        </section>
-        <section class="navbar-section">
-            <a href="https://github.com/cetra3/" class="btn btn-link">GitHub</a>
-            <a href="https://twitter.com/cetra3" class="btn btn-link">Twitter</a>
-            <a href="https://mastodon.social/@cetra3" class="btn btn-link">Mastodon</a>
-        </section>
+    <body>
+        <header class="main-header">
+            <div class="navbar">
+                <section class="navbar-section">
+                    <img src="/favicon.svg" width="30" height="30" />
+                    <a href="/" class="btn btn-link">Home</a>
+                    <a href="/blog/" class="btn btn-link">Blogs</a>
+                    <a href="/rss.xml" class="btn btn-link">RSS</a>
+                </section>
+                <section class="navbar-center"></section>
+                <section class="navbar-section">
+                    <a href="https://github.com/cetra3/" class="btn btn-link"
+                        >GitHub</a
+                    >
+                    <a
+                        href="https://mastodon.social/@cetra3"
+                        class="btn btn-link"
+                        >Mastodon</a
+                    >
+                </section>
+            </div>
+        </header>
+        <div class="container grid-lg">
+            {% block content %} {% endblock content %}
         </div>
-    </header>
-    <div class="container grid-lg">
-        {% block content %}
-        {% endblock content %}
-    </div>
-</body>
-
+    </body>
 </html>
