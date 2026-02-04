@@ -1,6 +1,12 @@
 <!doctype html>
 <meta charset="utf-8">
-<link rel="canonical" href="https://cetra3.github.io/blog/">
-<meta http-equiv="refresh" content="0; url=https://cetra3.github.io/blog/">
 <title>Redirect</title>
+<script>
+  const target = "https://cetra3.github.io/blog/";
+  const hash = window.location.hash || "";
+  window.location.replace(target + hash);
+</script>
+<noscript>
+  <meta http-equiv="refresh" content="0; url=https://cetra3.github.io/blog/">
+</noscript>
 <p><a href="https://cetra3.github.io/blog/">Click here</a> to be redirected.</p>

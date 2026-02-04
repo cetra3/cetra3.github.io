@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Creating MCP Servers in Rust</title>
+        
+        <meta name="description" content="A journey of how I created an MCP Server in Rust and the road blocks I had along the way" />
+        
+        <link rel="alternate" type="application/rss+xml" href="/rss.xml" />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <script
+            defer
+            data-domain="cetra3.github.io"
+            src="https://track.divedb.net/js/plausible.js"
+        ></script>
+        <style>
+            html{font-family:sans-serif;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;}body{margin:0}article,aside,footer,header,nav,section{display:block}h1{font-size:2em;margin:.67em 0}figcaption,figure,main{display:block}hr{box-sizing:content-box;height:0;overflow:visible;}a{background-color:rgba(0,0,0,0);-webkit-text-decoration-skip:objects;}a:active,a:hover{outline-width:0}address{font-style:normal}b,strong{font-weight:inherit}b,strong{font-weight:bolder}code,kbd,pre,samp{font-family:"SF Mono","Segoe UI Mono","Roboto Mono",Menlo,Courier,monospace;font-size:1em;}dfn{font-style:italic}small{font-size:80%;font-weight:400;}sub,sup{font-size:75%;line-height:0;position:relative;vertical-align:baseline}sub{bottom:-.25em}sup{top:-.5em}audio,video{display:inline-block}audio:not([controls]){display:none;height:0}img{border-style:none}svg:not(:root){overflow:hidden}button,input,optgroup,select,textarea{font-family:inherit;font-size:inherit;line-height:inherit;margin:0;}button,input{overflow:visible}button,select{text-transform:none}button,html [type=button],[type=reset],[type=submit]{-webkit-appearance:button;}button::-moz-focus-inner,[type=button]::-moz-focus-inner,[type=reset]::-moz-focus-inner,[type=submit]::-moz-focus-inner{border-style:none;padding:0}fieldset{border:0;margin:0;padding:0}legend{box-sizing:border-box;color:inherit;display:table;max-width:100%;padding:0;white-space:normal;}progress{display:inline-block;vertical-align:baseline;}textarea{overflow:auto}[type=checkbox],[type=radio]{box-sizing:border-box;padding:0;}[type=number]::-webkit-inner-spin-button,[type=number]::-webkit-outer-spin-button{height:auto}[type=search]{-webkit-appearance:textfield;outline-offset:-2px;}[type=search]::-webkit-search-cancel-button,[type=search]::-webkit-search-decoration{-webkit-appearance:none}::-webkit-file-upload-button{-webkit-appearance:button;font:inherit;}details,menu{display:block}summary{display:list-item;outline:none}canvas{display:inline-block}template{display:none}[hidden]{display:none}*,*::before,*::after{box-sizing:inherit}html{box-sizing:border-box;font-size:20px;line-height:1.5;-webkit-tap-highlight-color:rgba(0,0,0,0)}body{background:#303742;color:#fff;font-family:-apple-system,system-ui,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;font-size:.8rem;overflow-x:hidden;text-rendering:optimizeLegibility}a{color:#73c6ec;outline:none;text-decoration:none}a:focus{box-shadow:0 0 0 .1rem rgba(115,198,236,.2)}a:focus,a:hover,a:active,a.active{color:#46b4e6;text-decoration:underline}a:visited{color:#a0d8f2}h1,h2,h3,h4,h5,h6{color:inherit;font-weight:700;line-height:1.2;margin-bottom:.5rem;margin-top:0}.h1,.h2,.h3,.h4,.h5,.h6{font-weight:700}h1,.h1{font-size:2rem}h2,.h2{font-size:1.6rem}h3,.h3{font-size:1.4rem}h4,.h4{font-size:1.2rem}h5,.h5{font-size:1rem}h6,.h6{font-size:.8rem}p{margin:0 0 1.2rem}a,ins,u{text-decoration-skip:ink edges}abbr[title]{border-bottom:.05rem dotted;cursor:help;text-decoration:none}kbd{border-radius:.1rem;line-height:1.2;padding:.1rem .2rem;background:#303742;color:#fff;font-size:.7rem}mark{background:#ffe9b3;color:#fff;border-bottom:.05rem solid #ffd367;border-radius:.1rem;padding:.05rem .1rem 0}blockquote{border-left:.1rem solid #dadee4;margin-left:0;padding:.4rem .8rem}blockquote p:last-child{margin-bottom:0}ul,ol{margin:.8rem 0 .8rem .8rem;padding:0}ul ul,ul ol,ol ul,ol ol{margin:.8rem 0 .8rem .8rem}ul li,ol li{margin-top:.4rem}ul{list-style:disc inside}ul ul{list-style-type:circle}ol{list-style:decimal inside}ol ol{list-style-type:lower-alpha}dl dt{font-weight:bold}dl dd{margin:.4rem 0 .8rem 0}.btn{appearance:none;background:#fff;border:.05rem solid #73c6ec;border-radius:.1rem;color:#73c6ec;cursor:pointer;display:inline-block;font-size:.8rem;height:2.5rem;line-height:1.2rem;outline:none;padding:.6rem .4rem;text-align:center;text-decoration:none;transition:background .2s,border .2s,box-shadow .2s,color .2s;user-select:none;vertical-align:middle;white-space:nowrap}.btn:focus{box-shadow:0 0 0 .1rem rgba(115,198,236,.2)}.btn:focus,.btn:hover{background:#fff;border-color:#66c1ea;text-decoration:none}.btn:active,.btn.active{background:#66c1ea;border-color:#4fb7e7;color:#fff;text-decoration:none}.btn:active.loading::after,.btn.active.loading::after{border-bottom-color:#fff;border-left-color:#fff}.btn[disabled],.btn:disabled,.btn.disabled{cursor:default;opacity:.5;pointer-events:none}.btn.btn-primary{background:#73c6ec;border-color:#66c1ea;color:#fff}.btn.btn-primary:focus,.btn.btn-primary:hover{background:#5dbde9;border-color:#4fb7e7;color:#fff}.btn.btn-primary:active,.btn.btn-primary.active{background:#54b9e8;border-color:#46b4e6;color:#fff}.btn.btn-primary.loading::after{border-bottom-color:#fff;border-left-color:#fff}.btn.btn-success{background:#32b643;border-color:#2faa3f;color:#fff}.btn.btn-success:focus{box-shadow:0 0 0 .1rem rgba(50,182,67,.2)}.btn.btn-success:focus,.btn.btn-success:hover{background:#30ae40;border-color:#2da23c;color:#fff}.btn.btn-success:active,.btn.btn-success.active{background:#2a9a39;border-color:#278e34;color:#fff}.btn.btn-success.loading::after{border-bottom-color:#fff;border-left-color:#fff}.btn.btn-error{background:#e85600;border-color:#d95000;color:#fff}.btn.btn-error:focus{box-shadow:0 0 0 .1rem rgba(232,86,0,.2)}.btn.btn-error:focus,.btn.btn-error:hover{background:#de5200;border-color:#cf4d00;color:#fff}.btn.btn-error:active,.btn.btn-error.active{background:#c44900;border-color:#b54300;color:#fff}.btn.btn-error.loading::after{border-bottom-color:#fff;border-left-color:#fff}.btn.btn-link{background:rgba(0,0,0,0);border-color:rgba(0,0,0,0);color:#73c6ec}.btn.btn-link:focus,.btn.btn-link:hover,.btn.btn-link:active,.btn.btn-link.active{color:#46b4e6}.btn.btn-sm{font-size:.7rem;height:1.4rem;padding:.05rem .3rem}.btn.btn-lg{font-size:.9rem;height:2rem;padding:.35rem .6rem}.btn.btn-block{display:block;width:100%}.btn.btn-action{width:2.5rem;padding-left:0;padding-right:0}.btn.btn-action.btn-sm{width:1.4rem}.btn.btn-action.btn-lg{width:2rem}.btn.btn-clear{background:rgba(0,0,0,0);border:0;color:currentColor;height:1rem;line-height:.8rem;margin-left:.2rem;margin-right:-2px;opacity:1;padding:.1rem;text-decoration:none;width:1rem}.btn.btn-clear:focus,.btn.btn-clear:hover{background:rgba(48,55,66,.5);opacity:.95}.btn.btn-clear::before{content:"✕"}.btn-group{display:inline-flex;flex-wrap:wrap}.btn-group .btn{flex:1 0 auto}.btn-group .btn:first-child:not(:last-child){border-bottom-right-radius:0;border-top-right-radius:0}.btn-group .btn:not(:first-child):not(:last-child){border-radius:0;margin-left:-.05rem}.btn-group .btn:last-child:not(:first-child){border-bottom-left-radius:0;border-top-left-radius:0;margin-left:-.05rem}.btn-group .btn:focus,.btn-group .btn:hover,.btn-group .btn:active,.btn-group .btn.active{z-index:1}.btn-group.btn-group-block{display:flex}.btn-group.btn-group-block .btn{flex:1 0 0}.label{border-radius:.1rem;line-height:1.2;padding:.1rem .2rem;background:#39414e;color:#e6e6e6;display:inline-block}.label.label-rounded{border-radius:5rem;padding-left:.4rem;padding-right:.4rem}.label.label-primary{background:#0b3e55;color:#fff}.label.label-secondary{background:#fff;color:#73c6ec}.label.label-success{background:#32b643;color:#fff}.label.label-warning{background:#ffb700;color:#fff}.label.label-error{background:#e85600;color:#fff}p code{border-radius:.1rem;line-height:1.2;padding:.1rem .2rem;background:#0f4e6b;color:#fff;font-size:85%}.code{border-radius:.1rem;color:#fff;position:relative}.code::before{color:#bcc3ce;content:attr(data-lang);font-size:.7rem;position:absolute;right:.4rem;top:.1rem}.code code{background:#303742;color:inherit;display:block;line-height:1.5;overflow-x:auto;padding:1rem;width:100%}.container{margin-left:auto;margin-right:auto;padding-left:.4rem;padding-right:.4rem;width:100%}.container.grid-xl{max-width:1296px}.container.grid-lg{max-width:976px}.container.grid-md{max-width:856px}.container.grid-sm{max-width:616px}.container.grid-xs{max-width:496px}.show-xs,.show-sm,.show-md,.show-lg,.show-xl{display:none !important}.columns{display:flex;flex-wrap:wrap;margin-left:-.4rem;margin-right:-.4rem}.columns.col-gapless{margin-left:0;margin-right:0}.columns.col-gapless>.column{padding-left:0;padding-right:0}.columns.col-oneline{flex-wrap:nowrap;overflow-x:auto}.column{flex:1;max-width:100%;padding-left:.4rem;padding-right:.4rem}.column.col-12,.column.col-11,.column.col-10,.column.col-9,.column.col-8,.column.col-7,.column.col-6,.column.col-5,.column.col-4,.column.col-3,.column.col-2,.column.col-1{flex:none}.col-12{width:100%}.col-11{width:91.66666667%}.col-10{width:83.33333333%}.col-9{width:75%}.col-8{width:66.66666667%}.col-7{width:58.33333333%}.col-6{width:50%}.col-5{width:41.66666667%}.col-4{width:33.33333333%}.col-3{width:25%}.col-2{width:16.66666667%}.col-1{width:8.33333333%}.col-auto{flex:0 0 auto;max-width:none;width:auto}.col-mx-auto{margin-left:auto;margin-right:auto}.col-ml-auto{margin-left:auto}.col-mr-auto{margin-right:auto}@media (max-width: 1280px){.col-xl-12,.col-xl-11,.col-xl-10,.col-xl-9,.col-xl-8,.col-xl-7,.col-xl-6,.col-xl-5,.col-xl-4,.col-xl-3,.col-xl-2,.col-xl-1{flex:none}.col-xl-12{width:100%}.col-xl-11{width:91.66666667%}.col-xl-10{width:83.33333333%}.col-xl-9{width:75%}.col-xl-8{width:66.66666667%}.col-xl-7{width:58.33333333%}.col-xl-6{width:50%}.col-xl-5{width:41.66666667%}.col-xl-4{width:33.33333333%}.col-xl-3{width:25%}.col-xl-2{width:16.66666667%}.col-xl-1{width:8.33333333%}.hide-xl{display:none !important}.show-xl{display:block !important}}@media (max-width: 960px){.col-lg-12,.col-lg-11,.col-lg-10,.col-lg-9,.col-lg-8,.col-lg-7,.col-lg-6,.col-lg-5,.col-lg-4,.col-lg-3,.col-lg-2,.col-lg-1{flex:none}.col-lg-12{width:100%}.col-lg-11{width:91.66666667%}.col-lg-10{width:83.33333333%}.col-lg-9{width:75%}.col-lg-8{width:66.66666667%}.col-lg-7{width:58.33333333%}.col-lg-6{width:50%}.col-lg-5{width:41.66666667%}.col-lg-4{width:33.33333333%}.col-lg-3{width:25%}.col-lg-2{width:16.66666667%}.col-lg-1{width:8.33333333%}.hide-lg{display:none !important}.show-lg{display:block !important}}@media (max-width: 840px){.col-md-12,.col-md-11,.col-md-10,.col-md-9,.col-md-8,.col-md-7,.col-md-6,.col-md-5,.col-md-4,.col-md-3,.col-md-2,.col-md-1{flex:none}.col-md-12{width:100%}.col-md-11{width:91.66666667%}.col-md-10{width:83.33333333%}.col-md-9{width:75%}.col-md-8{width:66.66666667%}.col-md-7{width:58.33333333%}.col-md-6{width:50%}.col-md-5{width:41.66666667%}.col-md-4{width:33.33333333%}.col-md-3{width:25%}.col-md-2{width:16.66666667%}.col-md-1{width:8.33333333%}.hide-md{display:none !important}.show-md{display:block !important}}@media (max-width: 600px){.col-sm-12,.col-sm-11,.col-sm-10,.col-sm-9,.col-sm-8,.col-sm-7,.col-sm-6,.col-sm-5,.col-sm-4,.col-sm-3,.col-sm-2,.col-sm-1{flex:none}.col-sm-12{width:100%}.col-sm-11{width:91.66666667%}.col-sm-10{width:83.33333333%}.col-sm-9{width:75%}.col-sm-8{width:66.66666667%}.col-sm-7{width:58.33333333%}.col-sm-6{width:50%}.col-sm-5{width:41.66666667%}.col-sm-4{width:33.33333333%}.col-sm-3{width:25%}.col-sm-2{width:16.66666667%}.col-sm-1{width:8.33333333%}.hide-sm{display:none !important}.show-sm{display:block !important}}@media (max-width: 480px){.col-xs-12,.col-xs-11,.col-xs-10,.col-xs-9,.col-xs-8,.col-xs-7,.col-xs-6,.col-xs-5,.col-xs-4,.col-xs-3,.col-xs-2,.col-xs-1{flex:none}.col-xs-12{width:100%}.col-xs-11{width:91.66666667%}.col-xs-10{width:83.33333333%}.col-xs-9{width:75%}.col-xs-8{width:66.66666667%}.col-xs-7{width:58.33333333%}.col-xs-6{width:50%}.col-xs-5{width:41.66666667%}.col-xs-4{width:33.33333333%}.col-xs-3{width:25%}.col-xs-2{width:16.66666667%}.col-xs-1{width:8.33333333%}.hide-xs{display:none !important}.show-xs{display:block !important}}.navbar{align-items:stretch;display:flex;flex-wrap:wrap;justify-content:space-between;margin-left:auto;margin-right:auto;max-width:960px}.navbar .navbar-section{align-items:center;display:flex;flex:1 0 0}.navbar .navbar-section:not(:first-child):last-child{justify-content:flex-end}.navbar .navbar-center{align-items:center;display:flex;flex:0 0 auto}.navbar .navbar-brand{font-size:.9rem;text-decoration:none}pre{padding:.5rem .5rem;border-radius:.3rem;overflow-y:auto}.giallo-l{display:inline-block;min-height:1lh;width:100%}.giallo-ln{display:inline-block;user-select:none;margin-right:.4em;padding:.4em;min-width:3ch;text-align:right;opacity:.8}.post header{border-radius:.3rem;padding:.5rem;margin-bottom:.5rem}.post header h1{margin-bottom:0}.post section{padding:.5rem;background-color:#2a3039;border-radius:.3rem}.post img{display:block;margin:0 auto;max-width:100%}.post .utterances{max-width:none !important}.card{margin-bottom:.5rem}.main-header{margin-bottom:.5rem;background-color:#272d36;box-shadow:0 20rem 20rem 20rem rgba(115,198,236,.2)}.card{background:#2a3039;border-radius:.3rem;display:flex;flex-direction:column}.card .card-header,.card .card-body,.card .card-footer{padding:.8rem;padding-bottom:0}.card .card-header:last-child,.card .card-body:last-child,.card .card-footer:last-child{padding-bottom:.8rem}.card .card-body{flex:1 1 auto}.card .card-image{padding-top:.8rem}.card .card-image:first-child{padding-top:0}.card .card-image:first-child img{border-top-left-radius:.1rem;border-top-right-radius:.1rem}.card .card-image:last-child img{border-bottom-left-radius:.1rem;border-bottom-right-radius:.1rem}
+        </style>
+    </head>
+
+    <body>
+        <header class="main-header">
+            <div class="navbar">
+                <section class="navbar-section">
+                    <img src="/favicon.svg" width="30" height="30" />
+                    <a href="/" class="btn btn-link">Home</a>
+                    <a href="/blog/" class="btn btn-link">Blogs</a>
+                    <a href="/rss.xml" class="btn btn-link">RSS</a>
+                </section>
+                <section class="navbar-center"></section>
+                <section class="navbar-section">
+                    <a href="https://github.com/cetra3/" class="btn btn-link"
+                        >GitHub</a
+                    >
+                    <a
+                        href="https://mastodon.social/@cetra3"
+                        class="btn btn-link"
+                        >Mastodon</a
+                    >
+                </section>
+            </div>
+        </header>
+        <div class="container grid-lg">
+            
+<article class="post">
+  <header>
+  <h1>Creating MCP Servers in Rust </h1>
+  <em>A journey of how I created an MCP Server in Rust and the road blocks I had along the way</em>
+  <br />
+  
+  <small class="label label-primary">rust</small> <small class="label label-primary">mcp</small> <small class="label label-primary">crdt</small> <small class="label">2026-02-01</small>
+  
+  </header>
+  <section>
+    <p>MCP servers are useful tools that allow AI agents the ability to interact with applications in a prescribed fashion.  I wanted to understand how they put together so I could work out where/how they are useful.</p>
+<p>One of the things I found when first investigating them, is that there aren't <em>that</em> many MCP servers that are written in rust, most are either NodeJS or Python.  So this is my journey of how I went about creating <code>todo-mcp</code>: a rust based todo list MCP server, with local state synchronisation and desktop/android app.</p>
+<p>Todo MCP is open source, and available at <a rel="external" href="https://github.com/cetra3/todo-mcp">https://github.com/cetra3/todo-mcp</a></p>
+<p><img src="/photos/dioxus-todo-mcp.png" alt="" /></p>
+<h2 id="mcp-servers-and-requirements">MCP Servers and Requirements</h2>
+<p>The <em>very</em> first challenge I ran into was that, if you have a number of agent windows open, they will all spawn <em>separate</em> MCP processes. If you are integrating with a remote web server, this isn't much of an issue, as they will be essentially wrappers over API calls to a service that can handle multiple clients.</p>
+<p>However, if you wanted a more "local-first" approach, this becomes a little hard without some state synchronisation between processes. There isn't any central server to ask state for, and more often than not, when I think of a todo to write, I don't want to have to be at home, or even connected to any network.</p>
+<p>I also wanted to have a "companion app" open so that I could see my todo lists without having to use an MCP server at all, and mobile support, so I could use it when I am out of the house.</p>
+<p>I had experimented already with <a rel="external" href="https://automerge.org/"><code>automerge</code></a> and its associated API in <a rel="external" href="https://github.com/cetra3/mpad/"><code>mpad</code></a> to make a multiplayer text pad, and thought it would be a good fit for this project. We could use the same strategy here: use automerge CRDTs and persist to disk periodically and then when another connection to another process is made (either on the same device or on another device), then it could reconcile changes made, and update the state accordingly.</p>
+<h2 id="automerge-and-crdts">Automerge and CRDTs</h2>
+<p><a rel="external" href="https://automerge.org/">Automerge</a> uses <a rel="external" href="https://en.wikipedia.org/wiki/Conflict-free_replicated_data_type">Conflict-free Replicated Data Types (CRDTs)</a> to ensure data synchronisation without a central authority. A CRDT is a data structure that will ensure "eventual consistency" to state, with some smarts around merging multiple disparate sources.</p>
+<p>An example of a CRDT (one of the more simpler ones) is a Grow Only set. Say you have two separate processes that have a set of values that are shared:</p>
+<p>Process A has:</p>
+<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;"><code data-lang="plain"><span class="giallo-l"><span>- Value A</span></span></code></pre>
+<p>Process B has:</p>
+<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;"><code data-lang="plain"><span class="giallo-l"><span>- Value B</span></span>
+<span class="giallo-l"><span>- Value C</span></span></code></pre>
+<p>To merge/reconcile this, you can see the obvious choice is:</p>
+<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;"><code data-lang="plain"><span class="giallo-l"><span>- Value A</span></span>
+<span class="giallo-l"><span>- Value B</span></span>
+<span class="giallo-l"><span>- Value C</span></span></code></pre>
+<p>The most important thing is that the output state converges. If Process A sends an update before Process B, or vice versa, the result is the same. This type of CRDT, however, is quite simplistic, and doesn't allow you to do more complex state changes. You can imagine an extension to this would be to add another set for "removed" values, so you could remove the values from the set.</p>
+<p>I.e, if starting from the last merge an update is sent like:</p>
+<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;"><code data-lang="plain"><span class="giallo-l"><span>Remove:</span></span>
+<span class="giallo-l"><span>- Value B</span></span></code></pre>
+<p>Then the state is:</p>
+<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;"><code data-lang="plain"><span class="giallo-l"><span>Added:</span></span>
+<span class="giallo-l"><span>- Value A</span></span>
+<span class="giallo-l"><span>- Value B</span></span>
+<span class="giallo-l"><span>- Value C</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>Removed:</span></span>
+<span class="giallo-l"><span>- Value B</span></span></code></pre>
+<p>&amp; the merged state is:</p>
+<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;"><code data-lang="plain"><span class="giallo-l"><span>- Value A</span></span>
+<span class="giallo-l"><span>- Value C</span></span></code></pre>
+<p>This is sometimes called a Two Phase Set. It allows you to add &amp; remove values from a set, but once a value is removed, it can't be re-added back.</p>
+<p>To extend this again to allow items to be added/removed multiple times, you could add a timestamp to each of the values, when they were added or removed, and they are added/removed based upon which set the value is in, and the newest timestamp (AKA Last Write Wins).</p>
+<p>You can see as this gets more complex, a lot of bookkeeping is required.</p>
+<p>For different types of data, like text, lists, objects, there are a <em>number</em> of different types of CRDTs available, that can sometimes be composed together to create complex state shapes. That's where <code>automerge</code> comes in.</p>
+<p><code>automerge</code> provides a number of CRDTs you can use to build out your state:</p>
+<ul>
+<li>Composite nested CRDTs such as lists, objects and text</li>
+<li>Primitive CRDTs such as counters, numbers, booleans</li>
+</ul>
+<h3 id="autosurgeon">Autosurgeon</h3>
+<p>CRDTs are a good tool to use, and <code>automerge</code> provides some great foundations for using them. However, like manually writing JSON structures is a pain, and we derive with <a rel="external" href="https://serde.rs/"><code>serde</code></a> most of the time, we can use <a rel="external" href="https://github.com/automerge/autosurgeon"><code>autosurgeon</code></a> to automatically derive a rust structure, converting it into something that can be used with <code>automerge</code> CRDTs</p>
+<p>So for a <code>todo</code> like structure, we can write:</p>
+<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;"><code data-lang="rust"><span class="giallo-l"><span style="color: #FFA659;">use</span><span style="color: #73D0FF;"> autosurgeon</span><span style="color: #F29E74;">::</span><span>{</span><span style="color: #73D0FF;">Reconcile</span><span>,</span><span style="color: #73D0FF;"> Hydrate</span><span>};</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>#[derive(</span><span style="color: #73D0FF;">Reconcile</span><span>,</span><span style="color: #73D0FF;"> Hydrate</span><span>)]</span></span>
+<span class="giallo-l"><span style="color: #FFA659;">struct</span><span style="color: #73D0FF;"> TodoList</span><span> {</span></span>
+<span class="giallo-l"><span>  todos</span><span style="color: #F29E74;">:</span><span style="color: #73D0FF;"> Vec</span><span>&lt;</span><span style="color: #73D0FF;">Todo</span><span>&gt;</span></span>
+<span class="giallo-l"><span>}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>#[derive(</span><span style="color: #73D0FF;">Reconcile</span><span>,</span><span style="color: #73D0FF;"> Hydrate</span><span>)]</span></span>
+<span class="giallo-l"><span style="color: #FFA659;">struct</span><span style="color: #73D0FF;"> Todo</span><span> {</span></span>
+<span class="giallo-l"><span>    title</span><span style="color: #F29E74;">:</span><span style="color: #73D0FF;"> String</span><span>,</span></span>
+<span class="giallo-l"><span>    completed</span><span style="color: #F29E74;">:</span><span style="color: #73D0FF;"> bool</span></span>
+<span class="giallo-l"><span>}</span></span></code></pre>
+<p>And use the hydrate/reconcile methods in <code>autosurgeon</code> to manage state changes for us.</p>
+<p>This is <em>not</em> without challenges, however, and seeding new processes can be tricky. When writing <code>mpad</code> I encountered a bit of an <a rel="external" href="https://github.com/automerge/automerge/issues/528">issue around this</a>, which has not been resolved as of this blog. However I have managed to work around it for now.</p>
+<h2 id="sending-state-via-multicast">Sending State via Multicast</h2>
+<p>I elected to use Multicast to send state changes to other instances.  Multicast is (normally) a LAN protocol, that allows 1 or more processes the ability to register for packets to the same IP address/Port combo (Within the specific Multicast IP range of <code>224.0.0.0/4</code>).</p>
+<p>With a bit of setup when creating a UDP socket, you can retrieve packets destined to the ip/port pairing.  The OS will send an IGMP group request, which hopefully your router/switch will respect, and start sending packets to your socket.  Sending packets is pretty easy, you just send them to the same ip/port as things are listening.</p>
+<p>However, UDP does not have the same guarantees as TCP, and with multicast TCP can't be used.</p>
+<h3 id="simple-multicast-protocol">Simple Multicast Protocol</h3>
+<p>I've elected to create a pretty bare-bones protocol for use with UDP for sending packets from "sites" (i.e, instances of a process).  Essentially, given any payload to send over the network it will:</p>
+<ul>
+<li>Chunk it down to fit into the standard Ethernet MTU (which is normally 1500 bytes but I capped it 1400 for a bit of headroom)</li>
+<li>Send the site id, which is randomly generated by each process on startup, I <em>could</em> use the sender ip/port but that doesn't deal with reconnections/network changes.</li>
+<li>Send a sequence number, the current payload number being sent</li>
+<li>Send a total length of the sequence <code>num</code>, which is how many packets will be sent for this payload</li>
+<li>Send an index number (what packet number this is for the given sequence)</li>
+<li>Finally the payload</li>
+</ul>
+<p>With this we have semi-reliable network communications.  It hasn't been widely tested with packet loss etc.. but it's enough to get started.  Some improvements in the future we could do <code>NACK</code> style handling, whereby if we missed a sequence, we can request the full state from that site etc.. but for now this was enough to work reliably well in testing.  Already when a "site" reconnects due to network changes, it resends its full state for reconciliation each time in the first message.</p>
+<h2 id="choosing-a-gui-framework">Choosing a GUI Framework</h2>
+<p>One design decision I made was that I wanted a little companion app around seeing and interacting with Todos. I also wanted support for using it on my android phone, so a cross platform UI was necessary.</p>
+<h3 id="slint-the-first-attempt">Slint: The First Attempt</h3>
+<p>Slint is a rust first cross platform GUI framework with some nice editor plugins and some good primitives to get you started.</p>
+<p><img src="/photos/slint-todo-mcp.png" alt="" /></p>
+<p>I wrote an initial version using slint, and was happy with how lightweight it was and would still consider it for new projects. However I ran into two bugs when doing some lightweight QA:</p>
+<p>Undo/Redo functionality did not update the <code>TextInput</code>, so there was no real way to get the text from the GUI and feed it into my CRDT: <a rel="external" href="https://github.com/slint-ui/slint/issues/9205">https://github.com/slint-ui/slint/issues/9205</a>. For this one I <a rel="external" href="https://github.com/slint-ui/slint/pull/9272">raised a PR and got it fixed</a>.</p>
+<p>Text Editing on Android was not working. With garbled text and other weirdness: <a rel="external" href="https://github.com/slint-ui/slint/issues/9240">https://github.com/slint-ui/slint/issues/9240</a>. Turns out because I wasn't using the standard android keyboard, this caused issues. I tried a good half a day to try and fix this, by looking at <a rel="external" href="https://github.com/slint-ui/slint/blob/master/internal/backends/android-activity/java/SlintAndroidJavaHelper.java">the companion Java helper</a> that is used to manage inputs, but gave up in the end.</p>
+<p>While I still think Slint is perfect for this, these issues made it seem like a bit of an uphill battle to implement something pretty simple. Most of the guts of this application isn't in UI, so I can swap it out for any frame work. So for now, I moved onto something I had been meaning to try for a while: <a rel="external" href="https://dioxuslabs.com/">Dioxus</a>.</p>
+<h3 id="dioxus-embracing-webview">Dioxus: Embracing Webview</h3>
+<p>Dioxus is cross platform, but it is not native, rather it uses a webview to display the UI. There are some great time savers like hot reloading, and support for Tailwind CSS is pretty easy. Plus, I have coded enough websites to understand the quirks of that ecosystem enough to know I could get myself out of trouble. It took me far less time to get things up and running, and initial testing showed that there weren't any major flaws.</p>
+<p>One feature I added immediately was the ability to have multiple todo lists in a collapsible fashion:</p>
+<p><img src="/photos/dioxus-todo-mcp.png" alt="" /></p>
+<p>The one downside is memory usage: it is essentially embedding a full browser on Desktop and so uses a lot more RAM and resources. There are some potential avenues for addressing this, such as an <a rel="external" href="https://dioxuslabs.com/learn/0.7/beyond/project_structure#renderers">experimental native renderer</a> in the works, so hopefully this will be a good solution in the future.</p>
+<h2 id="mcp-server-libraries">MCP Server Libraries</h2>
+<p>There is first class support for rust MCP servers via the <a rel="external" href="https://github.com/modelcontextprotocol/rust-sdk"><code>rmcp</code></a> crate. However, this was <em>also</em> not without issues. When running an MCP process within <a rel="external" href="https://zed.dev/">Zed</a>, it failed to run. Turns out that some of the schema definitions were wrong and didn't match the spec. I raised a PR and got this fixed as well: <a rel="external" href="https://github.com/modelcontextprotocol/rust-sdk/pull/377">https://github.com/modelcontextprotocol/rust-sdk/pull/377</a></p>
+<p>With <code>rmcp</code> you can use derive macros to build your MCP server:</p>
+<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;"><code data-lang="rust"><span class="giallo-l"><span>#[tool_router]</span></span>
+<span class="giallo-l"><span style="color: #FFA659;">impl</span><span style="color: #73D0FF;"> TodoMcp</span><span> {</span></span>
+<span class="giallo-l"><span style="color: #F29E74;">    ...</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>    #[tool(description </span><span style="color: #F29E74;">=</span><span style="color: #D5FF80;"> &quot;Get all todo lists&quot;</span><span>)]</span></span>
+<span class="giallo-l"><span style="color: #FFA659;">    async fn</span><span style="color: #FFCD66;"> get_todos</span><span>(</span></span>
+<span class="giallo-l"><span style="color: #F29E74;">        &amp;</span><span style="color: #5CCFE6;font-style: italic;">self</span><span>,</span></span>
+<span class="giallo-l"><span style="color: #FFCD66;">        Parameters</span><span>(params)</span><span style="color: #F29E74;">:</span><span style="color: #73D0FF;"> Parameters</span><span>&lt;</span><span style="color: #73D0FF;">GetListParams</span><span>&gt;,</span></span>
+<span class="giallo-l"><span>    )</span><span style="color: #F29E74;"> -&gt;</span><span style="color: #73D0FF;"> Result</span><span>&lt;</span><span style="color: #73D0FF;">Json</span><span>&lt;</span><span style="color: #73D0FF;">TodoListsResponse</span><span>&gt;,</span><span style="color: #73D0FF;"> McpError</span><span>&gt; {</span></span>
+<span class="giallo-l"><span style="color: #FFA659;">        let</span><span> state</span><span style="color: #F29E74;"> =</span><span style="color: #5CCFE6;font-style: italic;"> self</span><span style="color: #F29E74;">.</span><span>todo_state</span><span style="color: #F29E74;">.</span><span style="color: #FFCD66;">read</span><span>()</span><span style="color: #F29E74;">?</span><span>;</span></span>
+<span class="giallo-l"><span style="color: #FFA659;">        let</span><span> response</span><span style="color: #F29E74;">:</span><span style="color: #73D0FF;"> TodoListsResponse</span><span style="color: #F29E74;"> =</span><span> (</span><span style="color: #F29E74;">&amp;*</span><span>state)</span><span style="color: #F29E74;">.</span><span style="color: #FFCD66;">into</span><span>();</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: #73D0FF;">        Ok</span><span>(</span><span style="color: #FFCD66;">Json</span><span>(response))</span></span>
+<span class="giallo-l"><span>    }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: #F29E74;">    ...</span></span></code></pre>
+<p>Then serving it is pretty easy (I only use stdio mode for MCPs):</p>
+<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;"><code data-lang="rust"><span class="giallo-l"><span style="color: #FFA659;">pub async fn</span><span style="color: #FFCD66;"> run_mcp</span><span>()</span><span style="color: #F29E74;"> -&gt;</span><span style="color: #73D0FF;"> Result</span><span>&lt;(),</span><span style="color: #73D0FF;"> Error</span><span>&gt; {</span></span>
+<span class="giallo-l"><span style="color: #FFA659;">    let</span><span> todo_mcp</span><span style="color: #F29E74;"> =</span><span style="color: #73D0FF;"> TodoMcp</span><span style="color: #F29E74;">::</span><span style="color: #FFCD66;">new</span><span>()</span><span style="color: #F29E74;">.</span><span style="color: #FFCD66;">serve</span><span>(</span><span style="color: #FFCD66;">stdio</span><span>())</span><span style="color: #F29E74;">.</span><span style="color: #FFA659;">await</span><span style="color: #F29E74;">?</span><span>;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>    todo_mcp</span><span style="color: #F29E74;">.</span><span style="color: #FFCD66;">waiting</span><span>()</span><span style="color: #F29E74;">.</span><span style="color: #FFA659;">await</span><span style="color: #F29E74;">?</span><span>;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: #73D0FF;">    Ok</span><span>(())</span></span>
+<span class="giallo-l"><span>}</span></span></code></pre><h2 id="claude-code-hook-integration">Claude Code Hook Integration</h2>
+<p>With Claude Code, while you can instrument an MCP server and run it, I wanted it to feel a little more "native" in that whenever there was a todo list in any agent session, I wanted that to be published. That way I could open my companion app on my phone, or desktop, and watch the todo list updates in real time. I could go make a coffee and wait for the todos to be completed before checking back in.</p>
+<p>To accomplish that, I made a small integration with <a rel="external" href="https://code.claude.com/docs/en/hooks">Claude Code's hook system</a>:</p>
+<p><video width="100%" autoplay muted loop src="/videos/claude-todo-mcp.mp4" ></video></p>
+<p>Because hooks execute a command (like a bash command) and exit, I wanted this to be pretty dumb and simple:</p>
+<ul>
+<li>Receive the hook JSON from stdin</li>
+<li>Reconcile the todo list &amp; work out a good name</li>
+<li>Add/Update the todo in the list when things happen in claude</li>
+</ul>
+<p>Then I can add this to <code>~/.claude/settings.json</code> to have it invoked:</p>
+<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;"><code data-lang="json"><span class="giallo-l"><span>{</span></span>
+<span class="giallo-l"><span style="color: #5CCFE6;">  &quot;hooks&quot;</span><span style="color: #CCCAC2B3;">:</span><span> {</span></span>
+<span class="giallo-l"><span style="color: #5CCFE6;">    &quot;PostToolUse&quot;</span><span style="color: #CCCAC2B3;">:</span><span> [</span></span>
+<span class="giallo-l"><span>      {</span></span>
+<span class="giallo-l"><span style="color: #5CCFE6;">        &quot;matcher&quot;</span><span style="color: #CCCAC2B3;">:</span><span style="color: #D5FF80;"> &quot;TaskCreate|TaskUpdate&quot;</span><span style="color: #CCCAC2B3;">,</span></span>
+<span class="giallo-l"><span style="color: #5CCFE6;">        &quot;hooks&quot;</span><span style="color: #CCCAC2B3;">:</span><span> [</span></span>
+<span class="giallo-l"><span>          {</span></span>
+<span class="giallo-l"><span style="color: #5CCFE6;">            &quot;type&quot;</span><span style="color: #CCCAC2B3;">:</span><span style="color: #D5FF80;"> &quot;command&quot;</span><span style="color: #CCCAC2B3;">,</span></span>
+<span class="giallo-l"><span style="color: #5CCFE6;">            &quot;command&quot;</span><span style="color: #CCCAC2B3;">:</span><span style="color: #D5FF80;"> &quot;todo-mcp hook&quot;</span></span>
+<span class="giallo-l"><span>          }</span></span>
+<span class="giallo-l"><span>        ]</span></span>
+<span class="giallo-l"><span>      }</span></span>
+<span class="giallo-l"><span>    ]</span></span>
+<span class="giallo-l"><span>  }</span></span>
+<span class="giallo-l"><span>}</span></span></code></pre>
+<p>This <em>mostly</em> works, but needs a bit more testing. The one thing is that it's hard to get a nice name for a "claude session" without a bit of song and dance, and so I have elected just to include the current working dir as a title of the list.</p>
+<p>The other problem was sometimes Claude skips creating todos and essentially adds them completed. So for this I revert back to reading it from the todo structure in <code>~/.claude/todos/</code> which seems to work and allows me to reconcile changes.</p>
+<p>Obviously a bit more testing is still needed, as I have sometimes seen it not act the way I want, and sometimes claude does not even create todo lists at all, so it's currently an open question how to address that.</p>
+<h2 id="dealing-with-network-changes">Dealing with Network Changes</h2>
+<p>When testing out this app with my phone, I went shopping and marked off my shopping on the list as I went around the store. When I got home, I noticed that the list was now out of sync, and I had to restart the app to get things going again. Not an ideal situation.</p>
+<p>What I wanted to happen was that when a network changed, I wanted to restart the multicast protocol tasks in a way that allowed me to reconcile when I came back home.</p>
+<p>So I found the great <a rel="external" href="https://github.com/thombles/netwatcher"><code>netwatcher</code></a> crate, that allows me to register a callback to fire whenever there are any network changes. This required a bit of re-architecting and decoupling of the multicast socket to the state of the app, so that we are able to continue off where we left.</p>
+<p>While it is cross platform, I had to end up creating a custom <code>AndroidManifest.xml</code> for the extra <code>ACCESS_NETWORK_STATE</code> permission, which isn't <a rel="external" href="https://github.com/DioxusLabs/dioxus/blob/main/packages/cli/assets/android/gen/app/src/main/AndroidManifest.xml.hbs">included in dioxus by default</a>.</p>
+<p>Then it was a matter of testing it. For desktop I just turned on/off the wifi with <code>iwctl</code> which would allow me to simulate network failures. And for android, I could just enable/disable wifi from settings.</p>
+<p>However, with android there is a state where your app is loaded, but it isn't currently on screen. In this state, the app will continue to run, but can't use any network sockets, returning a "permission denied" error. To work around this, I simply retry connecting every 10 seconds or so. However, there is probably a better solution, but requires a bit more investigation. I am hopeful that in newer versions of Dioxus, this will be made a lot easier, and so I'm waiting for <code>0.8</code> to see if there is an easy solution to solve it.</p>
+<h2 id="claude-code-and-frustration-driven-development">Claude Code and Frustration Driven Development</h2>
+<p>I wanted to give Claude Code a good rinse out when making this project.  A lot of the discourse around AI is extremely positive, or entirely negative, there doesn't seem to be as much nuance.  So while I started with a base that I wrote, when adding new features and testing ideas I first prompted claude to help plan out and implement them.</p>
+<p>9 times out of 10, unless it was a simple change, I found the code that it wrote was both alien and hard to follow.  If this was another colleague's PR I would sit down and work with them together to get it to a good state. But with Claude you can't do that, it never learns above the baseline, and when that context window blows out, or a new session is created, we're back to square one.</p>
+<p>It felt like, when reading Claude code changes, the entire thing was a giant code smell.  It's hard to put my finger on why it was bad, it just didn't seem like it was idiomatic, electing to take shortcuts and otherwise not understand the context of what was happening.  This gets compounded the more features and complexity your application has.  For small things, like writing tests, and doing small refactors, this was great, but for bigger things it fell down pretty quickly.</p>
+<p>So what I ended up doing is something I am coining <strong>Frustration Driven Development</strong> or <strong>FDD</strong> for short.  This is when you have code that is written, that does what you want, just not in an ideal fashion, and so out of frustration, you rewrite it completely.</p>
+<p>There are sections of code I haven't adjusted much from Claude's initial output, and reviewing some of the source code of the initial release I can already see changes/cleanup I'd like to make.  Since this is a bit of a hobby project, I don't have much time to dedicate to making this pristine and in a state that I would be proud of.</p>
+<p>So I guess that's a small win for AI: I don't know if I would've finished it in this state without using Claude Code.  I hope that when I do get round to it, I can use some <strong>FDD</strong> to help work through some of it.</p>
+<h2 id="wrapping-up">Wrapping Up</h2>
+<p>Todo MCP was a lot of fun to write and I have been using it as my daily driver currently, replacing google keep for my todo lists. I actually end up using it more for the todo functionality rather than MCP/Claude integrations, so it's sort of evolved into something more than just an MCP server in my eyes.</p>
+<p>There were a few learnings around writing an application like this in rust, and I feel that the ecosystem around this is still very green (i.e, slint text issues &amp; rmcp not working with zed <em>at all</em>). I had to raise a few PRs and a few issues to get to where I am at, and there is still lots of missing documentation/ways to do things. I'm hopeful though that in the ensuing months/years, this will not be as big of an issue.</p>
+<p>One last thing is around the publishing of this app. There isn't a great story currently around using rust-based MCPs, for other languages you have <code>uvx</code> and <code>npx</code>, so I might end up making a wrapper to support either, just so it's a lot easier for people to try out. For now a simple <code>cargo install todo-mcp</code> will get you going.</p>
+
+  </section>
+</article>
+
+
+        </div>
+    </body>
+</html>

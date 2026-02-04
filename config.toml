@@ -15,10 +15,11 @@ description = "Blogs and Investigations mostly about Rust"
 
 taxonomies = [{name = "tags", feed = false}]
 
-[markdown]
-highlight_code = true
-highlight_theme = "ayu-mirage"
+[markdown.highlighting]
+style = "inline"
+theme = "ayu-mirage"
 
+extra_themes = ["ayu-mirage.json"]
 
 [extra]
 # Put all your custom variables here

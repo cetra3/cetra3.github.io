@@ -27,6 +27,10 @@
         <lastmod>2020-02-03</lastmod>
     </url>
     <url>
+        <loc>https://cetra3.github.io/blog/creating-mcp-servers-in-rust/</loc>
+        <lastmod>2026-02-01</lastmod>
+    </url>
+    <url>
         <loc>https://cetra3.github.io/blog/creating-your-own-derive-macro/</loc>
         <lastmod>2023-07-23</lastmod>
     </url>
@@ -89,10 +93,16 @@
         <loc>https://cetra3.github.io/tags/async/</loc>
     </url>
     <url>
+        <loc>https://cetra3.github.io/tags/crdt/</loc>
+    </url>
+    <url>
         <loc>https://cetra3.github.io/tags/divedb/</loc>
     </url>
     <url>
         <loc>https://cetra3.github.io/tags/lorikeet/</loc>
+    </url>
+    <url>
+        <loc>https://cetra3.github.io/tags/mcp/</loc>
     </url>
     <url>
         <loc>https://cetra3.github.io/tags/mpart-async/</loc>

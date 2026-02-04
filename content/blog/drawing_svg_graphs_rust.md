@@ -142,7 +142,7 @@ fn main() {
 
 Running this, should output the following SVG:
 
-<?xml version="1.0" standalone="no"?>
+<div>
 <svg
   width="100%"
   height="100%"
@@ -150,7 +150,7 @@ Running this, should output the following SVG:
   preserveAspectRatio="xMidYMid meet"
   xmlns="http://www.w3.org/2000/svg"
   >
-  <text 
+  <text
     x="400"
     y="25"
     font-family="-apple-system, system-ui, BlinkMacSystemFont, Roboto"
@@ -163,6 +163,7 @@ Running this, should output the following SVG:
     Example
   </text>
 </svg>
+</div>
 
 
 ## Drawing the Points
@@ -279,7 +280,7 @@ Then add the following to have it drawn in the SVG:
 
 If all goes well, the graph should start looking more like a graph:
 
-<?xml version="1.0" standalone="no"?>
+<div>
 <svg
   width="100%"
   height="100%"
@@ -287,7 +288,7 @@ If all goes well, the graph should start looking more like a graph:
   preserveAspectRatio="xMidYMid meet"
   xmlns="http://www.w3.org/2000/svg"
   >
-  <text 
+  <text
     x="400"
     y="25"
     font-family="-apple-system, system-ui, BlinkMacSystemFont, Roboto"
@@ -301,6 +302,7 @@ If all goes well, the graph should start looking more like a graph:
   </text>
   <path stroke="#8ff0a4" stroke-linejoin="round" d="M 190 383.33333333333337 L 330 250 L 470 283.3333333333333 L 610 50 L 750 250" stroke-width="2.0" fill="none" />
 </svg>
+</div>
 
 ## Adding in the Axis
 
@@ -339,6 +341,7 @@ We will draw 5 horizontal dashed lines, to give scale to the y value.  This will
 
 Now our graph will be a bit easier to read:
 
+<div>
 <?xml version="1.0" standalone="no"?>
 <svg
   width="100%"
@@ -367,6 +370,7 @@ Now our graph will be a bit easier to read:
   <path stroke="#74838f" stroke-width="2" fill="none"  d="M 50 450 L 750 450" />
   <path stroke="#8ff0a4" stroke-linejoin="round" d="M 190 383.33333333333337 L 330 250 L 470 283.3333333333333 L 610 50 L 750 250" stroke-width="2.0" fill="none" />
 </svg>
+</div>
 
 ### Vertical Lines
 
@@ -380,6 +384,7 @@ In the existing for loop, we can add the following:
 
 This will create nudges where we'll put our axis labels:
 
+<div>
 <?xml version="1.0" standalone="no"?>
 <svg
   width="100%"
@@ -414,6 +419,7 @@ This will create nudges where we'll put our axis labels:
   <path stroke="#74838f"  stroke-width="2.0"  d="M 750 450 L 750 460" />
   <path stroke="#8ff0a4" stroke-linejoin="round" d="M 190 383.33333333333337 L 330 250 L 470 283.3333333333333 L 610 50 L 750 250" stroke-width="2.0" fill="none" />
 </svg>
+</div>
 
 ### Axis Labels
 
@@ -468,6 +474,7 @@ And quite similarly, the x-axis can be generated the same way (width `y` being f
 
 Putting this all together, we should have our labels in the right place:
 
+<div>
 <?xml version="1.0" standalone="no"?>
 <svg
   width="100%"
@@ -514,6 +521,7 @@ Putting this all together, we should have our labels in the right place:
   <path stroke="#74838f" stroke-width="2.0"  d="M 750 450 L 750 460" />
   <path stroke="#8ff0a4" stroke-linejoin="round" d="M 190 383.33333333333337 L 330 250 L 470 283.3333333333333 L 610 50 L 750 250" stroke-width="2.0" fill="none" />
 </svg>
+</div>
 
 ### Bonus: Smooth Lines
 
@@ -521,6 +529,7 @@ One trick [I have found](http://schepers.cc/getting-to-the-point) is that you ca
 
 Using this method, you can make your charts nice and smooth:
 
+<div>
 <?xml version="1.0" standalone="no"?>
 <svg
   width="100%"
@@ -567,7 +576,7 @@ Using this method, you can make your charts nice and smooth:
   <path stroke="#74838f" stroke-width="2.0"  d="M 750 450 L 750 460" />
   <path stroke="#8ff0a4" stroke-linejoin="round" d="M 190 383.33333333333337 C 213.3333 361.1111, 283.3333 266.6667, 330.0000 250.0000 C 376.6667 233.3333, 423.3333 316.6667, 470.0000 283.3333 C 516.6667 250.0000, 563.3333 55.5556, 610.0000 50.0000 C 656.6667 44.4444, 726.6667 216.6667, 750.0000 250.0000" stroke-width="2.0" fill="none" />
 </svg>
-
+</div>
 
 ### Second Bonus: Scuba Dive Graph
 
