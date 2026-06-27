@@ -40,7 +40,7 @@ You need to keep around the allocator in the `Vec` because whenever you want to 
 
 In practice this field with a Zero Sized Type (ZST) like `Global` this does get inline compiled away, and vec is the standard `ptr`, `len`, `capacity`, but for other allocators that need state, this means increasing the size of `Vec` to include an allocator field.
 
-The same with `Box<T>` as well, this is a `Box<T, A>` with `Box<T, A = Global>` by default. Although `Box` is much simpler in terms of memory allocations/chagnes, it's only really ever allocated when created, no resizes, truncations etc... but you still need to keep the allocator around to deallocate.
+The same with `Box<T>` as well, this is a `Box<T, A>` with `Box<T, A = Global>` by default. Although `Box` is much simpler in terms of memory allocations/changes, it's only really ever allocated when created, no resizes, truncations etc... but you still need to keep the allocator around to deallocate.
 
 So, for such a simple trait definition, it seems like consensus should be easy right? Just two methods and there is already most of the grunt work done on nightly to support it.
 
@@ -103,7 +103,7 @@ pub unsafe trait Allocator {
 
 ### Context and Rust for Linux
 
-In order to unblock things, and probably because it's a _different_ use case (panics are more severe in the kernel), the rust for linux team has pressed on ahead without requiring allocators to be stable. It's worth studying the shape they came up with, because I feel as if the trait _was_ stabilised as is, it still wouldn't be sufficient for their use case.
+In order to unblock things, and probably because it's a _different_ use case (panics are more severe in the kernel), the Rust for Linux team has pressed on ahead without requiring allocators to be stable. It's worth studying the shape they came up with, because I feel as if the trait _was_ stabilised as is, it still wouldn't be sufficient for their use case.
 
 Their [allocator trait](https://rust.docs.kernel.org/kernel/alloc/trait.Allocator.html), as it stands is slightly similar to the existing trait, but introduces a few extra args:
 
@@ -210,7 +210,7 @@ unsafe impl Allocator for BumpDealloc<'_> {
 }
 ```
 
-However, having this as a _runtime_ panic feels like it goes against the spirit of rust. So it's a trade off of keeping the trait simple, or allowing this sort of expressivity.
+However, having this as a _runtime_ panic feels like it goes against the spirit of Rust. So it's a trade off of keeping the trait simple, or allowing this sort of expressivity.
 
 I have flipped back and forth on this one whether it's worthwhile to split the traits. The only strong case in the issue is the no-op deallocator, or an deallocator that takes up _less_ space than the allocator. So essentially you need an allocator always anyway, and the deallocator is a special pairing.
 
@@ -234,7 +234,7 @@ pub unsafe trait Allocator {
 }
 ```
 
-There is obviously alternatives to this. For instance, if context was a thing, you could provide an allocation number on allocations, so you could get back the error out of band. Or you could lookup a last error in thread*local etc.. but obviously this is prone to errors if another allocation happens in between. But all of these feel a little less \_nice* than using the existing `Result` type for what it's designed for.
+There is obviously alternatives to this. For instance, if context was a thing, you could provide an allocation number on allocations, so you could get back the error out of band. Or you could lookup a last error in thread_local etc.. but obviously this is prone to errors if another allocation happens in between. But all of these feel a little less nice than using the existing `Result` type for what it's designed for.
 
 However, one issue around associated types is around making it easily dyn compatible. If you had an associated error type, you would need to ensure you are using `dyn Allocator<Error = AllocError>` everywhere rather than `dyn Allocator`. I don't _think_ this is a big deal, and the std lib could provide some helper plumbing to make it seamless, but nothing that would prevent dyn compatible allocators.
 
@@ -266,7 +266,7 @@ fn do_something(input: Vec<String>) {
 }
 ```
 
-However, if we want out function to support custom allocated vecs, we now need to add trait bounds on the function signature:
+However, if we want our function to support custom allocated vecs, we now need to add trait bounds on the function signature:
 
 ```rust
 fn do_something<A: Allocator>(input: Vec<String, A>) {
@@ -282,7 +282,7 @@ Now, I am not an expert of either language, so there is a good chance I am wrong
 
 ### Zig's Allocator
 
-I wanted to look at how allocators worked in Zig, as the sentiment of using Zig is that it provides greater flexibility around memory allocations. So what does it do that rust doesn't, and how does it do it?
+I wanted to look at how allocators worked in Zig, as the sentiment of using Zig is that it provides greater flexibility around memory allocations. So what does it do that Rust doesn't, and how does it do it?
 
 The [Allocator](https://github.com/ziglang/zig/blob/master/lib/std/mem/Allocator.zig) is a struct with two pointers: one for the state, and the other to a VTable of const fns:
 
@@ -304,7 +304,7 @@ This is a type erased, dynamic dispatch style allocator. You would think that th
 
 And besides, it does look like LLVM can, in most cases, [rewrite them as static calls anyway](https://pithlessly.github.io/allocgate.html), so you get to have your cake & eat it too.
 
-How could we get something similar in rust? Well, with the trait as it exists now, we could just use `dyn Allocator` that essentially provides the same style dynamic dispatch, and use that as the `Allocator` bound in function calls:
+How could we get something similar in Rust? Well, with the trait as it exists now, we could just use `dyn Allocator` that essentially provides the same style dynamic dispatch, and use that as the `Allocator` bound in function calls:
 
 ```rust
 fn do_something(input: Vec<T, Box<dyn Allocator>>) {
@@ -312,15 +312,15 @@ fn do_something(input: Vec<T, Box<dyn Allocator>>) {
 }
 ```
 
-So with rust, we do have options to go down the dynamic dispatch path already, given the trait definition. Obviously object-safety, etc.. comes into it, but it's not completely out of the realm of possibility
+So with Rust, we do have options to go down the dynamic dispatch path already, given the trait definition. Obviously object-safety, etc.. comes into it, but it's not completely out of the realm of possibility.
 
 ### C++ Allocator story
 
-C++ is an older language, and so you expect it to have some warts, moreso than rust.
+C++ is an older language, and so you expect it to have some warts, moreso than Rust.
 
-C++ does have some of the same monomorphisation issues that rust will potentially have: different allocators means that the container type is different, but besides [templates](https://en.cppreference.com/w/cpp/language/templates.html) being a solution, C++17 introduced [polymorphic memory resources](https://www.modernescpp.com/index.php/polymorphic-allocators-in-c17/), or pmr to address this.
+C++ does have some of the same monomorphisation issues that Rust will potentially have: different allocators means that the container type is different, but besides [templates](https://en.cppreference.com/w/cpp/language/templates.html) being a solution, C++17 introduced [polymorphic memory resources](https://www.modernescpp.com/index.php/polymorphic-allocators-in-c17/), or pmr to address this.
 
-I.e, the following C++ code would error
+I.e, the following C++ code would error:
 
 ```C++
 auto vec1 = std::vector<int,allocator1>();
@@ -329,7 +329,7 @@ auto vec = vec1;
 vec = vec2;
 ```
 
-pmr solves this with type erasure, in similar fashion to zig and `dyn` in rust (albeit probably not identical under the hood):
+pmr solves this with type erasure, in similar fashion to Zig and `dyn` in Rust (albeit probably not identical under the hood):
 
 ```C++
 auto vec1 = std::pmr::vector<int>(&resource1);
@@ -340,7 +340,7 @@ vec = vec2;
 
 So C++ started off down the static route, and moved towards dynamic dispatch. Obviously you can still use the older container types, but it might be fitting that we pay a bit more attention to dynamic dispatch with allocators, since other languages are tending towards them.
 
-If we had some LLVM trickery to be able to statically inline in the dynamic case (if it doesn't already exist in rust), as in Zig, we might not end up paying as much for it, or it _could_ be free.
+If we had some LLVM trickery to be able to statically inline in the dynamic case (if it doesn't already exist in Rust), as in Zig, we might not end up paying as much for it, or it _could_ be free.
 
 ## Three Steps Forward
 
@@ -360,7 +360,7 @@ This is essentially the current state of play and, unless there is something to 
 
 The trait, as it stands, is actually already useful and, in fact with the `allocator_api2` crate is already useable. And considering that the trait hasn't changed all that much recently, it might be an indication that it's ready for stabilisation. However, this could be because it's on nightly, meaning not many consumers of the API exist currently. So the risk of stabilising it means that there is a missed use case.
 
-I am partially in favour of this direction. This would eliminate the rust for linux use case and other esoteric cases, but they have pressed on without it anyway.
+I am partially in favour of this direction. This would eliminate the Rust for Linux use case and other esoteric cases, but they have pressed on without it anyway.
 
 ### Work a little bit more on the trait
 
