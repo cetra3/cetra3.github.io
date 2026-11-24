@@ -2,7 +2,7 @@
 
 title = "The State of Allocators in 2026 - Finally Stabilised!"
 description = "Now that custom allocators are stabilised, what can we do with them?"
-date = 2026-11-18
+date = 2026-11-24
 
 [taxonomies]
 tags = ["rust"]
