@@ -95,19 +95,19 @@ to prevent the breakage from affecting dependencies.</p>
 <p>Another RFC related to versioning is <a rel="external" href="https://github.com/rust-lang/rfcs/blob/master/text/2008-non-exhaustive.md">Non-Exhaustive</a>, which is a handy way of planning breaking changes ahead of time.  It works with enums by forcing open ended <code>match</code> statements, which means consumers of your enum won't break if a new variant is introducted. It also works with structs and ensures users consuming libraries can't create them.</p>
 <p>This was recently <a rel="external" href="https://blog.rust-lang.org/2019/12/19/Rust-1.40.0.html">stabilised in Rust 1.40</a> so it's a rather new feature of the language (on a side note: it's not easy to find when a particular RFC is stabilised, it would be great to have this reflected in the RFC somewhere).</p>
 <p>As an example if you have an enum like this:</p>
-<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;"><code data-lang="rust"><span class="giallo-l"><span>#[non_exhaustive]</span></span>
+<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;" ><code data-lang="rust"><span class="giallo-l"><span>#[non_exhaustive]</span></span>
 <span class="giallo-l"><span style="color: #FFA659;">pub enum</span><span style="color: #73D0FF;"> Error</span><span> {</span></span>
 <span class="giallo-l"><span style="color: #FFCD66;">    Message</span><span>(</span><span style="color: #73D0FF;">String</span><span>),</span></span>
 <span class="giallo-l"><span style="color: #73D0FF;">    Other</span><span>,</span></span>
 <span class="giallo-l"><span>}</span></span></code></pre>
 <p>You would need to <code>match</code> against the enum like this:</p>
-<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;"><code data-lang="rust"><span class="giallo-l"><span style="color: #FFA659;">match</span><span> error {</span></span>
+<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;" ><code data-lang="rust"><span class="giallo-l"><span style="color: #FFA659;">match</span><span> error {</span></span>
 <span class="giallo-l"><span style="color: #FFCD66;">    Message</span><span>(</span><span style="color: #FFA659;">ref</span><span> s)</span><span style="color: #F29E74;"> =&gt; ...</span><span>,</span></span>
 <span class="giallo-l"><span style="color: #73D0FF;">    Other</span><span style="color: #F29E74;"> =&gt; ...</span><span>,</span></span>
 <span class="giallo-l"><span>    _</span><span style="color: #F29E74;"> =&gt; ...</span><span>,</span></span>
 <span class="giallo-l"><span>}</span></span></code></pre>
 <p>Your library could then introduce a new variant, which wouldn't break the existing consumer:</p>
-<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;"><code data-lang="rust"><span class="giallo-l"><span>#[non_exhaustive]</span></span>
+<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;" ><code data-lang="rust"><span class="giallo-l"><span>#[non_exhaustive]</span></span>
 <span class="giallo-l"><span style="color: #FFA659;">pub enum</span><span style="color: #73D0FF;"> Error</span><span> {</span></span>
 <span class="giallo-l"><span style="color: #FFCD66;">    Message</span><span>(</span><span style="color: #73D0FF;">String</span><span>),</span></span>
 <span class="giallo-l"><span style="color: #73D0FF;">    IOError</span><span>,</span></span>
