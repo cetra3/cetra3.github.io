@@ -77,7 +77,7 @@
 
 {% set blog = get_section(path="blog/_index.md") -%}
 <h3>Recent Blogs</h3>
-{% for page in blog.pages | slice(end=3) %}
+{% for page in blog.pages[:3] %}
 
 <article id="{{page.title}}" class="card">
     <div class="card-header">
@@ -97,7 +97,7 @@
         {% endif %}
     </div>
     <div class="card-body">
-        {{ page.content | safe | striptags | truncate }}
+        {{ page.content | safe | striptags | truncate(length=255) }}
     </div>
     <div class="card-footer">
         <a href="{{page.permalink}}">Continue Reading</a>

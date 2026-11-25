@@ -32,24 +32,33 @@ Essentially if the impl of the bump allocator is:
 
 ```rust
 const SIZE: usize = 32 * 1024 * 1024;
+const LAYOUT: Layout = Layout::new::<[u8; SIZE]>();
 
 struct Bump {
-    // one big 32MiB block on the heap
-    data: Box<Cell<[u8; SIZE]>>,
+    // one big 32MiB block from the global allocator
+    data: NonNull<u8>,
     // how much of it we've handed out
     used: Cell<usize>,
 }
 
 impl Bump {
     fn new() -> Self {
-        Bump { data: unsafe { Box::new_zeroed().assume_init() }, used: Cell::new(0) }
+        let data = Global.allocate(LAYOUT).expect("out of memory").cast::<u8>();
+        Bump { data, used: Cell::new(0) }
+    }
+}
+
+impl Drop for Bump {
+    fn drop(&mut self) {
+        // hand the whole block back in one go
+        unsafe { Global.deallocate(self.data, LAYOUT) }
     }
 }
 
 unsafe impl Allocator for &Bump {
     fn allocate(&self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
         // where we are in memory
-        let data = self.data.as_ptr() as *mut u8;
+        let data = self.data.as_ptr();
 
         // how much we've used of `data` already
         let used = self.used.get();
@@ -219,9 +228,11 @@ One example would be what [`smallvec`](https://github.com/smallvec/smallvec) and
 While `smallvec` is more battle tested, here is some example code about how you could do this with the allocator API:
 
 ```rust
+const SIZE: usize = 8192;
+
 struct SmallStack {
     // store the first 8KiB on the stack
-    data: Cell<[u8; 8192]>,
+    data: UnsafeCell<[MaybeUninit<u8>; SIZE]>,
     // how much we've already allocated on our stack
     used: Cell<usize>,
 }
@@ -229,7 +240,7 @@ struct SmallStack {
 impl SmallStack {
     fn new() -> Self {
         Self {
-            data: Cell::new([0u8; 8192]),
+            data: UnsafeCell::new([MaybeUninit::uninit(); SIZE]),
             used: Cell::new(0),
         }
     }
@@ -238,7 +249,7 @@ impl SmallStack {
 unsafe impl Allocator for &SmallStack {
     fn allocate(&self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
         // where we are in memory
-        let data = self.data.as_ptr() as *mut u8;
+        let data = self.data.get().cast::<u8>();
 
         // how much we've used of `data` already
         let used = self.used.get();
@@ -250,7 +261,7 @@ unsafe impl Allocator for &SmallStack {
         let end = start + layout.size();
 
         // if we have enough on our local stack:
-        if end <= 8192 {
+        if end <= SIZE {
             self.used.set(end);
             let ptr = unsafe { NonNull::new_unchecked(data.add(start)) };
             Ok(NonNull::slice_from_raw_parts(ptr, layout.size()))
@@ -261,10 +272,10 @@ unsafe impl Allocator for &SmallStack {
     }
 
     unsafe fn deallocate(&self, ptr: NonNull<u8>, layout: Layout) {
-        let data = self.data.as_ptr().addr();
+        let data = self.data.get().addr();
 
         // if this isn't an address in our data
-        if !(data..data + 8192).contains(&ptr.as_ptr().addr()) {
+        if !(data..data + SIZE).contains(&ptr.as_ptr().addr()) {
             unsafe { Global.deallocate(ptr, layout) };
         }
     }

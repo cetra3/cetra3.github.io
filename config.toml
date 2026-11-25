@@ -15,6 +15,9 @@ description = "Blogs and Investigations mostly about Rust"
 
 taxonomies = [{name = "tags", feed = false}]
 
+# Posts contain literal {{ }} / {% %} in code samples; don't run them through Tera
+skip_content_templating = ["**"]
+
 [markdown.highlighting]
 style = "inline"
 theme = "ayu-mirage"

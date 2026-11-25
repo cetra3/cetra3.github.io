@@ -66,20 +66,20 @@
 <p><a rel="external" href="https://automerge.org/">Automerge</a> uses <a rel="external" href="https://en.wikipedia.org/wiki/Conflict-free_replicated_data_type">Conflict-free Replicated Data Types (CRDTs)</a> to ensure data synchronisation without a central authority. A CRDT is a data structure that will ensure "eventual consistency" to state, with some smarts around merging multiple disparate sources.</p>
 <p>An example of a CRDT (one of the more simpler ones) is a Grow Only set. Say you have two separate processes that have a set of values that are shared:</p>
 <p>Process A has:</p>
-<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;"><code data-lang="plain"><span class="giallo-l"><span>- Value A</span></span></code></pre>
+<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;" ><code data-lang="plain"><span class="giallo-l"><span>- Value A</span></span></code></pre>
 <p>Process B has:</p>
-<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;"><code data-lang="plain"><span class="giallo-l"><span>- Value B</span></span>
+<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;" ><code data-lang="plain"><span class="giallo-l"><span>- Value B</span></span>
 <span class="giallo-l"><span>- Value C</span></span></code></pre>
 <p>To merge/reconcile this, you can see the obvious choice is:</p>
-<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;"><code data-lang="plain"><span class="giallo-l"><span>- Value A</span></span>
+<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;" ><code data-lang="plain"><span class="giallo-l"><span>- Value A</span></span>
 <span class="giallo-l"><span>- Value B</span></span>
 <span class="giallo-l"><span>- Value C</span></span></code></pre>
 <p>The most important thing is that the output state converges. If Process A sends an update before Process B, or vice versa, the result is the same. This type of CRDT, however, is quite simplistic, and doesn't allow you to do more complex state changes. You can imagine an extension to this would be to add another set for "removed" values, so you could remove the values from the set.</p>
 <p>I.e, if starting from the last merge an update is sent like:</p>
-<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;"><code data-lang="plain"><span class="giallo-l"><span>Remove:</span></span>
+<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;" ><code data-lang="plain"><span class="giallo-l"><span>Remove:</span></span>
 <span class="giallo-l"><span>- Value B</span></span></code></pre>
 <p>Then the state is:</p>
-<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;"><code data-lang="plain"><span class="giallo-l"><span>Added:</span></span>
+<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;" ><code data-lang="plain"><span class="giallo-l"><span>Added:</span></span>
 <span class="giallo-l"><span>- Value A</span></span>
 <span class="giallo-l"><span>- Value B</span></span>
 <span class="giallo-l"><span>- Value C</span></span>
@@ -87,7 +87,7 @@
 <span class="giallo-l"><span>Removed:</span></span>
 <span class="giallo-l"><span>- Value B</span></span></code></pre>
 <p>&amp; the merged state is:</p>
-<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;"><code data-lang="plain"><span class="giallo-l"><span>- Value A</span></span>
+<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;" ><code data-lang="plain"><span class="giallo-l"><span>- Value A</span></span>
 <span class="giallo-l"><span>- Value C</span></span></code></pre>
 <p>This is sometimes called a Two Phase Set. It allows you to add &amp; remove values from a set, but once a value is removed, it can't be re-added back.</p>
 <p>To extend this again to allow items to be added/removed multiple times, you could add a timestamp to each of the values, when they were added or removed, and they are added/removed based upon which set the value is in, and the newest timestamp (AKA Last Write Wins).</p>
@@ -101,7 +101,7 @@
 <h3 id="autosurgeon">Autosurgeon</h3>
 <p>CRDTs are a good tool to use, and <code>automerge</code> provides some great foundations for using them. However, like manually writing JSON structures is a pain, and we derive with <a rel="external" href="https://serde.rs/"><code>serde</code></a> most of the time, we can use <a rel="external" href="https://github.com/automerge/autosurgeon"><code>autosurgeon</code></a> to automatically derive a rust structure, converting it into something that can be used with <code>automerge</code> CRDTs</p>
 <p>So for a <code>todo</code> like structure, we can write:</p>
-<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;"><code data-lang="rust"><span class="giallo-l"><span style="color: #FFA659;">use</span><span style="color: #73D0FF;"> autosurgeon</span><span style="color: #F29E74;">::</span><span>{</span><span style="color: #73D0FF;">Reconcile</span><span>,</span><span style="color: #73D0FF;"> Hydrate</span><span>};</span></span>
+<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;" ><code data-lang="rust"><span class="giallo-l"><span style="color: #FFA659;">use</span><span style="color: #73D0FF;"> autosurgeon</span><span style="color: #F29E74;">::</span><span>{</span><span style="color: #73D0FF;">Reconcile</span><span>,</span><span style="color: #73D0FF;"> Hydrate</span><span>};</span></span>
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>#[derive(</span><span style="color: #73D0FF;">Reconcile</span><span>,</span><span style="color: #73D0FF;"> Hydrate</span><span>)]</span></span>
 <span class="giallo-l"><span style="color: #FFA659;">struct</span><span style="color: #73D0FF;"> TodoList</span><span> {</span></span>
@@ -147,7 +147,7 @@
 <h2 id="mcp-server-libraries">MCP Server Libraries</h2>
 <p>There is first class support for rust MCP servers via the <a rel="external" href="https://github.com/modelcontextprotocol/rust-sdk"><code>rmcp</code></a> crate. However, this was <em>also</em> not without issues. When running an MCP process within <a rel="external" href="https://zed.dev/">Zed</a>, it failed to run. Turns out that some of the schema definitions were wrong and didn't match the spec. I raised a PR and got this fixed as well: <a rel="external" href="https://github.com/modelcontextprotocol/rust-sdk/pull/377">https://github.com/modelcontextprotocol/rust-sdk/pull/377</a></p>
 <p>With <code>rmcp</code> you can use derive macros to build your MCP server:</p>
-<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;"><code data-lang="rust"><span class="giallo-l"><span>#[tool_router]</span></span>
+<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;" ><code data-lang="rust"><span class="giallo-l"><span>#[tool_router]</span></span>
 <span class="giallo-l"><span style="color: #FFA659;">impl</span><span style="color: #73D0FF;"> TodoMcp</span><span> {</span></span>
 <span class="giallo-l"><span style="color: #F29E74;">    ...</span></span>
 <span class="giallo-l"></span>
@@ -164,7 +164,7 @@
 <span class="giallo-l"></span>
 <span class="giallo-l"><span style="color: #F29E74;">    ...</span></span></code></pre>
 <p>Then serving it is pretty easy (I only use stdio mode for MCPs):</p>
-<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;"><code data-lang="rust"><span class="giallo-l"><span style="color: #FFA659;">pub async fn</span><span style="color: #FFCD66;"> run_mcp</span><span>()</span><span style="color: #F29E74;"> -&gt;</span><span style="color: #73D0FF;"> Result</span><span>&lt;(),</span><span style="color: #73D0FF;"> Error</span><span>&gt; {</span></span>
+<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;" ><code data-lang="rust"><span class="giallo-l"><span style="color: #FFA659;">pub async fn</span><span style="color: #FFCD66;"> run_mcp</span><span>()</span><span style="color: #F29E74;"> -&gt;</span><span style="color: #73D0FF;"> Result</span><span>&lt;(),</span><span style="color: #73D0FF;"> Error</span><span>&gt; {</span></span>
 <span class="giallo-l"><span style="color: #FFA659;">    let</span><span> todo_mcp</span><span style="color: #F29E74;"> =</span><span style="color: #73D0FF;"> TodoMcp</span><span style="color: #F29E74;">::</span><span style="color: #FFCD66;">new</span><span>()</span><span style="color: #F29E74;">.</span><span style="color: #FFCD66;">serve</span><span>(</span><span style="color: #FFCD66;">stdio</span><span>())</span><span style="color: #F29E74;">.</span><span style="color: #FFA659;">await</span><span style="color: #F29E74;">?</span><span>;</span></span>
 <span class="giallo-l"></span>
 <span class="giallo-l"><span>    todo_mcp</span><span style="color: #F29E74;">.</span><span style="color: #FFCD66;">waiting</span><span>()</span><span style="color: #F29E74;">.</span><span style="color: #FFA659;">await</span><span style="color: #F29E74;">?</span><span>;</span></span>
@@ -181,7 +181,7 @@
 <li>Add/Update the todo in the list when things happen in claude</li>
 </ul>
 <p>Then I can add this to <code>~/.claude/settings.json</code> to have it invoked:</p>
-<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;"><code data-lang="json"><span class="giallo-l"><span>{</span></span>
+<pre class="giallo" style="color: #CCCAC2; background-color: #1F2430;" ><code data-lang="json"><span class="giallo-l"><span>{</span></span>
 <span class="giallo-l"><span style="color: #5CCFE6;">  &quot;hooks&quot;</span><span style="color: #CCCAC2B3;">:</span><span> {</span></span>
 <span class="giallo-l"><span style="color: #5CCFE6;">    &quot;PostToolUse&quot;</span><span style="color: #CCCAC2B3;">:</span><span> [</span></span>
 <span class="giallo-l"><span>      {</span></span>
